@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "outDir": "./built/",
+    "sourceMap": true,
+    "declaration": true,
+    "strict": true,
+    "noImplicitReturns": true,
+    "noImplicitAny": false,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "target": "es6",
+    "allowJs": false,
+    "baseUrl": "./",
+    "lib": ["dom", "es7"]
+  },
+  "include": ["./src/**/*.ts"]
+}
