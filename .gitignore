@@ -59,3 +59,9 @@ typings/
 
 # next.js build output
 .next
+
+# rollup plugin typescript 2 cache folder
+.rpt2_cache
+
+# 
+*/config.codekit3
