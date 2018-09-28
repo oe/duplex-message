@@ -1,15 +1,15 @@
 /** middleware define */
-interface IMiddleWare {
+interface IMiddleware {
   (ctx: any, next: Function): any
 }
 /** worker route map */
 interface IRouters {
-  [k: string]: IMiddleWare[]
+  [k: string]: IMiddleware[]
 }
 
 /** param for route */
 interface IRouteParam {
-  [k: string]: IMiddleWare[] | IMiddleWare
+  [k: string]: IMiddleware[] | IMiddleware
 }
 
 /** event callback */
@@ -27,7 +27,7 @@ interface IMessageRequest {
   // message id
   id: number
   type: 'request'
-  method: string
+  channel: string
   data: any
   event: Event
   transfers?: any[]
@@ -38,7 +38,7 @@ interface IMessageResponse {
   id: number
   type: 'response'
   resolved: boolean
-  method: string
+  channel: string
   data: any
   event: Event
 }
@@ -55,7 +55,7 @@ interface IPromisePairs {
 interface IContext {
   id: number
   type: 'request'
-  method: string
+  channel: string
   request: any
   event: Event
   [k: string]: any
@@ -74,7 +74,7 @@ export default class WorkerServer {
   // worker object
   worker: any
   // global middlewares
-  middlewares: IMiddleWare[] = []
+  middlewares: IMiddleware[] = []
   // router map
   routers: IRouters = {}
   // event callbacks map
@@ -93,7 +93,7 @@ export default class WorkerServer {
       if (!src) {
         throw new Error('a src for worker script is required')
       }
-      this.worker = new Worker(src) 
+      this.worker = new Worker(src)
     }
     this.onMessage = this.onMessage.bind(this)
     this.worker.addEventListener('message', this.onMessage)
@@ -102,7 +102,7 @@ export default class WorkerServer {
    * add global middleware
    * @param cb middleware
    */
-  use (cb: IMiddleWare) {
+  use (cb: IMiddleware) {
     this.middlewares.push(cb)
   }
 
@@ -113,11 +113,11 @@ export default class WorkerServer {
   route (routers: IRouteParam)
   /**
    * add router
-   * @param method method name
-   * @param cbs method handlers
+   * @param channel channel name
+   * @param cbs channel handlers
    */
-  route (method: string, ...cbs: IMiddleWare[]) 
-  route (routers: IRouteParam | string, ...cbs: IMiddleWare[]) {
+  route (channel: string, ...cbs: IMiddleware[])
+  route (routers: IRouteParam | string, ...cbs: IMiddleware[]) {
     if (typeof routers === 'string') {
       routers = {
         routers: cbs
@@ -133,17 +133,17 @@ export default class WorkerServer {
       this.routers[k].push(...cbs)
     })
   }
-  
+
   /**
    * request other side for a response
-   * @param method method name
-   * @param data params to the method
+   * @param channel channel name
+   * @param data params to the channel
    * @param transfers object array want to transfer
    */
-  fetch (method: string, data: any, transfers?: any[]) {
+  fetch (channel: string, data: any, transfers?: any[]) {
     const msg = {
       type: 'request',
-      method,
+      channel,
       data,
       transfers
     } as IMessageRequest
@@ -152,28 +152,28 @@ export default class WorkerServer {
 
   /**
    * listen event from other side
-   * @param method method name
+   * @param channel channel name
    * @param cb callback function
    */
-  on (method: string, cb: ICallback) {
-    if (!this.evtsCbs[method]) {
-      this.evtsCbs[method] = []
+  on (channel: string, cb: ICallback) {
+    if (!this.evtsCbs[channel]) {
+      this.evtsCbs[channel] = []
     }
-    this.evtsCbs[method].push(cb)
+    this.evtsCbs[channel].push(cb)
   }
 
   /**
    * remove event listener
-   * @param method method name
+   * @param channel channel name
    * @param cb callback function
    */
-  off (method: string, cb?: ICallback) {
-    if (!this.evtsCbs[method] || !this.evtsCbs[method].length) return
+  off (channel: string, cb?: ICallback) {
+    if (!this.evtsCbs[channel] || !this.evtsCbs[channel].length) return
     if (!cb) {
-      this.evtsCbs[method] = []
+      this.evtsCbs[channel] = []
       return
     }
-    const cbs = this.evtsCbs[method]
+    const cbs = this.evtsCbs[channel]
     let len = cbs.length
     while (len--) {
       if (cbs[len] === cb) {
@@ -185,14 +185,14 @@ export default class WorkerServer {
 
   /**
    * emit event that will be listened from on
-   * @param method method name
+   * @param channel channel name
    * @param data params 
    * @param transfers object array want to transfer
    */
-  emit (method: string, data: any, transfers?: any[]) {
+  emit (channel: string, data: any, transfers?: any[]) {
     const msg = {
       type: 'request',
-      method,
+      channel,
       data,
       transfers
     } as IMessageRequest
@@ -204,7 +204,7 @@ export default class WorkerServer {
    *  copy form https://github.com/koajs/compose/blob/master/index.js
    * @param middlewares middlewares
    */
-  protected composeMiddlewares (middlewares: IMiddleWare[]) {
+  protected composeMiddlewares (middlewares: IMiddleware[]) {
     return function (context: IContext, next?: Function) {
       // last called middleware #
       let index = -1
@@ -234,7 +234,7 @@ export default class WorkerServer {
     const context = {
       id: request.id,
       type: 'request',
-      method: request.method,
+      channel: request.channel,
       request: request.data,
       event: evt
     } as IContext
@@ -258,7 +258,7 @@ export default class WorkerServer {
         fn(request.data)
       } else {
         const cbs = [...this.middlewares]
-        const routerCbs = this.routers[request.method] || []
+        const routerCbs = this.routers[request.channel] || []
         cbs.push(...routerCbs)
         const ctx = this.createContext(evt)
         let resolved = true
@@ -270,21 +270,21 @@ export default class WorkerServer {
             resolved = false
           }
         } else {
-          console.warn(`no corresponding router for ${request.method}`)
+          console.warn(`no corresponding router for ${request.channel}`)
         }
         const message = {
           resolved,
           id: ctx.id,
-          method: ctx.method,
+          channel: ctx.channel,
           type: 'response',
           data: ctx.response
         } as IMessageResponse
         this.postMessage(message)
       }
     } else {
-      const cbs = this.evtsCbs[request.method]
+      const cbs = this.evtsCbs[request.channel]
       if (!cbs || !cbs.length) {
-        console.warn(`no corresponed callback for ${request.method}`)
+        console.warn(`no corresponed callback for ${request.channel}`)
         return
       }
       for (let index = 0; index < cbs.length; index++) {
