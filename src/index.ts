@@ -1,29 +1,17 @@
-/** middleware define */
-interface IMiddleware {
-  (ctx: any, next: Function): any
-}
-/** worker route map */
-interface IRouters {
-  [k: string]: IMiddleware[]
-}
-
-/** param for route */
-interface IRouteParam {
-  [k: string]: IMiddleware[] | IMiddleware
-}
+import Composie, { IMiddleware, IRouteParam, IContext as IComposieContext } from 'composie'
 
 /** event callback */
-interface ICallback {
+export interface ICallback {
   (response: any): any
 }
 
 /** event callbacks map */
-interface IEvtCallbacks {
+export interface IEvtCallbacks {
   [k: string]: ICallback[]
 }
 
 /** message request */
-interface IMessageRequest {
+export interface IMessageRequest {
   // message id
   id: number
   type: 'request'
@@ -34,7 +22,7 @@ interface IMessageRequest {
 }
 
 /** message response */
-interface IMessageResponse {
+export interface IMessageResponse {
   id: number
   type: 'response'
   resolved: boolean
@@ -44,7 +32,7 @@ interface IMessageResponse {
 }
 
 /** message union */
-type IMessage = IMessageRequest | IMessageResponse
+export type IMessage = IMessageRequest | IMessageResponse
 
 /** promise pair to resolve response */
 interface IPromisePairs {
@@ -52,13 +40,10 @@ interface IPromisePairs {
 }
 
 /** request context for middleware */
-interface IContext {
+export interface IContext extends IComposieContext {
   id: number
   type: 'request'
-  channel: string
-  request: any
   event: Event
-  [k: string]: any
 }
 
 
@@ -73,17 +58,16 @@ export default class WorkerServer {
   count: number = 0
   // worker object
   worker: any
-  // global middlewares
-  middlewares: IMiddleware[] = []
-  // router map
-  routers: IRouters = {}
   // event callbacks map
   evtsCbs: IEvtCallbacks = {}
   // promise pair map
   promisePairs: IPromisePairs = {}
 
+  composie: Composie
+
   /** */
   constructor (src?: string) {
+    this.composie = new Composie()
     //  detect is this code run in webworker context
     // tslint:disable-next-line
     const isWoker = typeof document === 'undefined'
@@ -103,7 +87,8 @@ export default class WorkerServer {
    * @param cb middleware
    */
   use (cb: IMiddleware) {
-    this.middlewares.push(cb)
+    this.composie.use(cb)
+    return this
   }
 
   /**
@@ -119,19 +104,11 @@ export default class WorkerServer {
   route (channel: string, ...cbs: IMiddleware[])
   route (routers: IRouteParam | string, ...cbs: IMiddleware[]) {
     if (typeof routers === 'string') {
-      routers = {
-        routers: cbs
-      }
+      this.composie.route(routers, ...cbs)
+    } else {
+      this.composie.route(routers)
     }
-    Object.keys(routers).forEach((k) => {
-      let cbs = routers[k]
-      if (!Array.isArray(cbs)) cbs = [cbs]
-      if (!cbs.length) return
-      if (!this.routers[k]) {
-        this.routers[k] = []
-      }
-      this.routers[k].push(...cbs)
-    })
+    return this
   }
 
   /**
@@ -186,7 +163,7 @@ export default class WorkerServer {
   /**
    * emit event that will be listened from on
    * @param channel channel name
-   * @param data params 
+   * @param data params
    * @param transfers object array want to transfer
    */
   emit (channel: string, data: any, transfers?: any[]) {
@@ -197,31 +174,6 @@ export default class WorkerServer {
       transfers
     } as IMessageRequest
     this.postMessage(msg, false)
-  }
-
-  /**
-   * compose middlewares into one function
-   *  copy form https://github.com/koajs/compose/blob/master/index.js
-   * @param middlewares middlewares
-   */
-  protected composeMiddlewares (middlewares: IMiddleware[]) {
-    return function (context: IContext, next?: Function) {
-      // last called middleware #
-      let index = -1
-      return dispatch(0)
-      function dispatch (i) {
-        if (i <= index) return Promise.reject(new Error('next() called multiple times'))
-        index = i
-        let fn: Function | undefined = middlewares[i]
-        if (i === middlewares.length) fn = next
-        if (!fn) return Promise.resolve()
-        try {
-          return Promise.resolve(fn(context, dispatch.bind(null, i + 1)))
-        } catch (err) {
-          return Promise.reject(err)
-        }
-      }
-    }
   }
 
   /**
@@ -243,9 +195,9 @@ export default class WorkerServer {
 
   /**
    * listen original message event
-   * @param evt message event 
+   * @param evt message event
    */
-  protected async onMessage (evt: MessageEvent) {
+  protected onMessage (evt: MessageEvent) {
     const request = evt.data as IMessage
     if (request.id) {
       if (request.type === 'response') {
@@ -257,29 +209,26 @@ export default class WorkerServer {
         const fn = promisePair[request.resolved ? 0 : 1]
         fn(request.data)
       } else {
-        const cbs = [...this.middlewares]
-        const routerCbs = this.routers[request.channel] || []
-        cbs.push(...routerCbs)
         const ctx = this.createContext(evt)
-        let resolved = true
-        if (cbs.length) {
-          const fnMiddlewars = this.composeMiddlewares(cbs)
-          try {
-            await fnMiddlewars(ctx)
-          } catch (error) {
-            resolved = false
-          }
-        } else {
-          console.warn(`no corresponding router for ${request.channel}`)
-        }
-        const message = {
-          resolved,
-          id: ctx.id,
-          channel: ctx.channel,
-          type: 'response',
-          data: ctx.response
-        } as IMessageResponse
-        this.postMessage(message)
+        this.composie.run(ctx).then(() => {
+          const message = {
+            resolved: true,
+            id: ctx.id,
+            channel: ctx.channel,
+            type: 'response',
+            data: ctx.response
+          } as IMessageResponse
+          this.postMessage(message)
+        }, (error) => {
+          const message = {
+            resolved: false,
+            id: ctx.id,
+            channel: ctx.channel,
+            type: 'response',
+            data: ctx.response
+          } as IMessageResponse
+          this.postMessage(message)
+        })
       }
     } else {
       const cbs = this.evtsCbs[request.channel]
@@ -309,7 +258,7 @@ export default class WorkerServer {
     }
     this.worker.postMessage(...requestData)
     if (message.type === 'response' || !message.id) return
-    return new Promise((resolve, reject) => {
+    return new Promise<any>((resolve, reject) => {
       this.promisePairs[message.id] = [resolve, reject]
     })
   }

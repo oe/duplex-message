@@ -65,3 +65,4 @@ typings/
 
 # 
 */config.codekit3
+.size-snapshot.json

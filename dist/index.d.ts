@@ -1,55 +1,41 @@
-/** middleware define */
-interface IMiddleWare {
-    (ctx: any, next: Function): any;
-}
-/** worker route map */
-interface IRouters {
-    [k: string]: IMiddleWare[];
-}
-/** param for route */
-interface IRouteParam {
-    [k: string]: IMiddleWare[] | IMiddleWare;
-}
+import Composie, { IMiddleware, IRouteParam, IContext as IComposieContext } from 'composie';
 /** event callback */
-interface ICallback {
+export interface ICallback {
     (response: any): any;
 }
 /** event callbacks map */
-interface IEvtCallbacks {
+export interface IEvtCallbacks {
     [k: string]: ICallback[];
 }
 /** message request */
-interface IMessageRequest {
+export interface IMessageRequest {
     id: number;
     type: 'request';
-    method: string;
+    channel: string;
     data: any;
     event: Event;
     transfers?: any[];
 }
 /** message response */
-interface IMessageResponse {
+export interface IMessageResponse {
     id: number;
     type: 'response';
     resolved: boolean;
-    method: string;
+    channel: string;
     data: any;
     event: Event;
 }
 /** message union */
-declare type IMessage = IMessageRequest | IMessageResponse;
+export declare type IMessage = IMessageRequest | IMessageResponse;
 /** promise pair to resolve response */
 interface IPromisePairs {
     [k: number]: [Function, Function];
 }
 /** request context for middleware */
-interface IContext {
+export interface IContext extends IComposieContext {
     id: number;
     type: 'request';
-    method: string;
-    request: any;
     event: Event;
-    [k: string]: any;
 }
 /**
  * Worker Server Class
@@ -57,17 +43,16 @@ interface IContext {
 export default class WorkerServer {
     count: number;
     worker: any;
-    middlewares: IMiddleWare[];
-    routers: IRouters;
     evtsCbs: IEvtCallbacks;
     promisePairs: IPromisePairs;
+    composie: Composie;
     /** */
     constructor(src?: string);
     /**
      * add global middleware
      * @param cb middleware
      */
-    use(cb: IMiddleWare): void;
+    use(cb: IMiddleware): this;
     /**
      * add router
      * @param routers router map
@@ -75,42 +60,36 @@ export default class WorkerServer {
     route(routers: IRouteParam): any;
     /**
      * add router
-     * @param method method name
-     * @param cbs method handlers
+     * @param channel channel name
+     * @param cbs channel handlers
      */
-    route(method: string, ...cbs: IMiddleWare[]): any;
+    route(channel: string, ...cbs: IMiddleware[]): any;
     /**
      * request other side for a response
-     * @param method method name
-     * @param data params to the method
+     * @param channel channel name
+     * @param data params to the channel
      * @param transfers object array want to transfer
      */
-    fetch(method: string, data: any, transfers?: any[]): Promise<{}> | undefined;
+    fetch(channel: string, data: any, transfers?: any[]): Promise<any> | undefined;
     /**
      * listen event from other side
-     * @param method method name
+     * @param channel channel name
      * @param cb callback function
      */
-    on(method: string, cb: ICallback): void;
+    on(channel: string, cb: ICallback): void;
     /**
      * remove event listener
-     * @param method method name
+     * @param channel channel name
      * @param cb callback function
      */
-    off(method: string, cb?: ICallback): void;
+    off(channel: string, cb?: ICallback): void;
     /**
      * emit event that will be listened from on
-     * @param method method name
+     * @param channel channel name
      * @param data params
      * @param transfers object array want to transfer
      */
-    emit(method: string, data: any, transfers?: any[]): void;
-    /**
-     * compose middlewares into one function
-     *  copy form https://github.com/koajs/compose/blob/master/index.js
-     * @param middlewares middlewares
-     */
-    protected composeMiddlewares(middlewares: IMiddleWare[]): (context: IContext, next?: Function | undefined) => Promise<any>;
+    emit(channel: string, data: any, transfers?: any[]): void;
     /**
      * create context used by middleware
      * @param evt message event
@@ -120,12 +99,12 @@ export default class WorkerServer {
      * listen original message event
      * @param evt message event
      */
-    protected onMessage(evt: MessageEvent): Promise<void>;
+    protected onMessage(evt: MessageEvent): void;
     /**
      * send message to the other side
      * @param message meesage object to send
      * @param needResp whether need response from other side
      */
-    protected postMessage(message: IMessage, needResp?: boolean): Promise<{}> | undefined;
+    protected postMessage(message: IMessage, needResp?: boolean): Promise<any> | undefined;
 }
 export {};

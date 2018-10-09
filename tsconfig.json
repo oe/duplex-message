@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "outDir": "./built/",
+    "outDir": "./dist/",
     "sourceMap": true,
     "declaration": true,
     "strict": true,
@@ -15,7 +15,10 @@
     "target": "es6",
     "allowJs": false,
     "baseUrl": "./",
-    "lib": ["dom", "es7"]
+    "lib": ["dom", "es7"],
+    "paths": {
+      "src/*": ["src/"]
+    }
   },
   "include": ["./src/**/*.ts"]
 }

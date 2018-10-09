@@ -2,13 +2,14 @@
   "name": "webworker-as-api",
   "version": "0.0.1",
   "description": "use web worker like a server api",
-  "main": "index.js",
+  "main": "dist/webworker-as-api.umd.js",
+  "module": "dist/webworker-as-api.es.js",
+  "typings": "dist/webworker-as-api.d.ts",
   "scripts": {
-    "dev": "npm run build:dir",
-    "build": "npm run lint && npm run build:dir",
-    "build:dir": "npm run clean:builddir && rollup -c --environment format:umd && rollup -c --environment format:es",
-    "clean:builddir": "rimraf dist/*",
-    "postpublish": "./post-publish2npm.sh",
+    "dev": "cross-env NODE_ENV=development webpack-dev-server",
+    "prebuild": "rimraf dist/*",
+    "build": "rollup -c ",
+    "wpbuild": "cross-env NODE_ENV=development webpack --progress --colors",
     "test": "jest --coverage",
     "test:server": "jest --coverage --watch",
     "lint": "tslint --project ./tsconfig.json --config tslint.json"
@@ -19,13 +20,29 @@
   "homepage": "https://evecalm.com/",
   "devDependencies": {
     "@babel/core": "^7.1.0",
+    "@types/node": "^10.11.2",
+    "@types/webpack": "^4.4.13",
+    "copy-webpack-plugin": "^4.5.2",
+    "cross-env": "^5.2.0",
     "rimraf": "^2.6.2",
     "rollup": "^0.66.2",
     "rollup-plugin-babel": "^4.0.3",
+    "rollup-plugin-node-resolve": "^3.4.0",
+    "rollup-plugin-size-snapshot": "^0.7.0",
+    "rollup-plugin-terser": "^3.0.0",
     "rollup-plugin-typescript2": "^0.17.0",
+    "ts-loader": "^5.2.1",
+    "ts-node": "^7.0.1",
     "tslint": "^5.11.0",
     "tslint-config-prettier": "^1.15.0",
     "tslint-config-standard": "^8.0.1",
-    "typescript": "^3.0.3"
+    "typescript": "^3.0.3",
+    "webpack": "^4.20.2",
+    "webpack-cli": "^3.1.1",
+    "webpack-dev-server": "^3.1.9",
+    "worker-loader": "^2.0.0"
+  },
+  "dependencies": {
+    "composie": "^0.0.11"
   }
 }
