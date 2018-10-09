@@ -1,15 +1,15 @@
-import WorkerServer from 'src/index'
-
-const worker = new WorkerServer('worker-loader!./worker.js')
+import WorkerServer from '../../src/index'
+// const workerts = require.resolve('./worker.ts')
+const worker = new WorkerServer(new Worker('./worker.ts'))
 const result = document.getElementById('result')!
-document.getElementById('xxx')!.addEventListener('keyup', async (e) => {
-    if (e.keyCode === 13) {
+document.getElementById('xxx')!.addEventListener('keyup', (e) => {
+  if (e.keyCode === 13) {
+    // @ts-ignore
+    worker.fetch('add', e.target!.value).then((resp) => {
         // @ts-ignore
-        worker.fetch('add', e.target!.value).then((resp) => {
-            // @ts-ignore
-            result.innerHTML = resp
-        })
-        // @ts-ignore
-        worker.emit('haha', 'hi from ' + e.target.value)
-    }
+        result.innerHTML = resp
+    })
+    // @ts-ignore
+    worker.emit('haha', 'hi from ' + e.target.value)
+  }
 })

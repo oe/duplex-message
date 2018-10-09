@@ -66,7 +66,7 @@ export default class WorkerServer {
   composie: Composie
 
   /** */
-  constructor (src?: string) {
+  constructor (worker?: Worker) {
     this.composie = new Composie()
     //  detect is this code run in webworker context
     // tslint:disable-next-line
@@ -74,10 +74,10 @@ export default class WorkerServer {
     if (isWoker) {
       this.worker = glb
     } else {
-      if (!src) {
-        throw new Error('a src for worker script is required')
+      if (!worker) {
+        throw new Error('a worker for worker script is required')
       }
-      this.worker = new Worker(src)
+      this.worker = worker
     }
     this.onMessage = this.onMessage.bind(this)
     this.worker.addEventListener('message', this.onMessage)

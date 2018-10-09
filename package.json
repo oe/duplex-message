@@ -6,10 +6,10 @@
   "module": "dist/webworker-as-api.es.js",
   "typings": "dist/webworker-as-api.d.ts",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development webpack-dev-server",
     "prebuild": "rimraf dist/*",
     "build": "rollup -c ",
     "wpbuild": "cross-env NODE_ENV=development webpack --progress --colors",
+    "dev": "parcel test/webworker/index.html --out-dir test/cache",
     "test": "jest --coverage",
     "test:server": "jest --coverage --watch",
     "lint": "tslint --project ./tsconfig.json --config tslint.json"
@@ -24,6 +24,7 @@
     "@types/webpack": "^4.4.13",
     "copy-webpack-plugin": "^4.5.2",
     "cross-env": "^5.2.0",
+    "parcel-bundler": "^1.10.2",
     "rimraf": "^2.6.2",
     "rollup": "^0.66.2",
     "rollup-plugin-babel": "^4.0.3",
