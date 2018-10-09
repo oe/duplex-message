@@ -6,7 +6,7 @@
   "module": "dist/webworker-as-api.es.js",
   "typings": "dist/webworker-as-api.d.ts",
   "scripts": {
-    "prebuild": "rimraf dist/*",
+    "prebuild": "yarn run lint && rimraf dist/*",
     "build": "rollup -c ",
     "wpbuild": "cross-env NODE_ENV=development webpack --progress --colors",
     "dev": "parcel test/webworker/index.html --out-dir test/cache",

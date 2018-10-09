@@ -46,10 +46,6 @@ export interface IContext extends IComposieContext {
   event: Event
 }
 
-
-// @ts-ignore
-const glb = self
-
 /**
  * Worker Server Class
  */
@@ -72,7 +68,7 @@ export default class WorkerServer {
     // tslint:disable-next-line
     const isWoker = typeof document === 'undefined'
     if (isWoker) {
-      this.worker = glb
+      this.worker = self
     } else {
       if (!worker) {
         throw new Error('a worker for worker script is required')
@@ -220,6 +216,7 @@ export default class WorkerServer {
           } as IMessageResponse
           this.postMessage(message)
         }, (error) => {
+          console.warn('run middleware failed', error)
           const message = {
             resolved: false,
             id: ctx.id,

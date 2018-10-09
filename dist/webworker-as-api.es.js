@@ -4,14 +4,12 @@
  */
 import Composie from 'composie';
 
-// @ts-ignore
-const glb = self;
 /**
  * Worker Server Class
  */
 class WorkerServer {
     /** */
-    constructor(src) {
+    constructor(worker) {
         // request count, to store  promise pair
         this.count = 0;
         // event callbacks map
@@ -23,13 +21,13 @@ class WorkerServer {
         // tslint:disable-next-line
         const isWoker = typeof document === 'undefined';
         if (isWoker) {
-            this.worker = glb;
+            this.worker = self;
         }
         else {
-            if (!src) {
-                throw new Error('a src for worker script is required');
+            if (!worker) {
+                throw new Error('a worker for worker script is required');
             }
-            this.worker = new Worker(src);
+            this.worker = worker;
         }
         this.onMessage = this.onMessage.bind(this);
         this.worker.addEventListener('message', this.onMessage);
@@ -157,6 +155,7 @@ class WorkerServer {
                     };
                     this.postMessage(message);
                 }, (error) => {
+                    console.warn('run middleware failed', error);
                     const message = {
                         resolved: false,
                         id: ctx.id,

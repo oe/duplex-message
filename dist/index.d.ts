@@ -47,7 +47,7 @@ export default class WorkerServer {
     promisePairs: IPromisePairs;
     composie: Composie;
     /** */
-    constructor(src?: string);
+    constructor(worker?: Worker);
     /**
      * add global middleware
      * @param cb middleware
