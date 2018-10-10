@@ -1,14 +1,15 @@
 {
   "name": "@evecalm/message-hub",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "a middleware based RPC library over `postMessage` can work with both web worker and iframe",
   "main": "dist/message-hub.umd.js",
   "module": "dist/message-hub.es.js",
   "typings": "dist/index.d.ts",
   "scripts": {
     "prebuild": "yarn run lint && rimraf dist/*",
-    "build": "rollup -c ",
-    "wpbuild": "cross-env NODE_ENV=development webpack --progress --colors",
+    "build": "rollup -c rollup.config.ts",
+    "postbuild": "node ./build/update-pkg-version.js",
+    "postpublish": "./build/post-publish2npm.sh",
     "dev": "parcel test/worker/index.html test/frame/index.html test/frame/frame.html --out-dir test/cache",
     "test": "jest --coverage",
     "test:server": "jest --coverage --watch",
@@ -23,10 +24,11 @@
   "homepage": "https://evecalm.com/",
   "private": false,
   "devDependencies": {
-    "@babel/core": "^7.1.0",
+    "@babel/core": "^7.0.0-0",
+    "@babel/plugin-transform-runtime": "^7.1.0",
+    "@babel/runtime-corejs2": "^7.1.2",
+    "@babel/preset-env": "^7.1.0",
     "@types/node": "^10.11.2",
-    "@types/webpack": "^4.4.13",
-    "copy-webpack-plugin": "^4.5.2",
     "cross-env": "^5.2.0",
     "parcel-bundler": "^1.10.2",
     "rimraf": "^2.6.2",
@@ -36,16 +38,10 @@
     "rollup-plugin-size-snapshot": "^0.7.0",
     "rollup-plugin-terser": "^3.0.0",
     "rollup-plugin-typescript2": "^0.17.0",
-    "ts-loader": "^5.2.1",
-    "ts-node": "^7.0.1",
     "tslint": "^5.11.0",
     "tslint-config-prettier": "^1.15.0",
     "tslint-config-standard": "^8.0.1",
-    "typescript": "^3.0.3",
-    "webpack": "^4.20.2",
-    "webpack-cli": "^3.1.1",
-    "webpack-dev-server": "^3.1.9",
-    "worker-loader": "^2.0.0"
+    "typescript": "^3.0.3"
   },
   "dependencies": {
     "composie": "^0.0.12"

@@ -108,7 +108,7 @@ export default class MessageHub {
      * @param data params
      * @param transfers object array want to transfer
      */
-    emit(channel: string, data: any, transfers?: any[]): void;
+    emit(channel: string, data?: any, transfers?: any[]): void;
     destroy(): void;
     /**
      * create context used by middleware

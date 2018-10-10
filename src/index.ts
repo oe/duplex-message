@@ -203,7 +203,7 @@ export default class MessageHub {
    * @param data params
    * @param transfers object array want to transfer
    */
-  emit (channel: string, data: any, transfers?: any[]) {
+  emit (channel: string, data?: any, transfers?: any[]) {
     const msg = {
       type: 'request',
       channel,

@@ -1,51 +1,41 @@
-import WorkerServer from '../../src'
+import MessageHub from '../../src'
 
-const worker = new WorkerServer({ type: 'worker' })
+const messageHub = new MessageHub({
+  type: 'worker'
+})
 
-worker.use((ctx, next) => {
+messageHub.use((ctx, next) => {
   console.log('recieved in global middle ware', ctx)
-  console.log('evt', typeof ctx.event)
   next()
 })
 
 let count = 0
 
 setInterval(() => {
-  worker.emit('tick', count++)
+  messageHub.emit('tik-tok', 'worker is alive: ' + (count++))
 }, 1500)
 
-worker.route({
-  'add'(ctx, next) {
-    ctx.response = 'im from add ' + ctx.request
-    next()
-  }
+
+messageHub.route('convert2mdH1', async (ctx) => {
+  console.log('mes from h', ctx)
+  // get data from main thread
+  const title = await messageHub.fetch('pageTitle')
+  console.log('page title', title)
+  ctx.response = `# ${ctx.request} (${title})`
 })
 
-function fib(n) {
+// recieve one way message, no need to response it
+messageHub.on('hi', () => {
+  console.log('main thread say hi :(')
+})
+
+// calc fibonacci, read request data from ctx.request, response it by setting result to ctx.request
+messageHub.route('fib', ctx => {
+  ctx.response = fib(ctx.request)
+})
+
+// use a recursion algorithm which will take more than half a minute when n big than 50
+function fib (n) {
   if (n < 2) return n
-  return fib(n - 2) + fib(n - 1)
+  return fib(n - 1) + fib(n - 2)
 }
-
-worker.route({
-  'fib'(ctx, next) {
-    ctx.response = fib(+ctx.request)
-    next()
-  }
-})
-
-
-
-worker.route({
-  'add'(ctx) {
-    ctx.response += '<br>hhhh from add ' + ctx.request
-  }
-})
-
-worker.on('haha', (msg) => {
-  console.log('message recieved from hahah', msg)
-})
-
-worker.on('haha', (msg) => {
-  console.log('message recieved from hahah 222', msg)
-  return false
-})
