@@ -1,15 +1,15 @@
 {
-  "name": "webworker-as-api",
+  "name": "postmsg",
   "version": "0.0.1",
-  "description": "use web worker like a server api",
-  "main": "dist/webworker-as-api.umd.js",
-  "module": "dist/webworker-as-api.es.js",
-  "typings": "dist/webworker-as-api.d.ts",
+  "description": "a middleware based RPC library over `postMessage` can work with both web worker and iframe",
+  "main": "dist/postmsg.umd.js",
+  "module": "dist/postmsg.es.js",
+  "typings": "dist/postmsg.d.ts",
   "scripts": {
     "prebuild": "yarn run lint && rimraf dist/*",
     "build": "rollup -c ",
     "wpbuild": "cross-env NODE_ENV=development webpack --progress --colors",
-    "dev": "parcel test/webworker/index.html --out-dir test/cache",
+    "dev": "parcel test/worker/index.html test/frame/index.html test/frame/frame.html --out-dir test/cache",
     "test": "jest --coverage",
     "test:server": "jest --coverage --watch",
     "lint": "tslint --project ./tsconfig.json --config tslint.json"
@@ -44,6 +44,6 @@
     "worker-loader": "^2.0.0"
   },
   "dependencies": {
-    "composie": "^0.0.11"
+    "composie": "^0.0.12"
   }
 }

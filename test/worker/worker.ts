@@ -1,12 +1,18 @@
 import WorkerServer from '../../src/index'
 
-const worker = new WorkerServer()
+const worker = new WorkerServer({ type: 'worker' })
 
 worker.use((ctx, next) => {
   console.log('recieved in global middle ware', ctx)
   console.log('evt', typeof ctx.event)
   next()
 })
+
+let count = 0
+
+setInterval(() => {
+  worker.emit('tick', count++)
+}, 1500)
 
 worker.route({
   'add' (ctx, next) {
@@ -15,7 +21,7 @@ worker.route({
   }
 })
 
-function fib(n, pre) {
+function fib (n) {
   if (n < 2) return n
   return fib(n - 2) + fib(n - 1)
 }
@@ -26,6 +32,7 @@ worker.route({
     next()
   }
 })
+
 
 
 worker.route({

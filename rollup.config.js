@@ -8,13 +8,13 @@ export default [
   {
     input: "src/index.ts",
     output: {
-      name: "WorkerServer",
+      name: "Postmsg",
       banner: `/*!
- * webworker-as-api v${pkg.version}
+ * Postmsg v${pkg.version}
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: "es",
-      file: `dist/webworker-as-api.es.js`
+      file: `dist/postmsg.es.js`
     },
     plugins: [
       typescript({
@@ -32,14 +32,14 @@ export default [
     output: {
       name: "WorkerServer",
       banner: `/*!
- * webworker-as-api v${pkg.version}
+ * postmsg v${pkg.version}
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: "umd",
       globals: {
         composie: "Composie"
       },
-      file: `dist/webworker-as-api.umd.js`
+      file: `dist/postmsg.umd.js`
     },
     plugins: [
       typescript({
@@ -57,11 +57,11 @@ export default [
     output: {
       name: "WorkerServer",
       banner: `/*!
- * webworker-as-api v${pkg.version}
+ * postmsg v${pkg.version}
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: "umd",
-      file: `dist/webworker-as-api.browser.js`
+      file: `dist/postmsg.browser.js`
     },
     plugins: [
       typescript({

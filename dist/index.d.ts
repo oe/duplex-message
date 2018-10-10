@@ -1,8 +1,4 @@
-import Composie, { IMiddleware, IRouteParam, IContext as IComposieContext } from 'composie';
-/** event callback */
-export interface ICallback {
-    (response: any): any;
-}
+import Composie, { IRouteParam, IContext as IComposieContext, IMiddleware as IComposieMiddleware } from 'composie';
 /** event callbacks map */
 export interface IEvtCallbacks {
     [k: string]: ICallback[];
@@ -35,19 +31,41 @@ interface IPromisePairs {
 export interface IContext extends IComposieContext {
     id: number;
     type: 'request';
-    event: Event;
+    event: MessageEvent;
 }
+/** event callback */
+export interface ICallback {
+    (response: any): any;
+}
+/** middleware */
+export interface IMiddleware extends IComposieMiddleware {
+    (ctx: IContext, next: Function): any;
+}
+interface IMsgInitWorker {
+    type: 'worker';
+    peer?: Worker;
+}
+interface IMsgInitIframe {
+    type: 'frame';
+    peer: Window;
+    targetOrigin?: string;
+}
+export declare type IMsgInit = IMsgInitWorker | IMsgInitIframe;
 /**
  * Worker Server Class
  */
 export default class WorkerServer {
     count: number;
-    worker: any;
+    context: any;
+    peer: any;
+    type: IMsgInit['type'];
+    isWorker: boolean;
+    targetOrigin: string;
     evtsCbs: IEvtCallbacks;
     promisePairs: IPromisePairs;
-    composie: Composie;
+    composie: Composie | null;
     /** */
-    constructor(worker?: Worker);
+    constructor(options: IMsgInit);
     /**
      * add global middleware
      * @param cb middleware
@@ -70,7 +88,7 @@ export default class WorkerServer {
      * @param data params to the channel
      * @param transfers object array want to transfer
      */
-    fetch(channel: string, data: any, transfers?: any[]): Promise<any> | undefined;
+    fetch(channel: string, data?: any, transfers?: any[]): Promise<any> | undefined;
     /**
      * listen event from other side
      * @param channel channel name
@@ -90,6 +108,7 @@ export default class WorkerServer {
      * @param transfers object array want to transfer
      */
     emit(channel: string, data: any, transfers?: any[]): void;
+    destroy(): void;
     /**
      * create context used by middleware
      * @param evt message event
@@ -101,6 +120,12 @@ export default class WorkerServer {
      */
     protected onMessage(evt: MessageEvent): void;
     /**
+     * validate origin in cross frame communicate is match
+     * @param origin origin url
+     */
+    protected isValidateOrigin(origin: any): boolean;
+    /**
+     *
      * send message to the other side
      * @param message meesage object to send
      * @param needResp whether need response from other side

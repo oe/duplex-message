@@ -1,5 +1,5 @@
 /*!
- * webworker-as-api v0.0.1
+ * postmsg v0.0.1
  * Copyright© 2018 Saiya https://evecalm.com/
  */
 (function (global, factory) {
@@ -15,38 +15,59 @@
    */
   class WorkerServer {
       /** */
-      constructor(worker) {
+      constructor(options) {
           // request count, to store  promise pair
           this.count = 0;
+          // if type is worker, whether is in worker
+          this.isWorker = false;
+          // if type is frame, target origin
+          this.targetOrigin = '*';
           // event callbacks map
           this.evtsCbs = {};
           // promise pair map
           this.promisePairs = {};
           this.composie = new Composie();
-          //  detect is this code run in webworker context
-          // tslint:disable-next-line
-          const isWoker = typeof document === 'undefined';
-          if (isWoker) {
-              this.worker = self;
+          this.context = self;
+          this.type = options.type;
+          if (options.type === 'worker') {
+              //  detect is this code run in webworker context
+              // tslint:disable-next-line
+              this.isWorker = typeof document === 'undefined';
+              if (this.isWorker) {
+                  this.peer = self;
+              }
+              else {
+                  if (!options.peer) {
+                      throw new Error('a worker instance is required');
+                  }
+                  this.peer = options.peer;
+                  this.context = options.peer;
+              }
+          }
+          else if (options.type === 'frame') {
+              this.peer = options.peer;
+              if (options.targetOrigin)
+                  this.targetOrigin = options.targetOrigin;
           }
           else {
-              if (!worker) {
-                  throw new Error('a worker for worker script is required');
-              }
-              this.worker = worker;
+              // @ts-ignore
+              throw new Error(`unsupported type ${options.type}`);
           }
           this.onMessage = this.onMessage.bind(this);
-          this.worker.addEventListener('message', this.onMessage);
+          this.context.addEventListener('message', this.onMessage);
       }
       /**
        * add global middleware
        * @param cb middleware
        */
       use(cb) {
-          this.composie.use(cb);
+          if (this.composie)
+              this.composie.use(cb);
           return this;
       }
       route(routers, ...cbs) {
+          if (!this.composie)
+              return this;
           if (typeof routers === 'string') {
               this.composie.route(routers, ...cbs);
           }
@@ -117,13 +138,29 @@
           };
           this.postMessage(msg, false);
       }
+      destroy() {
+          if (!this.context)
+              return;
+          this.context.removeEventListener('message', this.onMessage);
+          this.evtsCbs = {};
+          this.composie = null;
+          if (this.type === 'worker') {
+              if (this.isWorker) {
+                  this.context.close();
+              }
+              else {
+                  this.context.terminate();
+              }
+          }
+          this.context = null;
+          this.peer = null;
+      }
       /**
        * create context used by middleware
        * @param evt message event
        */
       createContext(evt) {
           const request = evt.data;
-          console.warn('evt', evt);
           const context = {
               id: request.id,
               type: 'request',
@@ -138,18 +175,29 @@
        * @param evt message event
        */
       onMessage(evt) {
+          // debugger
+          // ignore untargeted cross iframe origin message
+          if (this.type === 'frame' &&
+              // message from self or origin not match
+              ((evt.source && evt.source !== this.peer) || !this.isValidateOrigin(evt.origin)))
+              return;
           const request = evt.data;
+          // ignore any other noises(not from WorkerServer)
+          if (!request || !this.composie || !request.channel)
+              return;
           if (request.id) {
               if (request.type === 'response') {
                   const promisePair = this.promisePairs[request.id];
                   if (!promisePair) {
-                      console.warn('unowned message with id', request.id);
+                      console.warn('unowned message with id', request.id, evt.data);
                       return;
                   }
                   const fn = promisePair[request.resolved ? 0 : 1];
                   fn(request.data);
               }
               else {
+                  if (!this.composie)
+                      return;
                   const ctx = this.createContext(evt);
                   this.composie.run(ctx).then(() => {
                       const message = {
@@ -187,12 +235,23 @@
           }
       }
       /**
+       * validate origin in cross frame communicate is match
+       * @param origin origin url
+       */
+      isValidateOrigin(origin) {
+          return this.targetOrigin === '*' || origin === this.targetOrigin;
+      }
+      /**
+       *
        * send message to the other side
        * @param message meesage object to send
        * @param needResp whether need response from other side
        */
       postMessage(message, needResp) {
           const requestData = [message];
+          if (this.type === 'frame') {
+              requestData.push(this.targetOrigin);
+          }
           if (message.type === 'request') {
               message.id = needResp ? (++this.count) : 0;
               const transfers = message.transfers;
@@ -200,7 +259,7 @@
               if (transfers)
                   requestData.push(transfers);
           }
-          this.worker.postMessage(...requestData);
+          this.peer.postMessage(...requestData);
           if (message.type === 'response' || !message.id)
               return;
           return new Promise((resolve, reject) => {

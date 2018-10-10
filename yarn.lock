@@ -1753,10 +1753,10 @@ component-emitter@^1.2.1:
   resolved "https://registry.yarnpkg.com/component-emitter/-/component-emitter-1.2.1.tgz#137918d6d78283f7df7a6b7c5a63e140e69425e6"
   integrity sha1-E3kY1teCg/ffemt8WmPhQOaUJeY=
 
-composie@^0.0.11:
-  version "0.0.11"
-  resolved "https://registry.yarnpkg.com/composie/-/composie-0.0.11.tgz#3a98aa10e18a7598a2ac325265c5f2ee3394fee3"
-  integrity sha512-xEBiHPA25pMmYVFSfA1AZo8NgNnisb96QRUCHiUOwliZDKsIK1WnhlBCBVE0L8jHHSAvg8wEYTR0hmLAuHD9cQ==
+composie@^0.0.12:
+  version "0.0.12"
+  resolved "https://registry.yarnpkg.com/composie/-/composie-0.0.12.tgz#7fb0183371d5de13f909482334f71a786258b929"
+  integrity sha512-oUyfCl6/ozmUh1ycP8FFFjp5VtJp0GwfPyU1vzwe1ngg5rXwy0iptQhMnZ+53Htmwvb3K7QHPVEDBnXwq5Njdg==
 
 compressible@~2.0.14:
   version "2.0.15"
