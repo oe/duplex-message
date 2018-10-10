@@ -1,3 +1,4 @@
+/** composie from https://github.com/evecalm/composie by Saiya */
 import Composie, { IRouteParam, IContext as IComposieContext, IMiddleware as IComposieMiddleware } from 'composie'
 
 /** event callbacks map */
@@ -67,9 +68,9 @@ export type IMsgInit = IMsgInitWorker | IMsgInitIframe
 
 
 /**
- * Worker Server Class
+ * MessageHub Class
  */
-export default class WorkerServer {
+export default class MessageHub {
   // request count, to store  promise pair
   count: number = 0
   // javascript context(global/window) object
@@ -80,7 +81,7 @@ export default class WorkerServer {
   type: IMsgInit['type']
   // if type is worker, whether is in worker
   isWorker: boolean = false
-  // if type is frame, target origin
+  // if type is frame, target origin, default any origin
   targetOrigin: string = '*'
   // event callbacks map
   evtsCbs: IEvtCallbacks = {}
@@ -255,7 +256,7 @@ export default class WorkerServer {
       // message from self or origin not match
       ((evt.source && evt.source !== this.peer) || !this.isValidateOrigin(evt.origin))) return
     const request = evt.data as IMessage
-    // ignore any other noises(not from WorkerServer)
+    // ignore any other noises(not from MessageHub)
     if (!request || !this.composie || !request.channel) return
     if (request.id) {
       if (request.type === 'response') {

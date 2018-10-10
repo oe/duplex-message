@@ -1,20 +1,21 @@
 /*!
- * Postmsg v0.0.1
+ * @evecalm/message-hub v0.0.1
  * Copyright© 2018 Saiya https://evecalm.com/
  */
 import Composie from 'composie';
 
+/** composie from https://github.com/evecalm/composie by Saiya */
 /**
- * Worker Server Class
+ * MessageHub Class
  */
-class WorkerServer {
+class MessageHub {
     /** */
     constructor(options) {
         // request count, to store  promise pair
         this.count = 0;
         // if type is worker, whether is in worker
         this.isWorker = false;
-        // if type is frame, target origin
+        // if type is frame, target origin, default any origin
         this.targetOrigin = '*';
         // event callbacks map
         this.evtsCbs = {};
@@ -176,7 +177,7 @@ class WorkerServer {
             ((evt.source && evt.source !== this.peer) || !this.isValidateOrigin(evt.origin)))
             return;
         const request = evt.data;
-        // ignore any other noises(not from WorkerServer)
+        // ignore any other noises(not from MessageHub)
         if (!request || !this.composie || !request.channel)
             return;
         if (request.id) {
@@ -262,4 +263,4 @@ class WorkerServer {
     }
 }
 
-export default WorkerServer;
+export default MessageHub;

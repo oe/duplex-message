@@ -1,4 +1,4 @@
-import WorkerServer from '../../src/index'
+import WorkerServer from '../../src'
 
 const worker = new WorkerServer({ type: 'frame', peer: parent })
 // worker.use((ctx, next) => {

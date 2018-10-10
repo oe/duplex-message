@@ -1,8 +1,8 @@
 /*!
- * postmsg v0.0.1
+ * @evecalm/message-hub v0.0.1
  * Copyright© 2018 Saiya https://evecalm.com/
  */
-!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):e.WorkerServer=t()}(this,function(){"use strict";
+!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):e.MessageHub=t()}(this,function(){"use strict";
 /*!
      * Composie v0.0.12
      * Copyright© 2018 Saiya https://github.com/evecalm/composie#readme

@@ -1,4 +1,4 @@
-import WorkerServer from '../../src/index'
+import WorkerServer from '../../src'
 
 const frameWin = (document.getElementById('frame') as HTMLFrameElement).contentWindow
 const worker = new WorkerServer({ type: 'frame', peer: frameWin, targetOrigin: '*' })

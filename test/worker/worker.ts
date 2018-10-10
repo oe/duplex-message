@@ -1,4 +1,4 @@
-import WorkerServer from '../../src/index'
+import WorkerServer from '../../src'
 
 const worker = new WorkerServer({ type: 'worker' })
 
@@ -15,19 +15,19 @@ setInterval(() => {
 }, 1500)
 
 worker.route({
-  'add' (ctx, next) {
+  'add'(ctx, next) {
     ctx.response = 'im from add ' + ctx.request
     next()
   }
 })
 
-function fib (n) {
+function fib(n) {
   if (n < 2) return n
   return fib(n - 2) + fib(n - 1)
 }
 
 worker.route({
-  'fib' (ctx, next) {
+  'fib'(ctx, next) {
     ctx.response = fib(+ctx.request)
     next()
   }
@@ -36,7 +36,7 @@ worker.route({
 
 
 worker.route({
-  'add' (ctx) {
+  'add'(ctx) {
     ctx.response += '<br>hhhh from add ' + ctx.request
   }
 })

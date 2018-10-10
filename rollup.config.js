@@ -8,13 +8,13 @@ export default [
   {
     input: "src/index.ts",
     output: {
-      name: "Postmsg",
+      name: "MessageHub",
       banner: `/*!
- * Postmsg v${pkg.version}
+ * ${pkg.name} v${pkg.version}
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: "es",
-      file: `dist/postmsg.es.js`
+      file: `dist/message-hub.es.js`
     },
     plugins: [
       typescript({
@@ -30,16 +30,16 @@ export default [
   {
     input: "src/index.ts",
     output: {
-      name: "WorkerServer",
+      name: "MessageHub",
       banner: `/*!
- * postmsg v${pkg.version}
+ * ${pkg.name} v${pkg.version}
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: "umd",
       globals: {
         composie: "Composie"
       },
-      file: `dist/postmsg.umd.js`
+      file: `dist/message-hub.umd.js`
     },
     plugins: [
       typescript({
@@ -55,13 +55,13 @@ export default [
   {
     input: "src/index.ts",
     output: {
-      name: "WorkerServer",
+      name: "MessageHub",
       banner: `/*!
- * postmsg v${pkg.version}
+ * ${pkg.name} v${pkg.version}
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: "umd",
-      file: `dist/postmsg.browser.js`
+      file: `dist/message-hub.browser.js`
     },
     plugins: [
       typescript({

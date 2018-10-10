@@ -1,3 +1,4 @@
+/** composie from https://github.com/evecalm/composie by Saiya */
 import Composie, { IRouteParam, IContext as IComposieContext, IMiddleware as IComposieMiddleware } from 'composie';
 /** event callbacks map */
 export interface IEvtCallbacks {
@@ -52,9 +53,9 @@ interface IMsgInitIframe {
 }
 export declare type IMsgInit = IMsgInitWorker | IMsgInitIframe;
 /**
- * Worker Server Class
+ * MessageHub Class
  */
-export default class WorkerServer {
+export default class MessageHub {
     count: number;
     context: any;
     peer: any;

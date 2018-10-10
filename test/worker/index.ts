@@ -1,4 +1,4 @@
-import WorkerServer from '../../src/index'
+import WorkerServer from '../../src'
 // const workerts = require.resolve('./worker.ts')
 const worker = new WorkerServer({ type: 'worker', peer: new Worker('./worker.ts') })
 const result = document.getElementById('result')!
