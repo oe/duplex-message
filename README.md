@@ -51,7 +51,7 @@ const messageHub = new MessageHub({
 // add a global middleware to log all request
 messageHub.use((ctx, next) => {
   console.log("request log", ctx.request);
-  next();
+  return next();
 });
 
 // use route to handle other side's request, and set ctx.response to reply the request
