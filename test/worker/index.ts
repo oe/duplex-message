@@ -5,7 +5,7 @@ const messageHub = new MessageHub({ type: 'worker', peer: new Worker('./worker.t
 // add a global middleware to log all request
 messageHub.use((ctx, next) => {
   console.log('main thread request log', ctx)
-  next()
+  return next()
 })
 
 // use route to handle other side's request, and set ctx.response to reply the request

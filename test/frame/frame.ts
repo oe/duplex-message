@@ -1,18 +1,20 @@
-import WorkerServer from '../../src'
+import MessageHub from '../../src'
 
-const worker = new WorkerServer({ type: 'frame', peer: parent })
-// worker.use((ctx, next) => {
-//   console.log('request from iframe', ctx.request)
-//   next()
-// })
+const messageHub = new MessageHub({ type: 'frame', peer: parent })
+messageHub.use((ctx, next) => {
+  console.log('request from iframe', ctx.request)
+  return next()
+})
 
-// worker.route('getName', (ctx, next) => {
-//   ctx.response = 'hahahahahah'
-// })
+messageHub.route('getName', (ctx, next) => {
+  ctx.response = 'hahahahahah'
+})
 
 document.body.addEventListener('click', (e) => {
-  console.log('click', e)
-  worker.fetch('getName', 'ssss').then((resp) => {
-    console.log('response from outer', resp)
-  })
+  // use ready to make sure the peer is ready
+  messageHub.ready().then(() =>
+    messageHub.fetch('page-title', 'ssss').then((resp) => {
+      console.log('response from outer', resp)
+    })
+  )
 })

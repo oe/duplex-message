@@ -1,6 +1,6 @@
 {
   "name": "@evecalm/message-hub",
-  "version": "0.0.2",
+  "version": "0.0.6",
   "description": "a middleware based RPC library over `postMessage` can work with both web worker and iframe",
   "main": "dist/message-hub.umd.js",
   "module": "dist/message-hub.es.js",
@@ -18,7 +18,17 @@
   "files": [
     "dist/*"
   ],
-  "repository": "https://evecalm@github.com/evecalm/webworker-as-api.git",
+  "keywords": [
+    "rpc",
+    "messagehub",
+    "hub",
+    "postmessage",
+    "promise",
+    "iframe",
+    "webworker",
+    "worker"
+  ],
+  "repository": "https://evecalm@github.com/evecalm/messagehub.git",
   "author": "Saiya",
   "license": "MIT",
   "homepage": "https://evecalm.com/",

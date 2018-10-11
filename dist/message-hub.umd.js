@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v0.0.2
+ * @evecalm/message-hub v0.0.6
  * Copyright© 2018 Saiya https://evecalm.com/
  */
 (function (global, factory) {
@@ -10,12 +10,14 @@
 
   Composie = Composie && Composie.hasOwnProperty('default') ? Composie['default'] : Composie;
 
-  /** composie from https://github.com/evecalm/composie by Saiya */
+  const READY_CONFIG = {
+      channel: 'THIS_IS_MESSAGE_SECRET_CHANNEL',
+      id: -1
+  };
   /**
    * MessageHub Class
    */
   class MessageHub {
-      /** */
       constructor(options) {
           // request count, to store  promise pair
           this.count = 0;
@@ -27,10 +29,13 @@
           this.evtsCbs = {};
           // promise pair map
           this.promisePairs = {};
+          // is peer ready
+          this.isReady = false;
           this.composie = new Composie();
           this.context = self;
           this.type = options.type;
           if (options.type === 'worker') {
+              this.isReady = true;
               //  detect is this code run in webworker context
               // tslint:disable-next-line
               this.isWorker = typeof document === 'undefined';
@@ -56,6 +61,25 @@
           }
           this.onMessage = this.onMessage.bind(this);
           this.context.addEventListener('message', this.onMessage);
+          if (!this.isReady)
+              this.emit(READY_CONFIG.channel);
+      }
+      /**
+       * wait for peer ready
+       *  use it especially work with iframe
+       * return a promise
+       */
+      ready() {
+          if (!this.context)
+              return Promise.reject(new Error('This MessageHub instance has been destroyed'));
+          if (this.isReady)
+              return Promise.resolve(this);
+          return new Promise((resolve, reject) => {
+              this.fetch(READY_CONFIG.channel).then(() => {
+                  this.isReady = true;
+                  resolve(this);
+              }, reject);
+          });
       }
       /**
        * add global middleware
@@ -176,7 +200,6 @@
        * @param evt message event
        */
       onMessage(evt) {
-          // debugger
           // ignore untargeted cross iframe origin message
           if (this.type === 'frame' &&
               // message from self or origin not match
@@ -188,41 +211,27 @@
               return;
           if (request.id) {
               if (request.type === 'response') {
-                  const promisePair = this.promisePairs[request.id];
-                  if (!promisePair) {
-                      console.warn('unowned message with id', request.id, evt.data);
-                      return;
-                  }
-                  const fn = promisePair[request.resolved ? 0 : 1];
-                  fn(request.data);
+                  this.resolveFetch(request);
               }
               else {
-                  if (!this.composie)
-                      return;
                   const ctx = this.createContext(evt);
+                  // try to handle ready request
+                  if (this.resolveFetch(request)) {
+                      this.respond(ctx, true);
+                      return;
+                  }
                   this.composie.run(ctx).then(() => {
-                      const message = {
-                          resolved: true,
-                          id: ctx.id,
-                          channel: ctx.channel,
-                          type: 'response',
-                          data: ctx.response
-                      };
-                      this.postMessage(message);
+                      this.respond(ctx, true);
                   }, (error) => {
                       console.warn('run middleware failed', error);
-                      const message = {
-                          resolved: false,
-                          id: ctx.id,
-                          channel: ctx.channel,
-                          type: 'response',
-                          data: ctx.response
-                      };
-                      this.postMessage(message);
+                      this.respond(ctx, false);
                   });
               }
           }
           else {
+              // try handle ready 
+              if (this.resolveFetch(request))
+                  return;
               const cbs = this.evtsCbs[request.channel];
               if (!cbs || !cbs.length) {
                   console.warn(`no corresponed callback for ${request.channel}`);
@@ -234,6 +243,36 @@
                       break;
               }
           }
+      }
+      /** respond fetch request */
+      respond(ctx, resolved) {
+          const message = {
+              resolved: resolved,
+              id: ctx.id,
+              channel: ctx.channel,
+              type: 'response',
+              data: ctx.response
+          };
+          this.postMessage(message);
+      }
+      /** resolve fetch request */
+      resolveFetch(msg) {
+          if (!msg.id ||
+              msg.type === 'request' && msg.id !== READY_CONFIG.id)
+              return;
+          const msgId = msg.id;
+          const promisePair = this.promisePairs[msgId];
+          if (!promisePair) {
+              if (msg.id === READY_CONFIG.id)
+                  return true;
+              console.warn('unowned message with id', msgId, msg);
+              return;
+          }
+          // @ts-ignore
+          const fn = promisePair[msg.resolved !== false ? 0 : 1];
+          fn(msg.data);
+          delete this.promisePairs[msgId];
+          return true;
       }
       /**
        * validate origin in cross frame communicate is match
@@ -254,7 +293,11 @@
               requestData.push(this.targetOrigin);
           }
           if (message.type === 'request') {
-              message.id = needResp ? (++this.count) : 0;
+              // change ready message id
+              message.id = message.channel === READY_CONFIG.channel
+                  ? READY_CONFIG.id :
+                  needResp ?
+                      (++this.count) : 0;
               const transfers = message.transfers;
               delete message.transfers;
               if (transfers)

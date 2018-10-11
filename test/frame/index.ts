@@ -7,6 +7,6 @@ worker.use((ctx, next) => {
   next()
 })
 
-worker.route('getName', (ctx, next) => {
-  ctx.response = 'hahahahahah'
+worker.route('page-title', (ctx, next) => {
+  ctx.response = document.title
 })

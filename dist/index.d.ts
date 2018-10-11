@@ -1,5 +1,4 @@
-/** composie from https://github.com/evecalm/composie by Saiya */
-import Composie, { IRouteParam, IContext as IComposieContext, IMiddleware as IComposieMiddleware } from 'composie';
+import { IRouteParam, IContext as IComposieContext, IMiddleware as IComposieMiddleware } from 'composie';
 /** event callbacks map */
 export interface IEvtCallbacks {
     [k: string]: ICallback[];
@@ -24,10 +23,6 @@ export interface IMessageResponse {
 }
 /** message union */
 export declare type IMessage = IMessageRequest | IMessageResponse;
-/** promise pair to resolve response */
-interface IPromisePairs {
-    [k: number]: [Function, Function];
-}
 /** request context for middleware */
 export interface IContext extends IComposieContext {
     id: number;
@@ -42,31 +37,40 @@ export interface ICallback {
 export interface IMiddleware extends IComposieMiddleware {
     (ctx: IContext, next: Function): any;
 }
-interface IMsgInitWorker {
+/** constructor init params for worker */
+export interface IMsgInitWorker {
     type: 'worker';
     peer?: Worker;
 }
-interface IMsgInitIframe {
+/** constructor init params for frame */
+export interface IMsgInitIframe {
     type: 'frame';
     peer: Window;
     targetOrigin?: string;
 }
+/** constructor init params */
 export declare type IMsgInit = IMsgInitWorker | IMsgInitIframe;
 /**
  * MessageHub Class
  */
 export default class MessageHub {
-    count: number;
-    context: any;
-    peer: any;
-    type: IMsgInit['type'];
-    isWorker: boolean;
-    targetOrigin: string;
-    evtsCbs: IEvtCallbacks;
-    promisePairs: IPromisePairs;
-    composie: Composie | null;
-    /** */
+    private count;
+    private context;
+    private peer;
+    private type;
+    private isWorker;
+    private targetOrigin;
+    private evtsCbs;
+    private promisePairs;
+    private composie;
+    private isReady;
     constructor(options: IMsgInit);
+    /**
+     * wait for peer ready
+     *  use it especially work with iframe
+     * return a promise
+     */
+    ready(): Promise<{}>;
     /**
      * add global middleware
      * @param cb middleware
@@ -120,6 +124,10 @@ export default class MessageHub {
      * @param evt message event
      */
     protected onMessage(evt: MessageEvent): void;
+    /** respond fetch request */
+    private respond;
+    /** resolve fetch request */
+    protected resolveFetch(msg: IMessage): true | undefined;
     /**
      * validate origin in cross frame communicate is match
      * @param origin origin url
@@ -133,4 +141,3 @@ export default class MessageHub {
      */
     protected postMessage(message: IMessage, needResp?: boolean): Promise<any> | undefined;
 }
-export {};
