@@ -6,7 +6,7 @@
     <img src="https://travis-ci.org/evecalm/messagehub.svg?branch=master" alt="Travis CI">
   </a>
   <a href="#readme">
-    <img src="https://badges.frapsoft.com/typescript/code/typescript.png?v=101" alt="code with typescript" height="20">
+    <img src="https://badges.frapsoft.com/typescript/code/typescript.svg?v=101" alt="code with typescript" height="20">
   </a>
   <a href="#readme">
     <img src="https://badge.fury.io/js/%40evecalm%2Fmessage-hub.svg" alt="npm version" height="20">
