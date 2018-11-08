@@ -18,12 +18,21 @@ export interface IMessageRequest {
 
 /** message response */
 export interface IMessageResponse {
-  id: number
-  type: 'response'
-  resolved: boolean
-  channel: string
-  data: any
-  event: Event
+  /** request id */
+  readonly id: number
+  /** request type */
+  readonly type: 'response'
+  /** is response successful */
+  readonly resolved: boolean
+  /** request channel(custom event name) */
+  readonly channel: string
+  /** responded data */
+  readonly data: any
+  /**
+   * original message event  
+   *  see https://developer.mozilla.org/en-US/docs/Web/API/MessageEvent for details
+   */
+  readonly event: Event
 }
 
 /** message union */
@@ -36,9 +45,15 @@ interface IPromisePairs {
 
 /** request context for middleware */
 export interface IContext extends IComposieContext {
-  id: number
-  type: 'request'
-  event: MessageEvent
+  /** request id, should not modify it */
+  readonly id: number
+  /** request type  */
+  readonly type: 'request'
+  /**
+   * original message event  
+   *  see https://developer.mozilla.org/en-US/docs/Web/API/MessageEvent for details
+   */
+  readonly event: MessageEvent
 }
 
 /** event callback */
@@ -46,9 +61,10 @@ export interface ICallback {
   (response: any): any
 }
 
+// not using extends because typescript can't infer in type when write a real middleware
 /** middleware */
-export interface IMiddleware extends IComposieMiddleware {
-  (ctx: IContext, next: Function): any
+export interface IMiddleware {
+  (ctx: IContext, next?: Function): any
 }
 
 /** constructor init params for worker */
@@ -134,8 +150,8 @@ export default class MessageHub {
   ready () {
     if (!this.context) return Promise.reject(new Error('This MessageHub instance has been destroyed'))
     if (this.isReady) return Promise.resolve(this)
-    return new Promise((resolve, reject) => {
-      this.fetch(READY_CONFIG.channel)!.then(() => {
+    return new Promise<MessageHub>((resolve, reject) => {
+      this.fetch(READY_CONFIG.channel).then(() => {
         this.isReady = true
         resolve(this)
       }, reject)
@@ -147,6 +163,7 @@ export default class MessageHub {
    * @param cb middleware
    */
   use (cb: IMiddleware) {
+    // @ts-ignore
     if (this.composie) this.composie.use(cb)
     return this
   }
@@ -165,6 +182,7 @@ export default class MessageHub {
   route (routers: IRouteParam | string, ...cbs: IMiddleware[]) {
     if (!this.composie) return this
     if (typeof routers === 'string') {
+      // @ts-ignore
       this.composie.route(routers, ...cbs)
     } else {
       this.composie.route(routers)
@@ -351,6 +369,8 @@ export default class MessageHub {
     return this.targetOrigin === '*' || origin === this.targetOrigin
   }
 
+  protected postMessage (message: IMessage, needResp: true): Promise<any>
+  protected postMessage (message: IMessage, needResp?: false): void
   /**
    * 
    * send message to the other side

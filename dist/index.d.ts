@@ -1,4 +1,4 @@
-import { IRouteParam, IContext as IComposieContext, IMiddleware as IComposieMiddleware } from 'composie';
+import { IRouteParam, IContext as IComposieContext } from 'composie';
 /** event callbacks map */
 export interface IEvtCallbacks {
     [k: string]: ICallback[];
@@ -14,28 +14,43 @@ export interface IMessageRequest {
 }
 /** message response */
 export interface IMessageResponse {
-    id: number;
-    type: 'response';
-    resolved: boolean;
-    channel: string;
-    data: any;
-    event: Event;
+    /** request id */
+    readonly id: number;
+    /** request type */
+    readonly type: 'response';
+    /** is response successful */
+    readonly resolved: boolean;
+    /** request channel(custom event name) */
+    readonly channel: string;
+    /** responded data */
+    readonly data: any;
+    /**
+     * original message event
+     *  see https://developer.mozilla.org/en-US/docs/Web/API/MessageEvent for details
+     */
+    readonly event: Event;
 }
 /** message union */
 export declare type IMessage = IMessageRequest | IMessageResponse;
 /** request context for middleware */
 export interface IContext extends IComposieContext {
-    id: number;
-    type: 'request';
-    event: MessageEvent;
+    /** request id, should not modify it */
+    readonly id: number;
+    /** request type  */
+    readonly type: 'request';
+    /**
+     * original message event
+     *  see https://developer.mozilla.org/en-US/docs/Web/API/MessageEvent for details
+     */
+    readonly event: MessageEvent;
 }
 /** event callback */
 export interface ICallback {
     (response: any): any;
 }
 /** middleware */
-export interface IMiddleware extends IComposieMiddleware {
-    (ctx: IContext, next: Function): any;
+export interface IMiddleware {
+    (ctx: IContext, next?: Function): any;
 }
 /** constructor init params for worker */
 export interface IMsgInitWorker {
@@ -70,7 +85,7 @@ export default class MessageHub {
      *  use it especially work with iframe
      * return a promise
      */
-    ready(): Promise<{}>;
+    ready(): Promise<MessageHub>;
     /**
      * add global middleware
      * @param cb middleware
@@ -93,7 +108,7 @@ export default class MessageHub {
      * @param data params to the channel
      * @param transfers object array want to transfer
      */
-    fetch(channel: string, data?: any, transfers?: any[]): Promise<any> | undefined;
+    fetch(channel: string, data?: any, transfers?: any[]): Promise<any>;
     /**
      * listen event from other side
      * @param channel channel name
@@ -133,11 +148,6 @@ export default class MessageHub {
      * @param origin origin url
      */
     protected isValidateOrigin(origin: any): boolean;
-    /**
-     *
-     * send message to the other side
-     * @param message meesage object to send
-     * @param needResp whether need response from other side
-     */
-    protected postMessage(message: IMessage, needResp?: boolean): Promise<any> | undefined;
+    protected postMessage(message: IMessage, needResp: true): Promise<any>;
+    protected postMessage(message: IMessage, needResp?: false): void;
 }

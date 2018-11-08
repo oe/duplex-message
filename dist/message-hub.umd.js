@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v0.0.7
+ * @evecalm/message-hub v0.0.9
  * Copyright© 2018 Saiya https://evecalm.com/
  */
 (function (global, factory) {
@@ -86,6 +86,7 @@
        * @param cb middleware
        */
       use(cb) {
+          // @ts-ignore
           if (this.composie)
               this.composie.use(cb);
           return this;
@@ -94,6 +95,7 @@
           if (!this.composie)
               return this;
           if (typeof routers === 'string') {
+              // @ts-ignore
               this.composie.route(routers, ...cbs);
           }
           else {

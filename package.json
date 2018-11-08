@@ -1,6 +1,6 @@
 {
   "name": "@evecalm/message-hub",
-  "version": "0.0.7",
+  "version": "0.0.9",
   "description": "a middleware based RPC library over `postMessage` can work with both web worker and iframe",
   "main": "dist/message-hub.umd.js",
   "module": "dist/message-hub.es.js",
@@ -14,6 +14,11 @@
     "test": "jest --coverage",
     "test:server": "jest --coverage --watch",
     "lint": "tslint --project ./tsconfig.json --config tslint.json"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn lint"
+    }
   },
   "files": [
     "dist/*"
@@ -36,10 +41,11 @@
   "devDependencies": {
     "@babel/core": "^7.0.0-0",
     "@babel/plugin-transform-runtime": "^7.1.0",
-    "@babel/runtime-corejs2": "^7.1.2",
     "@babel/preset-env": "^7.1.0",
+    "@babel/runtime-corejs2": "^7.1.2",
     "@types/node": "^10.11.2",
     "cross-env": "^5.2.0",
+    "husky": "^1.1.3",
     "parcel-bundler": "^1.10.2",
     "rimraf": "^2.6.2",
     "rollup": "^0.66.2",
@@ -54,6 +60,6 @@
     "typescript": "^3.0.3"
   },
   "dependencies": {
-    "composie": "^0.0.12"
+    "composie": "^0.0.18"
   }
 }
