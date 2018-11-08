@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v0.0.9
+ * @evecalm/message-hub v0.0.10
  * Copyright© 2018 Saiya https://evecalm.com/
  */
 import Composie from 'composie';
@@ -290,11 +290,13 @@ class MessageHub {
         }
         if (message.type === 'request') {
             // change ready message id
+            // @ts-ignore
             message.id = message.channel === READY_CONFIG.channel
                 ? READY_CONFIG.id :
                 needResp ?
                     (++this.count) : 0;
             const transfers = message.transfers;
+            // @ts-ignore
             delete message.transfers;
             if (transfers)
                 requestData.push(transfers);

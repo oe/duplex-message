@@ -7,13 +7,16 @@ export interface IEvtCallbacks {
 
 /** message request */
 export interface IMessageRequest {
-  // message id
-  id: number
-  type: 'request'
-  channel: string
-  data: any
-  event: Event
-  transfers?: any[]
+  /** request id */
+  readonly id: number
+  /** request type */
+  readonly type: 'request'
+  /** message channel (aka custom event name) */
+  readonly channel: string
+  /** message data which will be sent to the other side */
+  readonly data: any
+  /** object to transfer */
+  readonly transfers?: any[]
 }
 
 /** message response */
@@ -54,6 +57,8 @@ export interface IContext extends IComposieContext {
    *  see https://developer.mozilla.org/en-US/docs/Web/API/MessageEvent for details
    */
   readonly event: MessageEvent
+  /** response to the other side, this store the result you want to respond */
+  response: any
 }
 
 /** event callback */
@@ -384,11 +389,13 @@ export default class MessageHub {
     }
     if (message.type === 'request') {
       // change ready message id
+      // @ts-ignore
       message.id = message.channel === READY_CONFIG.channel
         ? READY_CONFIG.id :
         needResp ?
           (++this.count) : 0
       const transfers = message.transfers
+      // @ts-ignore
       delete message.transfers
       if (transfers) requestData.push(transfers)
     }

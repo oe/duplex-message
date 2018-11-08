@@ -5,12 +5,16 @@ export interface IEvtCallbacks {
 }
 /** message request */
 export interface IMessageRequest {
-    id: number;
-    type: 'request';
-    channel: string;
-    data: any;
-    event: Event;
-    transfers?: any[];
+    /** request id */
+    readonly id: number;
+    /** request type */
+    readonly type: 'request';
+    /** message channel (aka custom event name) */
+    readonly channel: string;
+    /** message data which will be sent to the other side */
+    readonly data: any;
+    /** object to transfer */
+    readonly transfers?: any[];
 }
 /** message response */
 export interface IMessageResponse {
@@ -43,6 +47,8 @@ export interface IContext extends IComposieContext {
      *  see https://developer.mozilla.org/en-US/docs/Web/API/MessageEvent for details
      */
     readonly event: MessageEvent;
+    /** response to the other side, this store the result you want to respond */
+    response: any;
 }
 /** event callback */
 export interface ICallback {
