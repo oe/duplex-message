@@ -1,6 +1,6 @@
 /*!
- * @evecalm/message-hub v0.0.10
- * Copyright© 2018 Saiya https://evecalm.com/
+ * @evecalm/message-hub v0.0.11
+ * Copyright© 2019 Saiya https://evecalm.com/
  */
 import Composie from 'composie';
 
@@ -230,7 +230,7 @@ class MessageHub {
                 return;
             const cbs = this.evtsCbs[request.channel];
             if (!cbs || !cbs.length) {
-                console.warn(`no corresponed callback for ${request.channel}`);
+                console.warn('no corresponed callback for', request.channel);
                 return;
             }
             for (let index = 0; index < cbs.length; index++) {

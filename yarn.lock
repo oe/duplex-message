@@ -1618,10 +1618,10 @@ component-emitter@^1.2.1:
   resolved "https://registry.yarnpkg.com/component-emitter/-/component-emitter-1.2.1.tgz#137918d6d78283f7df7a6b7c5a63e140e69425e6"
   integrity sha1-E3kY1teCg/ffemt8WmPhQOaUJeY=
 
-composie@^0.0.18:
-  version "0.0.18"
-  resolved "https://registry.yarnpkg.com/composie/-/composie-0.0.18.tgz#81ee8e42bc838de9a52fff1827c1be39320f6829"
-  integrity sha512-AtaCv9YHX14Pme0wRxpqY3plxTSY3ESnvyXTGqBbpkWCdlK3PrioLDesaO6Hd23mb23xwfTCkylRCn6Ies5tcQ==
+composie@^0.0.19:
+  version "0.0.19"
+  resolved "http://npm.landray.com.cn/composie/-/composie-0.0.19.tgz#63f77641a7f487a98e7af9964a06f64e1108f82d"
+  integrity sha1-Y/d2Qaf0h6mOevmWSgb2ThEI+C0=
 
 concat-map@0.0.1:
   version "0.0.1"

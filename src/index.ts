@@ -326,7 +326,7 @@ export default class MessageHub {
       if (this.resolveFetch(request)) return
       const cbs = this.evtsCbs[request.channel]
       if (!cbs || !cbs.length) {
-        console.warn(`no corresponed callback for ${request.channel}`)
+        console.warn('no corresponed callback for', request.channel)
         return
       }
       for (let index = 0; index < cbs.length; index++) {
