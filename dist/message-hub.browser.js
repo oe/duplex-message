@@ -1,6 +1,6 @@
 /*!
- * @evecalm/message-hub v0.0.11
- * Copyright© 2019 Saiya https://evecalm.com/
+ * @evecalm/message-hub v0.0.12
+ * Copyright© 2019 Saiya https://github.com/oe/messagehub
  */
 !function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):e.MessageHub=t()}(this,function(){"use strict";
 /*!
