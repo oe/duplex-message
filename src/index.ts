@@ -1,4 +1,4 @@
-import Composie, { IRouteParam, IContext as IComposieContext, IMiddleware as IComposieMiddleware } from 'composie'
+import Composie, { IRouteParam, IContext as IComposieContext } from 'composie'
 
 /** event callbacks map */
 export interface IEvtCallbacks {
@@ -130,12 +130,18 @@ export default class MessageHub {
         this.peer = self
       } else {
         if (!options.peer) {
-          throw new Error('a worker instance is required')
+          throw new Error('[@evecalm/message-hub]a worker instance is required')
         }
         this.peer = options.peer
         this.context = options.peer
       }
     } else if (options.type === 'frame') {
+      if (!options.peer) {
+        throw new Error('[@evecalm/message-hub]a peer window instance is required')
+      }
+      if (options.peer === self) {
+        throw new Error('[@evecalm/message-hub] peer is the same of current context(window), use node module `composie` instead for messaging in the same context')
+      }
       this.peer = options.peer
       if (options.targetOrigin) this.targetOrigin = options.targetOrigin
     } else {

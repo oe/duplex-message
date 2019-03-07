@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v0.0.12
+ * @evecalm/message-hub v0.0.13
  * Copyright© 2019 Saiya https://github.com/oe/messagehub
  */
 import Composie from 'composie';
@@ -38,13 +38,19 @@ class MessageHub {
             }
             else {
                 if (!options.peer) {
-                    throw new Error('a worker instance is required');
+                    throw new Error('[@evecalm/message-hub]a worker instance is required');
                 }
                 this.peer = options.peer;
                 this.context = options.peer;
             }
         }
         else if (options.type === 'frame') {
+            if (!options.peer) {
+                throw new Error('[@evecalm/message-hub]a peer window instance is required');
+            }
+            if (options.peer === self) {
+                throw new Error('[@evecalm/message-hub] peer is the same of current context(window), use node module `composie` instead for messaging in the same context');
+            }
             this.peer = options.peer;
             if (options.targetOrigin)
                 this.targetOrigin = options.targetOrigin;
