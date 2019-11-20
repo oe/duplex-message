@@ -1,6 +1,6 @@
 {
   "name": "@evecalm/message-hub",
-  "version": "0.0.13",
+  "version": "0.1.1",
   "description": "a middleware based RPC library over `postMessage` can work with both web worker and iframe",
   "main": "dist/message-hub.umd.js",
   "module": "dist/message-hub.es.js",
@@ -49,7 +49,6 @@
     "parcel-bundler": "^1.10.2",
     "rimraf": "^2.6.2",
     "rollup": "^0.66.2",
-    "rollup-plugin-babel": "^4.0.3",
     "rollup-plugin-node-resolve": "^3.4.0",
     "rollup-plugin-size-snapshot": "^0.7.0",
     "rollup-plugin-terser": "^3.0.0",
@@ -60,6 +59,6 @@
     "typescript": "^3.0.3"
   },
   "dependencies": {
-    "composie": "^0.0.19"
+    "composie": "^0.1.0"
   }
 }

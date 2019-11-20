@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v0.0.13
+ * @evecalm/message-hub v0.1.1
  * Copyright© 2019 Saiya https://github.com/oe/messagehub
  */
 import Composie from 'composie';

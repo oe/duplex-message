@@ -20,5 +20,5 @@
       "src/*": ["src/"]
     }
   },
-  "include": ["./src/**/*.ts"]
+  "include": ["./src/**/*.ts", "./rollup.config.ts"]
 }
