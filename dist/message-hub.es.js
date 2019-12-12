@@ -1,18 +1,18 @@
 /*!
- * @evecalm/message-hub v0.1.1
+ * @evecalm/message-hub v0.1.3
  * Copyright© 2019 Saiya https://github.com/oe/messagehub
  */
 import Composie from 'composie';
 
-const READY_CONFIG = {
+var READY_CONFIG = {
     channel: 'THIS_IS_MESSAGE_SECRET_CHANNEL',
     id: -1
 };
 /**
  * MessageHub Class
  */
-class MessageHub {
-    constructor(options) {
+var MessageHub = /** @class */ (function () {
+    function MessageHub(options) {
         // request count, to store  promise pair
         this.count = 0;
         // if type is worker, whether is in worker
@@ -57,7 +57,7 @@ class MessageHub {
         }
         else {
             // @ts-ignore
-            throw new Error(`unsupported type ${options.type}`);
+            throw new Error("unsupported type " + options.type);
         }
         this.onMessage = this.onMessage.bind(this);
         this.context.addEventListener('message', this.onMessage);
@@ -69,103 +69,109 @@ class MessageHub {
      *  use it especially work with iframe
      * return a promise
      */
-    ready() {
+    MessageHub.prototype.ready = function () {
+        var _this = this;
         if (!this.context)
             return Promise.reject(new Error('This MessageHub instance has been destroyed'));
         if (this.isReady)
             return Promise.resolve(this);
-        return new Promise((resolve, reject) => {
-            this.fetch(READY_CONFIG.channel).then(() => {
-                this.isReady = true;
-                resolve(this);
+        return new Promise(function (resolve, reject) {
+            _this.fetch(READY_CONFIG.channel).then(function () {
+                _this.isReady = true;
+                resolve(_this);
             }, reject);
         });
-    }
+    };
     /**
      * add global middleware
      * @param cb middleware
      */
-    use(cb) {
+    MessageHub.prototype.use = function (cb) {
         // @ts-ignore
         if (this.composie)
             this.composie.use(cb);
         return this;
-    }
-    route(routers, ...cbs) {
+    };
+    MessageHub.prototype.route = function (routers) {
+        var cbs = [];
+        for (var _i = 1; _i < arguments.length; _i++) {
+            cbs[_i - 1] = arguments[_i];
+        }
+        var _a;
         if (!this.composie)
             return this;
         if (typeof routers === 'string') {
             // @ts-ignore
-            this.composie.route(routers, ...cbs);
+            (_a = this.composie).route.apply(_a, [routers].concat(cbs));
         }
         else {
             this.composie.route(routers);
         }
         return this;
-    }
+    };
     /**
      * request other side for a response
      * @param channel channel name
      * @param data params to the channel
      * @param transfers object array want to transfer
      */
-    fetch(channel, data, transfers) {
-        const msg = {
+    MessageHub.prototype.fetch = function (channel, data, transfers) {
+        var msg = {
             type: 'request',
-            channel,
-            data,
-            transfers
+            channel: channel,
+            data: data,
+            transfers: transfers
         };
         return this.postMessage(msg, true);
-    }
+    };
     /**
      * listen event from other side
      * @param channel channel name
      * @param cb callback function
      */
-    on(channel, cb) {
+    MessageHub.prototype.on = function (channel, cb) {
         if (!this.evtsCbs[channel]) {
             this.evtsCbs[channel] = [];
         }
         this.evtsCbs[channel].push(cb);
-    }
+    };
     /**
      * remove event listener
      * @param channel channel name
      * @param cb callback function
      */
-    off(channel, cb) {
+    MessageHub.prototype.off = function (channel, cb) {
         if (!this.evtsCbs[channel] || !this.evtsCbs[channel].length)
             return;
         if (!cb) {
             this.evtsCbs[channel] = [];
             return;
         }
-        const cbs = this.evtsCbs[channel];
-        let len = cbs.length;
+        var cbs = this.evtsCbs[channel];
+        var len = cbs.length;
         while (len--) {
             if (cbs[len] === cb) {
                 cbs.splice(len, 1);
                 break;
             }
         }
-    }
+    };
     /**
      * emit event that will be listened from on
      * @param channel channel name
      * @param data params
      * @param transfers object array want to transfer
      */
-    emit(channel, data, transfers) {
-        const msg = {
+    MessageHub.prototype.emit = function (channel, data, transfers) {
+        var msg = {
             type: 'request',
-            channel,
-            data,
-            transfers
+            channel: channel,
+            data: data,
+            transfers: transfers
         };
         this.postMessage(msg, false);
-    }
-    destroy() {
+    };
+    MessageHub.prototype.destroy = function () {
         if (!this.context)
             return;
         this.context.removeEventListener('message', this.onMessage);
@@ -181,14 +187,14 @@ class MessageHub {
         }
         this.context = null;
         this.peer = null;
-    }
+    };
     /**
      * create context used by middleware
      * @param evt message event
      */
-    createContext(evt) {
-        const request = evt.data;
-        const context = {
+    MessageHub.prototype.createContext = function (evt) {
+        var request = evt.data;
+        var context = {
             id: request.id,
             type: 'request',
             channel: request.channel,
@@ -196,18 +202,19 @@ class MessageHub {
             event: evt
         };
         return context;
-    }
+    };
     /**
      * listen original message event
      * @param evt message event
      */
-    onMessage(evt) {
+    MessageHub.prototype.onMessage = function (evt) {
+        var _this = this;
         // ignore untargeted cross iframe origin message
         if (this.type === 'frame' &&
             // message from self or origin not match
             ((evt.source && evt.source !== this.peer) || !this.isValidateOrigin(evt.origin)))
             return;
-        const request = evt.data;
+        var request = evt.data;
         // ignore any other noises(not from MessageHub)
         if (!request || !this.composie || !request.channel)
             return;
@@ -216,17 +223,17 @@ class MessageHub {
                 this.resolveFetch(request);
             }
             else {
-                const ctx = this.createContext(evt);
+                var ctx_1 = this.createContext(evt);
                 // try to handle ready request
                 if (this.resolveFetch(request)) {
-                    this.respond(ctx, true);
+                    this.respond(ctx_1, true);
                     return;
                 }
-                this.composie.run(ctx).then(() => {
-                    this.respond(ctx, true);
-                }, (error) => {
+                this.composie.run(ctx_1).then(function () {
+                    _this.respond(ctx_1, true);
+                }, function (error) {
                     console.warn('run middleware failed', error);
-                    this.respond(ctx, false);
+                    _this.respond(ctx_1, false);
                 });
             }
         }
@@ -234,21 +241,21 @@ class MessageHub {
             // try handle ready 
             if (this.resolveFetch(request))
                 return;
-            const cbs = this.evtsCbs[request.channel];
+            var cbs = this.evtsCbs[request.channel];
             if (!cbs || !cbs.length) {
                 console.warn('no corresponed callback for', request.channel);
                 return;
             }
-            for (let index = 0; index < cbs.length; index++) {
-                const cb = cbs[index];
+            for (var index = 0; index < cbs.length; index++) {
+                var cb = cbs[index];
                 if (cb(request.data) === false)
                     break;
             }
         }
-    }
+    };
     /** respond fetch request */
-    respond(ctx, resolved) {
-        const message = {
+    MessageHub.prototype.respond = function (ctx, resolved) {
+        var message = {
             resolved: resolved,
             id: ctx.id,
             channel: ctx.channel,
@@ -256,14 +263,14 @@ class MessageHub {
             data: ctx.response
         };
         this.postMessage(message);
-    }
+    };
     /** resolve fetch request */
-    resolveFetch(msg) {
+    MessageHub.prototype.resolveFetch = function (msg) {
         if (!msg.id ||
             msg.type === 'request' && msg.id !== READY_CONFIG.id)
             return;
-        const msgId = msg.id;
-        const promisePair = this.promisePairs[msgId];
+        var msgId = msg.id;
+        var promisePair = this.promisePairs[msgId];
         if (!promisePair) {
             if (msg.id === READY_CONFIG.id)
                 return true;
@@ -271,26 +278,28 @@ class MessageHub {
             return;
         }
         // @ts-ignore
-        const fn = promisePair[msg.resolved !== false ? 0 : 1];
+        var fn = promisePair[msg.resolved !== false ? 0 : 1];
         fn(msg.data);
         delete this.promisePairs[msgId];
         return true;
-    }
+    };
     /**
      * validate origin in cross frame communicate is match
      * @param origin origin url
      */
-    isValidateOrigin(origin) {
+    MessageHub.prototype.isValidateOrigin = function (origin) {
         return this.targetOrigin === '*' || origin === this.targetOrigin;
-    }
+    };
     /**
      *
      * send message to the other side
      * @param message meesage object to send
      * @param needResp whether need response from other side
      */
-    postMessage(message, needResp) {
-        const requestData = [message];
+    MessageHub.prototype.postMessage = function (message, needResp) {
+        var _this = this;
+        var _a;
+        var requestData = [message];
         if (this.type === 'frame') {
             requestData.push(this.targetOrigin);
         }
@@ -301,19 +310,20 @@ class MessageHub {
                 ? READY_CONFIG.id :
                 needResp ?
                     (++this.count) : 0;
-            const transfers = message.transfers;
+            var transfers = message.transfers;
             // @ts-ignore
             delete message.transfers;
             if (transfers)
                 requestData.push(transfers);
         }
-        this.peer.postMessage(...requestData);
+        (_a = this.peer).postMessage.apply(_a, requestData);
         if (message.type === 'response' || !message.id)
             return;
-        return new Promise((resolve, reject) => {
-            this.promisePairs[message.id] = [resolve, reject];
+        return new Promise(function (resolve, reject) {
+            _this.promisePairs[message.id] = [resolve, reject];
         });
-    }
-}
+    };
+    return MessageHub;
+}());
 
 export default MessageHub;

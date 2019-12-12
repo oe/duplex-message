@@ -21,7 +21,7 @@ export default [
     plugins: [
       typescript({
         tsconfigOverride: {
-          compilerOptions: { module: 'esnext' }
+          compilerOptions: { module: 'esnext', target: 'es5' }
         },
         typescript: require('typescript')
       }),
