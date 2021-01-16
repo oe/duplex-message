@@ -1,337 +1,173 @@
 /*!
- * @evecalm/message-hub v0.1.3
- * Copyright© 2019 Saiya https://github.com/oe/messagehub
+ * @evecalm/message-hub v0.1.5
+ * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('composie')) :
-  typeof define === 'function' && define.amd ? define(['composie'], factory) :
-  (global.MessageHub = factory(global.Composie));
-}(this, (function (Composie) { 'use strict';
+    typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+    typeof define === 'function' && define.amd ? define(factory) :
+    (global.MessageHub = factory());
+}(this, (function () { 'use strict';
 
-  Composie = Composie && Composie.hasOwnProperty('default') ? Composie['default'] : Composie;
+    /*! *****************************************************************************
+    Copyright (c) Microsoft Corporation. All rights reserved.
+    Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+    this file except in compliance with the License. You may obtain a copy of the
+    License at http://www.apache.org/licenses/LICENSE-2.0
 
-  var READY_CONFIG = {
-      channel: 'THIS_IS_MESSAGE_SECRET_CHANNEL',
-      id: -1
-  };
-  /**
-   * MessageHub Class
-   */
-  var MessageHub = /** @class */ (function () {
-      function MessageHub(options) {
-          // request count, to store  promise pair
-          this.count = 0;
-          // if type is worker, whether is in worker
-          this.isWorker = false;
-          // if type is frame, target origin, default any origin
-          this.targetOrigin = '*';
-          // event callbacks map
-          this.evtsCbs = {};
-          // promise pair map
-          this.promisePairs = {};
-          // is peer ready
-          this.isReady = false;
-          this.composie = new Composie();
-          this.context = self;
-          this.type = options.type;
-          if (options.type === 'worker') {
-              this.isReady = true;
-              //  detect is this code run in webworker context
-              // tslint:disable-next-line
-              this.isWorker = typeof document === 'undefined';
-              if (this.isWorker) {
-                  this.peer = self;
-              }
-              else {
-                  if (!options.peer) {
-                      throw new Error('[@evecalm/message-hub]a worker instance is required');
-                  }
-                  this.peer = options.peer;
-                  this.context = options.peer;
-              }
-          }
-          else if (options.type === 'frame') {
-              if (!options.peer) {
-                  throw new Error('[@evecalm/message-hub]a peer window instance is required');
-              }
-              if (options.peer === self) {
-                  throw new Error('[@evecalm/message-hub] peer is the same of current context(window), use node module `composie` instead for messaging in the same context');
-              }
-              this.peer = options.peer;
-              if (options.targetOrigin)
-                  this.targetOrigin = options.targetOrigin;
-          }
-          else {
-              // @ts-ignore
-              throw new Error("unsupported type " + options.type);
-          }
-          this.onMessage = this.onMessage.bind(this);
-          this.context.addEventListener('message', this.onMessage);
-          if (!this.isReady)
-              this.emit(READY_CONFIG.channel);
-      }
-      /**
-       * wait for peer ready
-       *  use it especially work with iframe
-       * return a promise
-       */
-      MessageHub.prototype.ready = function () {
-          var _this = this;
-          if (!this.context)
-              return Promise.reject(new Error('This MessageHub instance has been destroyed'));
-          if (this.isReady)
-              return Promise.resolve(this);
-          return new Promise(function (resolve, reject) {
-              _this.fetch(READY_CONFIG.channel).then(function () {
-                  _this.isReady = true;
-                  resolve(_this);
-              }, reject);
-          });
-      };
-      /**
-       * add global middleware
-       * @param cb middleware
-       */
-      MessageHub.prototype.use = function (cb) {
-          // @ts-ignore
-          if (this.composie)
-              this.composie.use(cb);
-          return this;
-      };
-      MessageHub.prototype.route = function (routers) {
-          var cbs = [];
-          for (var _i = 1; _i < arguments.length; _i++) {
-              cbs[_i - 1] = arguments[_i];
-          }
-          var _a;
-          if (!this.composie)
-              return this;
-          if (typeof routers === 'string') {
-              // @ts-ignore
-              (_a = this.composie).route.apply(_a, [routers].concat(cbs));
-          }
-          else {
-              this.composie.route(routers);
-          }
-          return this;
-      };
-      /**
-       * request other side for a response
-       * @param channel channel name
-       * @param data params to the channel
-       * @param transfers object array want to transfer
-       */
-      MessageHub.prototype.fetch = function (channel, data, transfers) {
-          var msg = {
-              type: 'request',
-              channel: channel,
-              data: data,
-              transfers: transfers
-          };
-          return this.postMessage(msg, true);
-      };
-      /**
-       * listen event from other side
-       * @param channel channel name
-       * @param cb callback function
-       */
-      MessageHub.prototype.on = function (channel, cb) {
-          if (!this.evtsCbs[channel]) {
-              this.evtsCbs[channel] = [];
-          }
-          this.evtsCbs[channel].push(cb);
-      };
-      /**
-       * remove event listener
-       * @param channel channel name
-       * @param cb callback function
-       */
-      MessageHub.prototype.off = function (channel, cb) {
-          if (!this.evtsCbs[channel] || !this.evtsCbs[channel].length)
-              return;
-          if (!cb) {
-              this.evtsCbs[channel] = [];
-              return;
-          }
-          var cbs = this.evtsCbs[channel];
-          var len = cbs.length;
-          while (len--) {
-              if (cbs[len] === cb) {
-                  cbs.splice(len, 1);
-                  break;
-              }
-          }
-      };
-      /**
-       * emit event that will be listened from on
-       * @param channel channel name
-       * @param data params
-       * @param transfers object array want to transfer
-       */
-      MessageHub.prototype.emit = function (channel, data, transfers) {
-          var msg = {
-              type: 'request',
-              channel: channel,
-              data: data,
-              transfers: transfers
-          };
-          this.postMessage(msg, false);
-      };
-      MessageHub.prototype.destroy = function () {
-          if (!this.context)
-              return;
-          this.context.removeEventListener('message', this.onMessage);
-          this.evtsCbs = {};
-          this.composie = null;
-          if (this.type === 'worker') {
-              if (this.isWorker) {
-                  this.context.close();
-              }
-              else {
-                  this.context.terminate();
-              }
-          }
-          this.context = null;
-          this.peer = null;
-      };
-      /**
-       * create context used by middleware
-       * @param evt message event
-       */
-      MessageHub.prototype.createContext = function (evt) {
-          var request = evt.data;
-          var context = {
-              id: request.id,
-              type: 'request',
-              channel: request.channel,
-              request: request.data,
-              event: evt
-          };
-          return context;
-      };
-      /**
-       * listen original message event
-       * @param evt message event
-       */
-      MessageHub.prototype.onMessage = function (evt) {
-          var _this = this;
-          // ignore untargeted cross iframe origin message
-          if (this.type === 'frame' &&
-              // message from self or origin not match
-              ((evt.source && evt.source !== this.peer) || !this.isValidateOrigin(evt.origin)))
-              return;
-          var request = evt.data;
-          // ignore any other noises(not from MessageHub)
-          if (!request || !this.composie || !request.channel)
-              return;
-          if (request.id) {
-              if (request.type === 'response') {
-                  this.resolveFetch(request);
-              }
-              else {
-                  var ctx_1 = this.createContext(evt);
-                  // try to handle ready request
-                  if (this.resolveFetch(request)) {
-                      this.respond(ctx_1, true);
-                      return;
-                  }
-                  this.composie.run(ctx_1).then(function () {
-                      _this.respond(ctx_1, true);
-                  }, function (error) {
-                      console.warn('run middleware failed', error);
-                      _this.respond(ctx_1, false);
-                  });
-              }
-          }
-          else {
-              // try handle ready 
-              if (this.resolveFetch(request))
-                  return;
-              var cbs = this.evtsCbs[request.channel];
-              if (!cbs || !cbs.length) {
-                  console.warn('no corresponed callback for', request.channel);
-                  return;
-              }
-              for (var index = 0; index < cbs.length; index++) {
-                  var cb = cbs[index];
-                  if (cb(request.data) === false)
-                      break;
-              }
-          }
-      };
-      /** respond fetch request */
-      MessageHub.prototype.respond = function (ctx, resolved) {
-          var message = {
-              resolved: resolved,
-              id: ctx.id,
-              channel: ctx.channel,
-              type: 'response',
-              data: ctx.response
-          };
-          this.postMessage(message);
-      };
-      /** resolve fetch request */
-      MessageHub.prototype.resolveFetch = function (msg) {
-          if (!msg.id ||
-              msg.type === 'request' && msg.id !== READY_CONFIG.id)
-              return;
-          var msgId = msg.id;
-          var promisePair = this.promisePairs[msgId];
-          if (!promisePair) {
-              if (msg.id === READY_CONFIG.id)
-                  return true;
-              console.warn('unowned message with id', msgId, msg);
-              return;
-          }
-          // @ts-ignore
-          var fn = promisePair[msg.resolved !== false ? 0 : 1];
-          fn(msg.data);
-          delete this.promisePairs[msgId];
-          return true;
-      };
-      /**
-       * validate origin in cross frame communicate is match
-       * @param origin origin url
-       */
-      MessageHub.prototype.isValidateOrigin = function (origin) {
-          return this.targetOrigin === '*' || origin === this.targetOrigin;
-      };
-      /**
-       *
-       * send message to the other side
-       * @param message meesage object to send
-       * @param needResp whether need response from other side
-       */
-      MessageHub.prototype.postMessage = function (message, needResp) {
-          var _this = this;
-          var _a;
-          var requestData = [message];
-          if (this.type === 'frame') {
-              requestData.push(this.targetOrigin);
-          }
-          if (message.type === 'request') {
-              // change ready message id
-              // @ts-ignore
-              message.id = message.channel === READY_CONFIG.channel
-                  ? READY_CONFIG.id :
-                  needResp ?
-                      (++this.count) : 0;
-              var transfers = message.transfers;
-              // @ts-ignore
-              delete message.transfers;
-              if (transfers)
-                  requestData.push(transfers);
-          }
-          (_a = this.peer).postMessage.apply(_a, requestData);
-          if (message.type === 'response' || !message.id)
-              return;
-          return new Promise(function (resolve, reject) {
-              _this.promisePairs[message.id] = [resolve, reject];
-          });
-      };
-      return MessageHub;
-  }());
+    THIS CODE IS PROVIDED ON AN *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+    WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+    MERCHANTABLITY OR NON-INFRINGEMENT.
 
-  return MessageHub;
+    See the Apache Version 2.0 License for specific language governing permissions
+    and limitations under the License.
+    ***************************************************************************** */
+
+    function __awaiter(thisArg, _arguments, P, generator) {
+        return new (P || (P = Promise))(function (resolve, reject) {
+            function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+            function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+            function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+            step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+    }
+
+    function __generator(thisArg, body) {
+        var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+        return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+        function verb(n) { return function (v) { return step([n, v]); }; }
+        function step(op) {
+            if (f) throw new TypeError("Generator is already executing.");
+            while (_) try {
+                if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+                if (y = 0, t) op = [op[0] & 2, t.value];
+                switch (op[0]) {
+                    case 0: case 1: t = op; break;
+                    case 4: _.label++; return { value: op[1], done: false };
+                    case 5: _.label++; y = op[1]; op = [0]; continue;
+                    case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                    default:
+                        if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                        if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                        if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                        if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                        if (t[2]) _.ops.pop();
+                        _.trys.pop(); continue;
+                }
+                op = body.call(thisArg, _);
+            } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+            if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+        }
+    }
+
+    var _this = undefined;
+    var WINDOW_ID = Math.random().toString(36).slice(2);
+    // save current window it's self
+    var WIN = self;
+    var msgID = 0;
+    var WinHandlerMap = [
+        ['*', {}]
+    ];
+    WIN.addEventListener('message', function (evt) { return __awaiter(_this, void 0, void 0, function () {
+        var reqMsg, sourceWin, matchedMap, methodName, args, method, data, error_1;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    console.log(evt);
+                    reqMsg = evt.data;
+                    sourceWin = evt.source || WIN;
+                    if (!isRequest(reqMsg) || !sourceWin)
+                        return [2 /*return*/];
+                    _a.label = 1;
+                case 1:
+                    _a.trys.push([1, 3, , 4]);
+                    matchedMap = WinHandlerMap.find(function (wm) { return wm[0] === sourceWin; });
+                    methodName = reqMsg.methodName, args = reqMsg.args;
+                    method = matchedMap && matchedMap[1][methodName] || WinHandlerMap[0][1][methodName];
+                    // tslint:disable-next-line
+                    if (typeof method !== 'function') {
+                        console.warn("[MessageHub] no corresponding handler found for " + methodName + ", message from", sourceWin);
+                        throw new Error("[MessageHub] no corresponding handler found for " + methodName);
+                    }
+                    return [4 /*yield*/, method.apply(null, args)
+                        // @ts-ignore
+                    ];
+                case 2:
+                    data = _a.sent();
+                    // @ts-ignore
+                    sourceWin.postMessage(buildRespMsg(data, reqMsg, true));
+                    return [3 /*break*/, 4];
+                case 3:
+                    error_1 = _a.sent();
+                    // @ts-ignore
+                    sourceWin.postMessage(buildRespMsg(error_1, reqMsg, false));
+                    return [3 /*break*/, 4];
+                case 4: return [2 /*return*/];
+            }
+        });
+    }); });
+    var messageHub = {
+        WINDOW_ID: WINDOW_ID,
+        on: function (peer, handlerMap) {
+            var pair = WinHandlerMap.find(function (pair) { return pair[0] === peer; });
+            if (pair) {
+                pair[1] = Object.assign({}, pair[1], handlerMap);
+                return;
+            }
+            WinHandlerMap.push([peer, handlerMap]);
+        },
+        emit: function (peer, methodName) {
+            var args = [];
+            for (var _i = 2; _i < arguments.length; _i++) {
+                args[_i - 2] = arguments[_i];
+            }
+            var msg = buildReqMsg(methodName, args);
+            // @ts-ignore
+            peer.postMessage(msg);
+            return new Promise(function (resolve, reject) {
+                var onCallback = function (evt) {
+                    var response = evt.data;
+                    // console.log('response', evt, response, WIN)
+                    if (!isResponse(msg, response))
+                        return;
+                    WIN.removeEventListener('message', onCallback);
+                    response.isSuccess ? resolve(response.data) : reject(response.data);
+                };
+                WIN.addEventListener('message', onCallback);
+            });
+        }
+    };
+    function buildReqMsg(methodName, args) {
+        return {
+            winID: WINDOW_ID,
+            msgID: ++msgID,
+            type: 'request',
+            methodName: methodName,
+            args: args
+        };
+    }
+    function buildRespMsg(data, reqMsg, isSuccess) {
+        return {
+            winID: reqMsg.winID,
+            msgID: reqMsg.msgID,
+            type: 'response',
+            isSuccess: isSuccess,
+            data: data
+        };
+    }
+    function isRequest(reqMsg) {
+        return reqMsg && reqMsg.winID &&
+            reqMsg.winID !== WINDOW_ID &&
+            reqMsg.msgID &&
+            reqMsg.type === 'request';
+    }
+    function isResponse(reqMsg, respMsg) {
+        return reqMsg && reqMsg &&
+            respMsg.winID === reqMsg.winID &&
+            respMsg.msgID === reqMsg.msgID &&
+            respMsg.type === 'response';
+    }
+
+    return messageHub;
 
 })));

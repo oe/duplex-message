@@ -1,12 +1,10 @@
-import WorkerServer from '../../src'
+import messageHub from '../../src'
 
 const frameWin = (document.getElementById('frame') as HTMLFrameElement).contentWindow
-const worker = new WorkerServer({ type: 'frame', peer: frameWin, targetOrigin: '*' })
-worker.use((ctx, next) => {
-  console.log('request from iframe', ctx.request)
-  next()
-})
 
-worker.route('page-title', (ctx, next) => {
-  ctx.response = document.title
+messageHub.on(frameWin, {
+  'page-title': (arg) => {
+    throw new Error('can not get title')
+    return document.title + ' --- ' + arg
+  }
 })
