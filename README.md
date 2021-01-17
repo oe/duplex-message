@@ -1,6 +1,6 @@
 <h1 align="center">MessageHub</h1>
 
-<h5 align="center">A tinny(~2kb) utility than can simplify cross window(iframes, even workers) communication over `postMessage`</h5>
+<h5 align="center">A tinny(~2kb) utility than can simplify cross window(iframes, even workers) communications over `postMessage`</h5>
 <div align="center">
   <a href="https://travis-ci.com/oe/messagehub">
     <img src="https://travis-ci.com/oe/messagehub.svg?branch=master" alt="Travis CI">
@@ -76,11 +76,11 @@ MessageHub.emit(iframeWin1, "fib", 10).then(resp => {
   console.log("fibonacci of 10 is", resp)
 })
 
-// send a message not handler by peer will catch a error
+// send a message not handled by peer will throw a error
 MessageHub.emit(iframeWin1, "some-not-existing-method").then(resp => {
   console.log('response', resp) // this won't run
 }).catch(err => {
-  console.warn('error', err) // bang
+  console.warn('error', err) // bang!
 })
 ```
 
