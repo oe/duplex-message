@@ -1,17 +1,18 @@
 import MessageHub from '../../src'
 
+const messageHub = MessageHub.createDedicatedMessageHub(parent)
 const $ = (id: string) => {
   return document.getElementById(id.replace(/^\#/, ''))
 }
 
 $('#test-1').addEventListener('click', () => {
-  MessageHub.emit(parent, 'page-title', $('input-1').value).then((res) => {
+  messageHub.emit('page-title', $('input-1').value).then((res) => {
     $('#result-1').innerText = res
   })
 })
 
 $('#test-2').addEventListener('click', () => {
-  MessageHub.emit(parent, 'testError', {xxx: Date.now()}).then((res) => {
+  messageHub.emit('testError', {xxx: Date.now()}).then((res) => {
     $('#result-2').innerText = 'success: ' + res
   })
   .catch((err) => {
@@ -20,7 +21,7 @@ $('#test-2').addEventListener('click', () => {
 })
 
 
-MessageHub.on(parent, {
+messageHub.on({
   getHead () {
     return document.head.outerHTML
   },

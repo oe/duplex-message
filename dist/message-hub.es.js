@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v1.0.6
+ * @evecalm/message-hub v1.0.7
  * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 const WINDOW_ID = Math.random().toString(36).slice(2);
@@ -66,6 +66,58 @@ const MessageHub = {
             // @ts-ignore
             win.addEventListener('message', onCallback);
         });
+    },
+    /**
+     * create a dedicated MessageHub that focus on communicate with the specified peer
+     * @param peer peer window to communicate with, or you can set it later via `setPeer`
+     */
+    createDedicatedMessageHub(peer) {
+        let ownPeer = peer;
+        const checkPeer = () => {
+            if (!ownPeer)
+                throw new Error('peer is not set in dedicated message-hub');
+        };
+        /**
+         * set peer that this dedicated message-hub want communicate with
+         * @param peer if using in Worker thread, set peer to `self`
+         */
+        const setPeer = (peer) => { ownPeer = peer; };
+        /**
+         * listen method invoking from peer
+         * @param methodName method name or handler map
+         * @param handler omit if methodName is handler map
+         */
+        const on = (methodName, handler) => {
+            checkPeer();
+            const handlerMap = typeof methodName === 'string' ? { [methodName]: handler } : methodName;
+            // @ts-ignore
+            MessageHub.on(ownPeer, handlerMap);
+        };
+        /**
+         * call method and pass reset arguments to the peer
+         * @param methodName
+         * @param args
+         */
+        const emit = (methodName, ...args) => {
+            checkPeer();
+            // @ts-ignore
+            return MessageHub.emit(ownPeer, methodName, ...args);
+        };
+        /**
+         * remove method from messageHub. remove all listeners if methodName not presented
+         * @param methodName method meed to remove
+         */
+        const off = (methodName) => {
+            checkPeer();
+            // @ts-ignore
+            if (!methodName)
+                return MessageHub.off(ownPeer);
+            const matchedMap = WinHandlerMap.find(wm => wm[0] === ownPeer);
+            if (matchedMap) {
+                delete matchedMap[methodName];
+            }
+        };
+        return { setPeer, emit, on, off };
     }
 };
 function buildReqMsg(methodName, args) {

@@ -11,7 +11,10 @@ const isWorker = typeof document === 'undefined'
 const WinHandlerMap: Array<[any, IHandlerMap | Function]> = [
   ['*', {}]
 ]
+
 const hostedWorkers: Worker[] = []
+
+type IOwnPeer = Window | Worker | undefined
 
 WIN.addEventListener('message', onMessageReceived)
 
@@ -67,6 +70,56 @@ const MessageHub = {
       // @ts-ignore
       win.addEventListener('message', onCallback)
     })
+  },
+  /**
+   * create a dedicated MessageHub that focus on communicate with the specified peer
+   * @param peer peer window to communicate with, or you can set it later via `setPeer`
+   */
+  createDedicatedMessageHub (peer?: IOwnPeer) {
+    let ownPeer = peer
+    const checkPeer = () => {
+      if (!ownPeer) throw new Error('peer is not set in dedicated message-hub')
+    }
+    /**
+     * set peer that this dedicated message-hub want communicate with
+     * @param peer if using in Worker thread, set peer to `self`
+     */
+    const setPeer = (peer: IOwnPeer) => { ownPeer = peer}
+    /**
+     * listen method invoking from peer
+     * @param methodName method name or handler map
+     * @param handler omit if methodName is handler map
+     */
+    const on = (methodName: string | object, handler?: Function) => {
+      checkPeer()
+      const handlerMap = typeof methodName === 'string' ? {[methodName]: handler} : methodName
+      // @ts-ignore
+      MessageHub.on(ownPeer, handlerMap)
+    }
+    /**
+     * call method and pass reset arguments to the peer
+     * @param methodName
+     * @param args 
+     */
+    const emit = (methodName: string, ...args: any[]) => {
+      checkPeer()
+      // @ts-ignore
+      return MessageHub.emit(ownPeer, methodName, ...args)
+    }
+    /**
+     * remove method from messageHub. remove all listeners if methodName not presented
+     * @param methodName method meed to remove
+     */
+    const off = (methodName?: string) => {
+      checkPeer()
+      // @ts-ignore
+      if (!methodName) return MessageHub.off(ownPeer)
+      const matchedMap = WinHandlerMap.find(wm => wm[0] === ownPeer)
+      if (matchedMap) {
+        delete matchedMap[methodName]
+      }
+    }
+    return { setPeer, emit, on, off }
   }
 }
 
@@ -80,7 +133,7 @@ function buildReqMsg (methodName: string, args: any[]) {
   }
 }
 
-type IRequest = ReturnType<typeof buildReqMsg>
+export type IRequest = ReturnType<typeof buildReqMsg>
 
 function buildRespMsg (data: any, reqMsg: IRequest, isSuccess: boolean) {
   return {
@@ -91,6 +144,8 @@ function buildRespMsg (data: any, reqMsg: IRequest, isSuccess: boolean) {
     data
   }
 }
+
+export type IResponse = ReturnType<typeof buildRespMsg>
 
 function isRequest (reqMsg: IRequest) {
   return reqMsg && reqMsg.winID &&
