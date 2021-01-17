@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v1.0.11
+ * @evecalm/message-hub v1.0.17
  * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 const WINDOW_ID = Math.random().toString(36).slice(2);
@@ -132,6 +132,8 @@ const MessageHub = {
     createProxyFor(peer) {
         if (isWorker)
             throw new Error('[MessageHub] createProxyFor can only be used in a normal window context');
+        if (peer === WIN.parent)
+            throw new Error('[MessageHub] createProxyFor can not forward messages to peer itself');
         MessageHub.on(peer, proxyMessage);
     }
 };
@@ -178,6 +180,7 @@ async function onMessageReceived(evt) {
         let method;
         if (typeof handlerMap === 'function') {
             method = handlerMap;
+            // add methodName as the first argument if handlerMap is a function
             args.unshift(methodName);
         }
         else {

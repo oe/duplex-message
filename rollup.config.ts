@@ -77,8 +77,8 @@ export default [
             const text = comment.value
             const type = comment.type
             if (type === 'comment2') {
-              // multiline comment
-              return /^!/i.test(text)
+              // multiline comment, remove typescript block comments, really too long
+              return /^\!\s+[^*]/i.test(text)
             }
           }
         }

@@ -133,6 +133,7 @@ const MessageHub = {
    */
   createProxyFor (peer: Window | Worker) {
     if (isWorker) throw new Error('[MessageHub] createProxyFor can only be used in a normal window context')
+    if (peer === WIN.parent) throw new Error('[MessageHub] createProxyFor can not forward messages to peer itself')
     MessageHub.on(peer, proxyMessage)
   }
 }
@@ -187,6 +188,7 @@ async function onMessageReceived (evt: MessageEvent) {
     let method: Function
     if (typeof handlerMap === 'function') {
       method = handlerMap
+      // add methodName as the first argument if handlerMap is a function
       args.unshift(methodName)
     } else {
       method = handlerMap && handlerMap[methodName]
