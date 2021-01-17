@@ -10,10 +10,7 @@ const $ = (id: string) => {
 // listen message from frameWin
 messageHub.on({
   'page-title': (arg) => {
-    return document.title + ' --- ' + arg
-  },
-  'pageTitle': () => {
-    return document.title
+    return document.title + ( arg ? ', echo  --- ' + arg : '')
   },
   testError (...args) {
     console.log('arguments from testError', args)

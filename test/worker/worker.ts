@@ -1,15 +1,12 @@
 import MessageHub from '../../src'
 const peer = self
-// const messageHub = new MessageHub({
-//   type: 'worker'
-// })
 
 // tik count
 let tikCount = 0
 
 setInterval(() => {
   // console.log('tick tok')
-  MessageHub.emit(self, 'tik-tok', `<i>I'm alive: ${tikCount++}</i>`)
+  MessageHub.emit(peer, 'tik-tok', `<i>I'm alive: ${tikCount++}</i>`)
 }, 1000)
 
 
