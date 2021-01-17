@@ -14,6 +14,11 @@ declare const MessageHub: {
         on: (methodName: string | object, handler?: Function | undefined) => void;
         off: (methodName?: string | undefined) => any;
     };
+    /**
+     * proxy all message from peer to parent window
+     * @param peer
+     */
+    createProxyFor(peer: Window | Worker): void;
 };
 declare function buildReqMsg(methodName: string, args: any[]): {
     winID: string;

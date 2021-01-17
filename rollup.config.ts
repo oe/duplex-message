@@ -42,7 +42,7 @@ export default [
     plugins: [
       typescript({
         tsconfigOverride: {
-          compilerOptions: { module: 'esnext', target: 'es5' }
+          compilerOptions: { module: 'esnext', target: 'es6' }
         },
         typescript: require('typescript')
       }),
@@ -63,7 +63,7 @@ export default [
     plugins: [
       typescript({
         tsconfigOverride: {
-          compilerOptions: { module: 'esnext', target: 'es2017' }
+          compilerOptions: { module: 'esnext', target: 'es5' }
         },
         typescript: require('typescript')
       }),

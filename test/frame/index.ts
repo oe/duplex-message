@@ -12,9 +12,15 @@ messageHub.on({
   'page-title': (arg) => {
     return document.title + ' --- ' + arg
   },
+  'pageTitle': () => {
+    return document.title
+  },
   testError (...args) {
     console.log('arguments from testError', args)
     throw new TypeError('testError not implemented')
+  },
+  'tik-tok': msg => {
+    $('tik-tok').innerHTML = msg
   }
 })
 

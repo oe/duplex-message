@@ -120,6 +120,14 @@ const MessageHub = {
       }
     }
     return { setPeer, emit, on, off }
+  },
+  /**
+   * proxy all message from peer to parent window
+   * @param peer 
+   */
+  createProxyFor (peer: Window | Worker) {
+    if (isWorker) throw new Error('[MessageHub] createProxyFor can only be used in a normal window context')
+    MessageHub.on(peer, proxyMessage)
   }
 }
 
@@ -170,7 +178,13 @@ async function onMessageReceived (evt: MessageEvent) {
     const { methodName, args } = reqMsg
     const handlerMap = matchedMap && matchedMap[1]
     // handler map could be a function
-    const method: Function = typeof handlerMap === 'function' ? handlerMap : handlerMap && handlerMap[methodName]
+    let method: Function
+    if (typeof handlerMap === 'function') {
+      method = handlerMap
+      args.unshift(methodName)
+    } else {
+      method = handlerMap && handlerMap[methodName]
+    }
     // tslint:disable-next-line
     if (typeof method !== 'function') {
       console.warn(`[MessageHub] no corresponding handler found for ${methodName}, message from`, sourceWin)
@@ -183,6 +197,12 @@ async function onMessageReceived (evt: MessageEvent) {
     // @ts-ignore
     postMessageWith(sourceWin, buildRespMsg(error, reqMsg, false))
   }
+}
+
+async function proxyMessage (...args: any[]) {
+  if (!WIN.parent || WIN === WIN.parent) throw new Error('[MessageHub]current window has no parent, can not proxy the message')
+  // @ts-ignore
+  return MessageHub.emit(WIN.parent, ...args)
 }
 
 function postMessageWith (peer: Window | Worker, msg: any) {

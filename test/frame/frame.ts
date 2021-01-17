@@ -1,9 +1,14 @@
 import MessageHub from '../../src'
+const peer = new Worker('./worker.ts')
 
 const messageHub = MessageHub.createDedicatedMessageHub(parent)
 const $ = (id: string) => {
   return document.getElementById(id.replace(/^\#/, ''))
 }
+
+const subFrameWin = (document.getElementById('sub-iframe') as HTMLFrameElement).contentWindow
+MessageHub.createProxyFor(subFrameWin)
+MessageHub.createProxyFor(peer)
 
 $('#test-1').addEventListener('click', () => {
   messageHub.emit('page-title', $('input-1').value).then((res) => {

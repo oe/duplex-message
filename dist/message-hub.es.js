@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v1.0.7
+ * @evecalm/message-hub v1.0.9
  * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 const WINDOW_ID = Math.random().toString(36).slice(2);
@@ -118,6 +118,15 @@ const MessageHub = {
             }
         };
         return { setPeer, emit, on, off };
+    },
+    /**
+     * proxy all message from peer to parent window
+     * @param peer
+     */
+    createProxyFor(peer) {
+        if (isWorker)
+            throw new Error('[MessageHub] createProxyFor can only be used in a normal window context');
+        MessageHub.on(peer, proxyMessage);
     }
 };
 function buildReqMsg(methodName, args) {
@@ -160,7 +169,14 @@ async function onMessageReceived(evt) {
         const { methodName, args } = reqMsg;
         const handlerMap = matchedMap && matchedMap[1];
         // handler map could be a function
-        const method = typeof handlerMap === 'function' ? handlerMap : handlerMap && handlerMap[methodName];
+        let method;
+        if (typeof handlerMap === 'function') {
+            method = handlerMap;
+            args.unshift(methodName);
+        }
+        else {
+            method = handlerMap && handlerMap[methodName];
+        }
         // tslint:disable-next-line
         if (typeof method !== 'function') {
             console.warn(`[MessageHub] no corresponding handler found for ${methodName}, message from`, sourceWin);
@@ -174,6 +190,12 @@ async function onMessageReceived(evt) {
         // @ts-ignore
         postMessageWith(sourceWin, buildRespMsg(error, reqMsg, false));
     }
+}
+async function proxyMessage(...args) {
+    if (!WIN.parent || WIN === WIN.parent)
+        throw new Error('[MessageHub]current window has no parent, can not proxy the message');
+    // @ts-ignore
+    return MessageHub.emit(WIN.parent, ...args);
 }
 function postMessageWith(peer, msg) {
     const args = [msg];
