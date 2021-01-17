@@ -21,13 +21,12 @@ export default [
     plugins: [
       typescript({
         tsconfigOverride: {
-          compilerOptions: { module: 'esnext', target: 'es5' }
+          compilerOptions: { module: 'esnext', target: 'es2017' }
         },
         typescript: require('typescript')
       }),
       sizeSnapshot()
     ],
-    external: ['composie']
   },
   {
     input: 'src/index.ts',
@@ -38,9 +37,6 @@ export default [
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: 'umd',
-      globals: {
-        composie: 'Composie'
-      },
       file: `dist/message-hub.umd.js`
     },
     plugins: [
@@ -52,7 +48,6 @@ export default [
       }),
       sizeSnapshot()
     ],
-    external: ['composie']
   },
   {
     input: 'src/index.ts',
@@ -68,7 +63,7 @@ export default [
     plugins: [
       typescript({
         tsconfigOverride: {
-          compilerOptions: { module: 'esnext', target: 'es5' }
+          compilerOptions: { module: 'esnext', target: 'es2017' }
         },
         typescript: require('typescript')
       }),

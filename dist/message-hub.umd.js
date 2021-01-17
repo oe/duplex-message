@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v1.0.1
+ * @evecalm/message-hub v1.0.6
  * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 (function (global, factory) {
@@ -113,7 +113,7 @@
             }
             var msg = buildReqMsg(methodName, args);
             // @ts-ignore
-            peer.postMessage(msg);
+            postMessageWith(peer, msg);
             return new Promise(function (resolve, reject) {
                 var win = (isWorker || !(peer instanceof Worker)) ? WIN : peer;
                 var onCallback = function (evt) {
@@ -188,17 +188,26 @@
                     case 2:
                         data = _a.sent();
                         // @ts-ignore
-                        sourceWin.postMessage(buildRespMsg(data, reqMsg, true));
+                        postMessageWith(sourceWin, buildRespMsg(data, reqMsg, true));
                         return [3 /*break*/, 4];
                     case 3:
                         error_1 = _a.sent();
                         // @ts-ignore
-                        sourceWin.postMessage(buildRespMsg(error_1, reqMsg, false));
+                        postMessageWith(sourceWin, buildRespMsg(error_1, reqMsg, false));
                         return [3 /*break*/, 4];
                     case 4: return [2 /*return*/];
                 }
             });
         });
+    }
+    function postMessageWith(peer, msg) {
+        var args = [msg];
+        // tslint:disable-next-line
+        if (typeof Window === 'function' && peer instanceof Window) {
+            args.push('*');
+        }
+        // @ts-ignore
+        peer.postMessage.apply(peer, args);
     }
 
     return MessageHub;

@@ -53,7 +53,7 @@ const MessageHub = {
   emit (peer: Window | Worker, methodName: string, ...args: any[]) {
     const msg = buildReqMsg(methodName, args)
     // @ts-ignore
-    peer.postMessage(msg)
+    postMessageWith(peer, msg)
     return new Promise((resolve, reject) => {
       const win = (isWorker || !(peer instanceof Worker)) ? WIN : peer
       const onCallback = (evt: MessageEvent) => {
@@ -123,11 +123,21 @@ async function onMessageReceived (evt: MessageEvent) {
     }
     const data = await method.apply(null, args)
     // @ts-ignore
-    sourceWin.postMessage(buildRespMsg(data, reqMsg, true))
+    postMessageWith(sourceWin, buildRespMsg(data, reqMsg, true))
   } catch (error) {
     // @ts-ignore
-    sourceWin.postMessage(buildRespMsg(error, reqMsg, false))
+    postMessageWith(sourceWin, buildRespMsg(error, reqMsg, false))
   }
+}
+
+function postMessageWith (peer: Window | Worker, msg: any) {
+  const args = [msg]
+  // tslint:disable-next-line
+  if (typeof Window === 'function' && peer instanceof Window) {
+    args.push('*')
+  }
+  // @ts-ignore
+  peer.postMessage(...args)
 }
 
 export default MessageHub
