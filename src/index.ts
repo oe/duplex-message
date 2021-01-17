@@ -5,58 +5,67 @@ const WINDOW_ID = Math.random().toString(36).slice(2)
 const WIN: Window = self
 
 let msgID = 0
+// tslint:disable-next-line
+const isWorker = typeof document === 'undefined'
 
-const WinHandlerMap: Array<[any, IHandlerMap]> = [
+const WinHandlerMap: Array<[any, IHandlerMap | Function]> = [
   ['*', {}]
 ]
+const hostedWorkers: Worker[] = []
 
-WIN.addEventListener('message', async (evt: MessageEvent) => {
-  console.log(evt)
-  const reqMsg = evt.data
-  const sourceWin = evt.source || WIN
-  if (!isRequest(reqMsg) || !sourceWin) return
-  try {
-    const matchedMap = WinHandlerMap.find(wm => wm[0] === sourceWin)
-    const { methodName, args } = reqMsg
-    const method = matchedMap && matchedMap[1][methodName] || WinHandlerMap[0][1][methodName]
-    // tslint:disable-next-line
-    if (typeof method !== 'function') {
-      console.warn(`[MessageHub] no corresponding handler found for ${methodName}, message from`, sourceWin)
-      throw new Error(`[MessageHub] no corresponding handler found for ${methodName}`)
-    }
-    const data = await method.apply(null, args)
-    // @ts-ignore
-    sourceWin.postMessage(buildRespMsg(data, reqMsg, true))
-  } catch (error) {
-    // @ts-ignore
-    sourceWin.postMessage(buildRespMsg(error, reqMsg, false))
-  }
-})
+WIN.addEventListener('message', onMessageReceived)
 
-const messageHub = {
+const MessageHub = {
   WINDOW_ID: WINDOW_ID,
-  on (peer: Window | Worker | '*', handlerMap: IHandlerMap) {
+  on (peer: Window | Worker | '*', handlerMap: IHandlerMap | Function) {
     const pair = WinHandlerMap.find(pair => pair[0] === peer)
     if (pair) {
-      pair[1] = Object.assign({}, pair[1], handlerMap)
+      const existingMap = pair[1]
+      // override existing handler map
+      pair[1] = typeof existingMap === 'function' ?
+        handlerMap : typeof handlerMap === 'function' ?
+          handlerMap : Object.assign({}, existingMap, handlerMap)
+
       return
     }
-    WinHandlerMap.push([peer, handlerMap])
+    if (peer instanceof Worker && !hostedWorkers.includes(peer)) {
+      hostedWorkers.push(peer)
+      peer.addEventListener('message', onMessageReceived)
+    }
+    WinHandlerMap[peer === '*' ? 'unshift' : 'push']([peer, handlerMap])
   },
-
+  off (peer: Window | Worker | '*') {
+    const index = WinHandlerMap.findIndex(pair => pair[0] === peer)
+    if (index !== -1) {
+      if (peer === '*') {
+        // clear * (general) handler, instead of remove it
+        WinHandlerMap[index][1] = {}
+      } else {
+        WinHandlerMap.splice(index, 1)
+      }
+    }
+    if (peer instanceof Worker) {
+      peer.removeEventListener('message', onMessageReceived)
+      const idx = hostedWorkers.indexOf(peer)
+      idx > -1 && hostedWorkers.splice(idx, 1)
+    }
+  },
   emit (peer: Window | Worker, methodName: string, ...args: any[]) {
     const msg = buildReqMsg(methodName, args)
     // @ts-ignore
     peer.postMessage(msg)
     return new Promise((resolve, reject) => {
+      const win = (isWorker || !(peer instanceof Worker)) ? WIN : peer
       const onCallback = (evt: MessageEvent) => {
         const response = evt.data
         // console.log('response', evt, response, WIN)
         if (!isResponse(msg, response)) return
-        WIN.removeEventListener('message', onCallback)
+        // @ts-ignore
+        win.removeEventListener('message', onCallback)
         response.isSuccess ? resolve(response.data) : reject(response.data)
       }
-      WIN.addEventListener('message', onCallback)
+      // @ts-ignore
+      win.addEventListener('message', onCallback)
     })
   }
 }
@@ -97,4 +106,28 @@ function isResponse (reqMsg: IRequest, respMsg: any) {
     respMsg.type === 'response'
 }
 
-export default messageHub
+async function onMessageReceived (evt: MessageEvent) {
+  const reqMsg = evt.data
+  const sourceWin = evt.source || evt.currentTarget || WIN
+  if (!isRequest(reqMsg) || !sourceWin) return
+  try {
+    const matchedMap = WinHandlerMap.find(wm => wm[0] === sourceWin) || WinHandlerMap[0]
+    const { methodName, args } = reqMsg
+    const handlerMap = matchedMap && matchedMap[1]
+    // handler map could be a function
+    const method: Function = typeof handlerMap === 'function' ? handlerMap : handlerMap && handlerMap[methodName]
+    // tslint:disable-next-line
+    if (typeof method !== 'function') {
+      console.warn(`[MessageHub] no corresponding handler found for ${methodName}, message from`, sourceWin)
+      throw new Error(`[MessageHub] no corresponding handler found for ${methodName}`)
+    }
+    const data = await method.apply(null, args)
+    // @ts-ignore
+    sourceWin.postMessage(buildRespMsg(data, reqMsg, true))
+  } catch (error) {
+    // @ts-ignore
+    sourceWin.postMessage(buildRespMsg(error, reqMsg, false))
+  }
+}
+
+export default MessageHub

@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v0.1.5
+ * @evecalm/message-hub v1.0.1
  * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 (function (global, factory) {
@@ -60,61 +60,51 @@
         }
     }
 
-    var _this = undefined;
     var WINDOW_ID = Math.random().toString(36).slice(2);
     // save current window it's self
     var WIN = self;
     var msgID = 0;
+    // tslint:disable-next-line
+    var isWorker = typeof document === 'undefined';
     var WinHandlerMap = [
         ['*', {}]
     ];
-    WIN.addEventListener('message', function (evt) { return __awaiter(_this, void 0, void 0, function () {
-        var reqMsg, sourceWin, matchedMap, methodName, args, method, data, error_1;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    console.log(evt);
-                    reqMsg = evt.data;
-                    sourceWin = evt.source || WIN;
-                    if (!isRequest(reqMsg) || !sourceWin)
-                        return [2 /*return*/];
-                    _a.label = 1;
-                case 1:
-                    _a.trys.push([1, 3, , 4]);
-                    matchedMap = WinHandlerMap.find(function (wm) { return wm[0] === sourceWin; });
-                    methodName = reqMsg.methodName, args = reqMsg.args;
-                    method = matchedMap && matchedMap[1][methodName] || WinHandlerMap[0][1][methodName];
-                    // tslint:disable-next-line
-                    if (typeof method !== 'function') {
-                        console.warn("[MessageHub] no corresponding handler found for " + methodName + ", message from", sourceWin);
-                        throw new Error("[MessageHub] no corresponding handler found for " + methodName);
-                    }
-                    return [4 /*yield*/, method.apply(null, args)
-                        // @ts-ignore
-                    ];
-                case 2:
-                    data = _a.sent();
-                    // @ts-ignore
-                    sourceWin.postMessage(buildRespMsg(data, reqMsg, true));
-                    return [3 /*break*/, 4];
-                case 3:
-                    error_1 = _a.sent();
-                    // @ts-ignore
-                    sourceWin.postMessage(buildRespMsg(error_1, reqMsg, false));
-                    return [3 /*break*/, 4];
-                case 4: return [2 /*return*/];
-            }
-        });
-    }); });
-    var messageHub = {
+    var hostedWorkers = [];
+    WIN.addEventListener('message', onMessageReceived);
+    var MessageHub = {
         WINDOW_ID: WINDOW_ID,
         on: function (peer, handlerMap) {
             var pair = WinHandlerMap.find(function (pair) { return pair[0] === peer; });
             if (pair) {
-                pair[1] = Object.assign({}, pair[1], handlerMap);
+                var existingMap = pair[1];
+                // override existing handler map
+                pair[1] = typeof existingMap === 'function' ?
+                    handlerMap : typeof handlerMap === 'function' ?
+                    handlerMap : Object.assign({}, existingMap, handlerMap);
                 return;
             }
-            WinHandlerMap.push([peer, handlerMap]);
+            if (peer instanceof Worker && !hostedWorkers.includes(peer)) {
+                hostedWorkers.push(peer);
+                peer.addEventListener('message', onMessageReceived);
+            }
+            WinHandlerMap[peer === '*' ? 'unshift' : 'push']([peer, handlerMap]);
+        },
+        off: function (peer) {
+            var index = WinHandlerMap.findIndex(function (pair) { return pair[0] === peer; });
+            if (index !== -1) {
+                if (peer === '*') {
+                    // clear * (general) handler, instead of remove it
+                    WinHandlerMap[index][1] = {};
+                }
+                else {
+                    WinHandlerMap.splice(index, 1);
+                }
+            }
+            if (peer instanceof Worker) {
+                peer.removeEventListener('message', onMessageReceived);
+                var idx = hostedWorkers.indexOf(peer);
+                idx > -1 && hostedWorkers.splice(idx, 1);
+            }
         },
         emit: function (peer, methodName) {
             var args = [];
@@ -125,15 +115,18 @@
             // @ts-ignore
             peer.postMessage(msg);
             return new Promise(function (resolve, reject) {
+                var win = (isWorker || !(peer instanceof Worker)) ? WIN : peer;
                 var onCallback = function (evt) {
                     var response = evt.data;
                     // console.log('response', evt, response, WIN)
                     if (!isResponse(msg, response))
                         return;
-                    WIN.removeEventListener('message', onCallback);
+                    // @ts-ignore
+                    win.removeEventListener('message', onCallback);
                     response.isSuccess ? resolve(response.data) : reject(response.data);
                 };
-                WIN.addEventListener('message', onCallback);
+                // @ts-ignore
+                win.addEventListener('message', onCallback);
             });
         }
     };
@@ -167,7 +160,47 @@
             respMsg.msgID === reqMsg.msgID &&
             respMsg.type === 'response';
     }
+    function onMessageReceived(evt) {
+        return __awaiter(this, void 0, void 0, function () {
+            var reqMsg, sourceWin, matchedMap, methodName, args, handlerMap, method, data, error_1;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        reqMsg = evt.data;
+                        sourceWin = evt.source || evt.currentTarget || WIN;
+                        if (!isRequest(reqMsg) || !sourceWin)
+                            return [2 /*return*/];
+                        _a.label = 1;
+                    case 1:
+                        _a.trys.push([1, 3, , 4]);
+                        matchedMap = WinHandlerMap.find(function (wm) { return wm[0] === sourceWin; }) || WinHandlerMap[0];
+                        methodName = reqMsg.methodName, args = reqMsg.args;
+                        handlerMap = matchedMap && matchedMap[1];
+                        method = typeof handlerMap === 'function' ? handlerMap : handlerMap && handlerMap[methodName];
+                        // tslint:disable-next-line
+                        if (typeof method !== 'function') {
+                            console.warn("[MessageHub] no corresponding handler found for " + methodName + ", message from", sourceWin);
+                            throw new Error("[MessageHub] no corresponding handler found for " + methodName);
+                        }
+                        return [4 /*yield*/, method.apply(null, args)
+                            // @ts-ignore
+                        ];
+                    case 2:
+                        data = _a.sent();
+                        // @ts-ignore
+                        sourceWin.postMessage(buildRespMsg(data, reqMsg, true));
+                        return [3 /*break*/, 4];
+                    case 3:
+                        error_1 = _a.sent();
+                        // @ts-ignore
+                        sourceWin.postMessage(buildRespMsg(error_1, reqMsg, false));
+                        return [3 /*break*/, 4];
+                    case 4: return [2 /*return*/];
+                }
+            });
+        });
+    }
 
-    return messageHub;
+    return MessageHub;
 
 })));

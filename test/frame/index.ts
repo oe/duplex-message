@@ -1,8 +1,8 @@
-import messageHub from '../../src'
+import MessageHub from '../../src'
 
 const frameWin = (document.getElementById('frame') as HTMLFrameElement).contentWindow
 
-messageHub.on(frameWin, {
+MessageHub.on(frameWin, {
   'page-title': (arg) => {
     throw new Error('can not get title')
     return document.title + ' --- ' + arg

@@ -1,6 +1,6 @@
 {
   "name": "@evecalm/message-hub",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "a middleware based RPC library over `postMessage` can work with both web worker and iframe",
   "main": "dist/message-hub.umd.js",
   "module": "dist/message-hub.es.js",
@@ -10,7 +10,7 @@
     "build": "rollup -c rollup.config.ts",
     "postbuild": "node ./build/update-pkg-version.js",
     "postpublish": "./build/post-publish2npm.sh",
-    "dev": "parcel test/worker/index.html test/frame/index.html test/frame/frame.html --out-dir test/cache",
+    "dev": "parcel test/worker/index.html test/frame/index.html test/raw-worker/index.html test/frame/frame.html --out-dir test/cache",
     "test": "jest --coverage",
     "test:server": "jest --coverage --watch",
     "lint": "tslint --project ./tsconfig.json --config tslint.json"
