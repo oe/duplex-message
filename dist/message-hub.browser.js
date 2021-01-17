@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v1.0.10
+ * @evecalm/message-hub v1.0.11
  * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 !function(e,n){"object"==typeof exports&&"undefined"!=typeof module?module.exports=n():"function"==typeof define&&define.amd?define(n):e.MessageHub=n()}(this,function(){"use strict";
