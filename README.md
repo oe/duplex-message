@@ -1,9 +1,9 @@
 <h1 align="center">MessageHub</h1>
 
-<h5 align="center">A middleware based RPC library over `postMessage` can work with both web worker and iframe</h5>
+<h5 align="center">A tinny(~2kb) utility than can simplify cross window(iframes, even workers) communication over `postMessage`</h5>
 <div align="center">
-  <a href="https://travis-ci.org/evecalm/messagehub">
-    <img src="https://travis-ci.org/evecalm/messagehub.svg?branch=master" alt="Travis CI">
+  <a href="https://travis-ci.com/oe/messagehub">
+    <img src="https://travis-ci.com/oe/messagehub.svg?branch=master" alt="Travis CI">
   </a>
   <a href="#readme">
     <img src="https://badges.frapsoft.com/typescript/code/typescript.svg?v=101" alt="code with typescript" height="20">
@@ -16,16 +16,22 @@
   </a>
 </div>
 
-This is a simple rpc library that enable you communicate between main thread and worker thread or parent page and child iframe in one-way or two-way.
-
-You can use it just like [koa](https://github.com/koajs/koa)(with middleware support) and [koa-router](https://github.com/alexmingoia/koa-router)(with router support)
+## Features
+* **Tinny**: less than ~2kb gzipped, no external dependences required
+* **Compatibility**: use `postMessage` under the hood, support all modern browser(even IE8)
+* **Consistency**: use same api every where(parent window, iframe window, worker, etc)
+* **Simple API**: use api `on` `emit` `off` to handle all message in current context from any window(parent window, child window, workers)
+* **Dedicated API**: use api `createDedicatedMessageHub` to create a dedicated message-hub to communicate with specified window(parent window, child window, workers)
+* **Responsible**: `emit` will return a promise that you can get response from the other side, you can return that response by return it in `on`'s callback
+* **Proxy Message**: with api `createProxyFor`, you can proxy all message from child window(iframe, webworker, etc) to parent window, or parent's parent window
+* **Typescript support**: this utility is written in typescript, has type definitions inborn
 
 ## Install
 
-There are too many similar package, and it's so hard to pick a pretty package name, so I use [scoped package](https://docs.npmjs.com/misc/scope) :)
+There are too many packages with similar names, and it's so hard to pick a pretty package name, so I use [scoped package](https://docs.npmjs.com/misc/scope) :)
 
 ```sh
-npm install @evecalm/message-hub
+npm install @evecalm/message-hub -S
 ```
 
 or
@@ -36,73 +42,80 @@ yarn add @evecalm/message-hub
 
 ## Example
 
-The following example show you how to use it in webworker
+The following example show you how to use it with iframe
 
-in main thread(aka the normal browser context)
-
+in main window
 ```js
-const MessageHub = require("@evecalm/messagehub");
-const messageHub = new MessageHub({
-  type: "worker",
-  // spefic the worker object by param `peer`
-  peer: new Worker("./worker.js")
-});
+const MessageHub = require("@evecalm/messagehub")
+// get child iframe's window, peerWin could be `self.parent` or `new Worker('./worker.js')`
+const iframeWin1 = document.getElementById('child-iframe-1').contentWindow
+const iframeWin2 = document.getElementById('child-iframe-2').contentWindow
 
-// add a global middleware to log all request
-messageHub.use((ctx, next) => {
-  console.log("request log", ctx.request);
-  return next();
-});
+// ----- listen message from peer ----
 
-// use route to handle other side's request, and set ctx.response to reply the request
-messageHub.route("pageTitle", ctx => {
-  ctx.response = document.title;
-});
+// listen the message pageTitle from iframeWin1, and response it
+MessageHub.on(iframeWin1, 'pageTitle', () => {
+  return document.title
+})
+//  response to message getHead from iframeWin2
+MessageHub.on(iframeWin2, 'getHead', () => {
+  return document.head.outHTML
+})
 
-// recive one way message, no need to reply it
-messageHub.on("notice", msg => {
-  console.log("notice message from worker", msg);
-});
+// listen multi message by passing a handler map
+MessageHub.on(iframeWin1, {
+  // no return, than the response is undefined
+  "notice": (name, msg) => {
+    console.log(`notice message from ${name} with message ${msg}`)
+  }
+})
 
-// tell worker to calc fibonacci of 10, and get result in promise
-messageHub.fetch("fib", 10).then(resp => {
-  console.log("fibonacci of 10 is", resp);
-});
+// ---- send message to peer ---
+// send a message to iframeWin1, and get response by `.then`
+MessageHub.emit(iframeWin1, "fib", 10).then(resp => {
+  console.log("fibonacci of 10 is", resp)
+})
 
-// send worker a message without message data, no care about the response
-messageHub.emit("hi");
+// send a message not handler by peer will catch a error
+MessageHub.emit(iframeWin1, "some-not-existing-method").then(resp => {
+  console.log('response', resp) // this won't run
+}).catch(err => {
+  console.warn('error', err) // bang
+})
 ```
 
-in worker thread
+in iframe window
 
 ```js
 const MessageHub = require("@evecalm/messagehub");
-const messageHub = new MessageHub({
-  type: "worker"
-});
+const peerWin = window.parent
 
-// get data from main thread
-messageHub.fetch("pageTitle").then(title => {
-  console.log("page title of main thread", title);
-});
+
+// send message to parent and get response
+MessageHub.emit(peerWin, "pageTitle").then(title => {
+  console.log("page title of main thread", title)
+})
+
+// create a dedicated message hub, so we won't need to pass `peerWin` every time
+const messageHub = MessageHub.createDedicatedMessageHub(peerWin)
 
 // send one way message, not care about the response
-messageHub.emit("notice", { msg: "balala" });
+messageHub.emit("notice", 'Jim', 'hello!')
 
-// recieve one way message, no need to response it
-messageHub.on("hi", () => {
-  console.log("main thread say hi :(");
+// calc fibonacci, return the result
+messageHub.on("fib", num => {
+  return fib(num)
 });
-
-// calc fibonacci, read request data from ctx.request, response it by setting result to ctx.request
-messageHub.route("fib", ctx => {
-  ctx.response = fib(ctx.request);
-});
+// listen multi message by passing a handler map
+messageHub.on({
+  method1 () {},
+  method2 () {},
+})
 
 // use a recursion algorithm which will take more than half a minute when n big than 50
 function fib(n) {
-  if (n < 2) return n;
-  return fib(n - 1) + fib(n - 2);
+  if (n < 2) return n
+  return fib(n - 1) + fib(n - 2)
 }
 ```
 

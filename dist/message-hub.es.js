@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v1.0.9
+ * @evecalm/message-hub v1.0.10
  * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 const WINDOW_ID = Math.random().toString(36).slice(2);
@@ -15,11 +15,16 @@ const hostedWorkers = [];
 WIN.addEventListener('message', onMessageReceived);
 const MessageHub = {
     WINDOW_ID: WINDOW_ID,
-    on(peer, handlerMap) {
+    on(peer, handlerMap, handler) {
         const pair = WinHandlerMap.find(pair => pair[0] === peer);
+        if (typeof handlerMap === 'string') {
+            // @ts-ignore
+            handlerMap = { [handlerMap]: handler };
+        }
         if (pair) {
             const existingMap = pair[1];
-            // override existing handler map
+            // merge existing handler map
+            // @ts-ignore
             pair[1] = typeof existingMap === 'function' ?
                 handlerMap : typeof handlerMap === 'function' ?
                 handlerMap : Object.assign({}, existingMap, handlerMap);
@@ -29,6 +34,7 @@ const MessageHub = {
             hostedWorkers.push(peer);
             peer.addEventListener('message', onMessageReceived);
         }
+        // @ts-ignore
         WinHandlerMap[peer === '*' ? 'unshift' : 'push']([peer, handlerMap]);
     },
     off(peer) {

@@ -7,11 +7,11 @@ const $ = (id: string) => {
   return document.getElementById(id.replace(/^\#/, ''))
 }
 
+MessageHub.on(frameWin, 'page-title', (arg) => {
+  return document.title + ( arg ? ', echo  --- ' + arg : '')
+})
 // listen message from frameWin
 messageHub.on({
-  'page-title': (arg) => {
-    return document.title + ( arg ? ', echo  --- ' + arg : '')
-  },
   testError (...args) {
     console.log('arguments from testError', args)
     throw new TypeError('testError not implemented')

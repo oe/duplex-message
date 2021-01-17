@@ -1,7 +1,7 @@
 declare type IOwnPeer = Window | Worker | undefined;
 declare const MessageHub: {
     WINDOW_ID: string;
-    on(peer: Window | "*" | Worker, handlerMap: Function | Record<string, Function>): void;
+    on(peer: Window | "*" | Worker, handlerMap: string | Function | Record<string, Function>, handler?: Function | undefined): void;
     off(peer: Window | "*" | Worker): void;
     emit(peer: Window | Worker, methodName: string, ...args: any[]): Promise<{}>;
     /**
