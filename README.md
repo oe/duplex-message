@@ -1,6 +1,6 @@
 <h1 align="center">MessageHub</h1>
 
-<h5 align="center">A tinny(~2kb) utility than can simplify cross window(iframes, even workers) communications over `postMessage`</h5>
+<h5 align="center">A tinny(~2kb) utility than can simplify cross window(iframes, even workers) communications over `postMessage` and `addEventListener('message', xxx)`</h5>
 <div align="center">
   <a href="https://travis-ci.com/oe/messagehub">
     <img src="https://travis-ci.com/oe/messagehub.svg?branch=master" alt="Travis CI">
@@ -134,25 +134,55 @@ To see a real world example, you may:
 ## API
 
 ### MessageHub.emit(peer: Window | Worker, methodName: string, ...args: any[])
-send message to peer, invoking `methodName` and all its arguments `args`.
+Send message to peer, invoking `methodName` and all its arguments `args`.
 
-this api return a promise, you can get response or catch the exception via it.
+This api return a promise, you can get response or catch the exception via it.
+
+#### peer
+1. if you are using it in worker thread and want to send message to parent,  just set `peer` to `self`
+2. if you are using it in normal window thread and want to handle message from worker, just set `peer` to a instance of `Worker`(aka `new Worker('./xxxx.js')`) or `ServiceWorker`( not tested yet, should works fine 🧐 )
+
+#### methodName
+method name you can want to call(emit) which registered(on) in peer
+#### args
+`args` vary with `methodName`'s handler registered via `on` in peer's context
 
 ### MessageHub.on
-listen message send from peer, it has following forms:
+Listen message send from peer, it has following forms:
 ```ts
+// register(listen)) one handler for methodName when message received from peer
 MessageHub.on(peer: Window | Worker | '*', methodName: string, handler: Function)
+// register(listen)) multi handlers
 MessageHub.on(peer: Window | Worker | '*', handlerMap: Record<string, Function>)
+// register only one handler to deal with all messages from peer
 MessageHub.on(peer: Window | Worker | '*', singleHandler: Function)
 ```
 
+#### peer
+1. if you are using it in Worker thread and want to handle message from parent, just set `peer` to `self`
+2. if you are using it in normal window thread and want to handle message from worker, just set `peer` to a instance of `Worker`(aka `new Worker('./xxxx.js')`) or `ServiceWorker`( not tested yet, should works fine 🧐 )
+3. you can set `peer` to `*` to listen all messages from all peers(parent, children, workers) to current window. **Due to worker's restrictions, you need register worker so that `*` could works worker's message by `MessageHub.on(worker, {})`**
+
+#### methodName
+Method name to register, a `methodName` can only has one `handler`, the `handler` will be override if you set `methodName` multi times
+
+#### handler
+1. handler could be an async function
+3. if handlers with same methodName registered both in specified peer and `*`, only handler for peer will be triggered when a message received by peer
+
+#### handlerMap
+A object of handlers, keys are methodName, values are handlers
+
+#### singleHandler
+`singleHandler` will receive all parameters, i.e. `(methodName, ...args)`
+
 ### MessageHub.off(peer: Window | Worker | '*', methodName?: string)
-remove message listener. if `methodName` presented, remove `methodName`'s listener, or remove the whole peer's listener
+Remove message listener. if `methodName` presented, remove `methodName`'s listener, or remove the whole peer's listener
 
 ### MessageHub.createDedicatedMessageHub(peer?: Window | Worker)
-create a dedicated message-hub for specified peer, so that you won't need to pass peer every time. 
+Create a dedicated message-hub for specified peer, so that you won't need to pass peer every time. 
 
-It return a new messageHub with following properties:
+It returns a new messageHub with following properties:
 ```ts
 {
   /** if you didn't set a peer when invoking createDedicatedMessageHub, then you can use `setPeer` to set it when it's ready*/
@@ -164,5 +194,17 @@ It return a new messageHub with following properties:
 }
 ```
 
-### MessageHub.createProxyFor(peer: Window | Worker)
-forward all messages from peer to parent window then forward parent's response to the peer, instead of handle messages by self
+### MessageHub.createProxy(fromWin: Window | Worker, toWin: Window | Worker) 
+Forward all messages from `fromWin` to `toWin` then forward `toWin`'s response to the `fromWin`, instead of handle messages by self
+
+There is a funny use case:  
+If you got two iframe in your page, you can make them communicate directly by following code
+```ts
+MessageHub.createProxy(frame1Win, frame2Win) // forward message from frame1Win to frame2Win
+MessageHub.createProxy(frame2Win, frame1Win) // forward message from frame2Win to frame1Win
+```
+
+### ~~MessageHub.createProxyFor(peer: Window | Worker)~~ deprecated
+Deprecated, but still working, you should use `MessageHub.createProxy(peer, window.parent)` instead.
+
+Forward all messages from peer to parent window then forward parent's response to the peer, instead of handle messages by self.

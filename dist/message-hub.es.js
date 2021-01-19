@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v1.0.17
+ * @evecalm/message-hub v1.0.18
  * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 const WINDOW_ID = Math.random().toString(36).slice(2);
@@ -126,15 +126,25 @@ const MessageHub = {
         return { setPeer, emit, on, off };
     },
     /**
+     * forward message from `fromWin` to `toWin`
+     * @param fromWin message source win
+     * @param toWin message target win
+     */
+    createProxy(fromWin, toWin) {
+        if (isWorker)
+            throw new Error('[MessageHub] createProxy can only be used in a normal window context');
+        if (WIN === fromWin || WIN === toWin || fromWin === toWin) {
+            throw new Error('[MessageHub] can not forward message to own');
+        }
+        MessageHub.on(fromWin, proxyMessage(toWin));
+    },
+    /**
      * proxy all message from peer to parent window
+     * @deprecated use createProxy instead
      * @param peer
      */
     createProxyFor(peer) {
-        if (isWorker)
-            throw new Error('[MessageHub] createProxyFor can only be used in a normal window context');
-        if (peer === WIN.parent)
-            throw new Error('[MessageHub] createProxyFor can not forward messages to peer itself');
-        MessageHub.on(peer, proxyMessage);
+        MessageHub.createProxy(peer, WIN.parent);
     }
 };
 function buildReqMsg(methodName, args) {
@@ -200,11 +210,11 @@ async function onMessageReceived(evt) {
         postMessageWith(sourceWin, buildRespMsg(error, reqMsg, false));
     }
 }
-async function proxyMessage(...args) {
-    if (!WIN.parent || WIN === WIN.parent)
-        throw new Error('[MessageHub]current window has no parent, can not proxy the message');
-    // @ts-ignore
-    return MessageHub.emit(WIN.parent, ...args);
+function proxyMessage(destWin) {
+    return (...args) => {
+        // @ts-ignore
+        return MessageHub.emit(destWin, ...args);
+    };
 }
 function postMessageWith(peer, msg) {
     const args = [msg];

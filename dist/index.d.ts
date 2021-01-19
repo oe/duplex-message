@@ -1,21 +1,29 @@
+declare type IHandlerMap = Record<string, Function>;
 declare type IOwnPeer = Window | Worker | undefined;
 declare const MessageHub: {
     WINDOW_ID: string;
-    on(peer: Window | "*" | Worker, handlerMap: string | Function | Record<string, Function>, handler?: Function | undefined): void;
-    off(peer: Window | "*" | Worker): void;
-    emit(peer: Window | Worker, methodName: string, ...args: any[]): Promise<{}>;
+    on(peer: Window | Worker | '*', handlerMap: IHandlerMap | Function | string, handler?: Function | undefined): void;
+    off(peer: Window | Worker | '*'): void;
+    emit(peer: Window | Worker, methodName: string, ...args: any[]): Promise<unknown>;
     /**
      * create a dedicated MessageHub that focus on communicate with the specified peer
      * @param peer peer window to communicate with, or you can set it later via `setPeer`
      */
     createDedicatedMessageHub(peer?: IOwnPeer): {
         setPeer: (peer: IOwnPeer) => void;
-        emit: (methodName: string, ...args: any[]) => any;
+        emit: (methodName: string, ...args: any[]) => Promise<unknown>;
         on: (methodName: string | object, handler?: Function | undefined) => void;
-        off: (methodName?: string | undefined) => any;
+        off: (methodName?: string | undefined) => void;
     };
     /**
+     * forward message from `fromWin` to `toWin`
+     * @param fromWin message source win
+     * @param toWin message target win
+     */
+    createProxy(fromWin: Window | Worker, toWin: Window | Worker): void;
+    /**
      * proxy all message from peer to parent window
+     * @deprecated use createProxy instead
      * @param peer
      */
     createProxyFor(peer: Window | Worker): void;

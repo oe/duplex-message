@@ -7,8 +7,8 @@ const $ = (id: string) => {
 }
 
 const subFrameWin = (document.getElementById('sub-iframe') as HTMLFrameElement).contentWindow
-MessageHub.createProxyFor(subFrameWin)
-MessageHub.createProxyFor(peer)
+MessageHub.createProxy(subFrameWin, parent)
+MessageHub.createProxy(peer, parent)
 
 $('#test-1').addEventListener('click', () => {
   messageHub.emit('page-title', $('input-1').value).then((res) => {
