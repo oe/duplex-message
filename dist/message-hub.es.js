@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v1.0.18
+ * @evecalm/message-hub v1.0.19
  * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 const WINDOW_ID = Math.random().toString(36).slice(2);
