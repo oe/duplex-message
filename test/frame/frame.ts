@@ -1,4 +1,4 @@
-import MessageHub from '../../src'
+import MessageHub from '@evecalm/message-hub'
 const peer = new Worker('./worker.ts')
 
 const messageHub = MessageHub.createDedicatedMessageHub(parent)

@@ -864,6 +864,11 @@
     lodash "^4.17.19"
     to-fast-properties "^2.0.0"
 
+"@evecalm/message-hub@^1.0.19":
+  version "1.0.19"
+  resolved "https://registry.yarnpkg.com/@evecalm/message-hub/-/message-hub-1.0.19.tgz#6769c6e2b5a86e888b1e95c549952369d14d3269"
+  integrity sha512-7fDMGutJg0iMHLZ0CtZ470SmEYLaEenO+JcVXwICFzhrn5lT/eSUgiogDcgVLkVZ/yI46wXzw2aHllcFzmeeMg==
+
 "@iarna/toml@^2.2.0":
   version "2.2.5"
   resolved "https://registry.yarnpkg.com/@iarna/toml/-/toml-2.2.5.tgz#b32366c89b43c6f8cefbdefac778b9c828e3ba8c"
