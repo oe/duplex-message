@@ -390,7 +390,61 @@
         return `$$msghub-${msg.type}-${msg.fromInstance}-${msg.toInstance || ''}-${msg.messageID}`;
     }
 
+    class PageScriptMessageHub extends AbstractHub {
+        constructor(customEventName = 'message-hub') {
+            // tslint:disable-next-line
+            if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+                throw new Error('StorageMessageHub only available in normal browser context, nodejs/worker are not supported');
+            }
+            super();
+            this.customEventName = customEventName;
+            this.responseCallbacks = [];
+            this.onMessageReceived = this.onMessageReceived.bind(this);
+            // @ts-ignore
+            window.addEventListener(customEventName, this.onMessageReceived);
+        }
+        on(handlerMap, handler) {
+            // @ts-ignore
+            super.on('*', handlerMap, handler);
+        }
+        emit(method, ...args) {
+            return super._emit('*', method, ...args);
+        }
+        off() {
+            super.off('*');
+        }
+        onMessageReceived(evt) {
+            return __awaiter(this, void 0, void 0, function* () {
+                const msg = evt.detail;
+                if (!msg)
+                    return;
+                if (!this.isRequest(msg)) {
+                    const idx = this.responseCallbacks.findIndex(fn => fn(msg));
+                    if (idx >= 0)
+                        this.responseCallbacks.splice(idx, 1);
+                    return;
+                }
+                let response;
+                try {
+                    response = yield this.onRequest('*', msg);
+                }
+                catch (error) {
+                    response = error;
+                }
+                this.sendMessage('*', response);
+            });
+        }
+        sendMessage(target, msg) {
+            const evt = new CustomEvent(this.customEventName, { detail: msg });
+            window.dispatchEvent(evt);
+        }
+        listenResponse(target, reqMsg, callback) {
+            this.responseCallbacks.push(callback);
+        }
+    }
+
     exports.AbstractHub = AbstractHub;
+    exports.PageScriptMessageHub = PageScriptMessageHub;
     exports.PostMessageHub = PostMessageHub;
     exports.StorageMessageHub = StorageMessageHub;
 

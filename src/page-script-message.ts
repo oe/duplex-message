@@ -1,18 +1,19 @@
 import { AbstractHub, IResponse, IHandlerMap, IRequest } from './abstract'
 
-export class StorageMessageHub extends AbstractHub {
-  
+export class PageScriptMessageHub extends AbstractHub {
+  private customEventName: string
   private responseCallbacks: Function[]
-
-  constructor () {
+  constructor (customEventName = 'message-hub') {
     // tslint:disable-next-line
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
       throw new Error('StorageMessageHub only available in normal browser context, nodejs/worker are not supported')
     }
     super()
+    this.customEventName = customEventName
     this.responseCallbacks = []
     this.onMessageReceived = this.onMessageReceived.bind(this)
-    window.addEventListener('storage', this.onMessageReceived)
+    // @ts-ignore
+    window.addEventListener(customEventName, this.onMessageReceived)
   }
 
   on (handlerMap: Function | IHandlerMap)
@@ -30,20 +31,15 @@ export class StorageMessageHub extends AbstractHub {
     super.off('*')
   }
 
-  protected async onMessageReceived (evt: StorageEvent) {
-    const msg = this.getMsgFromEvent(evt)
+  protected async onMessageReceived (evt: CustomEvent) {
+    const msg = evt.detail 
     if (!msg) return
+
     if (!this.isRequest(msg)) {
       const idx = this.responseCallbacks.findIndex(fn => fn(msg))
       if (idx >= 0) this.responseCallbacks.splice(idx, 1)
       return
     }
-
-    // clear storage
-    setTimeout(() => {
-      if (localStorage.getItem(evt.key!) === null) return
-      localStorage.removeItem(evt.key!)
-    }, 100 + Math.floor(1000 * Math.random()))
 
     let response: IResponse
 
@@ -56,28 +52,11 @@ export class StorageMessageHub extends AbstractHub {
   }
 
   protected sendMessage (target: string, msg: IRequest | IResponse) {
-    const msgKey = getMsgKey(msg)
-    localStorage.setItem(msgKey, JSON.stringify(msg))
+    const evt = new CustomEvent(this.customEventName, { detail: msg })
+    window.dispatchEvent(evt)
   }
 
   protected listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean) {
-    // callback handled via onMessageReceived
-    const evtCallback = (msg: IResponse) => {
-      if (!callback(msg)) return false
-      localStorage.removeItem(getMsgKey(msg))
-      return true
-    }
-    this.responseCallbacks.push(evtCallback)
+    this.responseCallbacks.push(callback)
   }
-
-  private getMsgFromEvent (evt: StorageEvent) {
-    if (!evt.key || !/^\$\$msghub\-/.test(evt.key) || !evt.newValue ) return
-    let msg
-    try { msg = JSON.parse(evt.newValue) } catch (error) { return }
-    return msg
-  }
-}
-
-function getMsgKey (msg: IRequest | IResponse) {
-  return `$$msghub-${msg.type}-${msg.fromInstance}-${msg.toInstance || ''}-${msg.messageID}`
 }
