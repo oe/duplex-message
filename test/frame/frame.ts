@@ -1,17 +1,17 @@
-import MessageHub from '@evecalm/message-hub'
+import { postMessageHub } from '@evecalm/message-hub'
 const peer = new Worker('./worker.ts')
 
-const messageHub = MessageHub.createDedicatedMessageHub(parent)
+const messageHub = postMessageHub.createDedicatedMessageHub(parent)
 const $ = (id: string) => {
   return document.getElementById(id.replace(/^\#/, ''))
 }
 
 const subFrameWin = (document.getElementById('sub-iframe') as HTMLFrameElement).contentWindow
-MessageHub.createProxy(subFrameWin, parent)
-MessageHub.createProxy(peer, parent)
+postMessageHub.createProxy(subFrameWin, parent)
+postMessageHub.createProxy(peer, parent)
 
 $('#test-1').addEventListener('click', () => {
-  messageHub.emit('page-title', $('input-1').value).then((res) => {
+  messageHub.emit('page-title', ($('input-1') as HTMLInputElement).value).then((res) => {
     $('#result-1').innerText = res
   })
 })

@@ -1,13 +1,13 @@
-import MessageHub from '@evecalm/message-hub'
+import { postMessageHub } from '@evecalm/message-hub'
 
 const frameWin = (document.getElementById('frame') as HTMLFrameElement).contentWindow
 
-const messageHub = MessageHub.createDedicatedMessageHub(frameWin)
+const messageHub = postMessageHub.createDedicatedMessageHub(frameWin)
 const $ = (id: string) => {
   return document.getElementById(id.replace(/^\#/, ''))
 }
 
-MessageHub.on(frameWin, 'page-title', (arg) => {
+postMessageHub.on(frameWin, 'page-title', (arg) => {
   return document.title + ( arg ? ', echo  --- ' + arg : '')
 })
 // listen message from frameWin
@@ -23,7 +23,7 @@ messageHub.on({
 
 
 $('#button-1').addEventListener('click', () => {
-  messageHub.emit('hi', $('#input-1').value).then((res) => {
+  messageHub.emit('hi', ($('input-1') as HTMLInputElement).value).then((res) => {
     console.log('response from hi', res)
   })
 })

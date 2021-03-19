@@ -1,4 +1,5 @@
-import MessageHub from '@evecalm/message-hub'
+import { postMessageHub } from '@evecalm/message-hub'
+
 const peer = self
 
 // tik count
@@ -6,28 +7,27 @@ let tikCount = 0
 
 setInterval(() => {
   // console.log('tick tok')
-  MessageHub.emit(peer, 'tik-tok', `<i>I'm alive: ${tikCount++}</i>`)
+  postMessageHub.emit(peer, 'tik-tok', `<i>I'm alive: ${tikCount++}</i>`)
 }, 1000)
 
-
-MessageHub.on(peer, {
+postMessageHub.on(peer, {
   'convert2mdH1': async (param) => {
     console.log('mes from h', param)
     // get data from main thread
-    const title = await MessageHub.emit(peer, 'pageTitle')
+    const title = await postMessageHub.emit(peer, 'pageTitle')
     console.log('page title', title)
     return `# ${param} (${title})`
   }
 })
 
 let hiCount = 0
-MessageHub.on(peer, {
+postMessageHub.on(peer, {
   'hi': () => {
     console.log(`main thread say hi ${++hiCount} time(s)`)
   }
 })
 // calc fibonacci, read request data from ctx.request, response it by setting result to ctx.request
-MessageHub.on(peer, {
+postMessageHub.on(peer, {
   'fib': (param) => {
     const result = fib(param)
     console.log('fib', param, result)

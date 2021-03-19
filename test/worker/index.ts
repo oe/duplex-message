@@ -1,16 +1,16 @@
-import MessageHub from '@evecalm/message-hub'
+import { postMessageHub } from '@evecalm/message-hub'
 const peer = new Worker('./worker.ts')
 
 
 // use route to handle other side's request, and set ctx.response to reply the request
-MessageHub.on(peer, {
+postMessageHub.on(peer, {
   'pageTitle': () => {
     return document.title
   }
 })
 
 // recive one way message, no need to reply it
-MessageHub.on(peer, {
+postMessageHub.on(peer, {
   'tik-tok': msg => {
     document.getElementById('tik-tok').innerHTML = msg
   }
@@ -25,7 +25,7 @@ function getShowDom (id: string) {
 const testCase1 = getShowDom('input1')
 testCase1.input.addEventListener('keyup', (e) => {
   if (e.keyCode !== 13) return
-  MessageHub.emit(peer, 'convert2mdH1', testCase1.input.value).then((resp) => {
+  postMessageHub.emit(peer, 'convert2mdH1', testCase1.input.value).then((resp) => {
     // @ts-ignore
     testCase1.result.innerText = resp
   }, (err) => {
@@ -38,7 +38,7 @@ testCase2.input.addEventListener('keyup', (e) => {
   if (e.keyCode !== 13) return
   testCase2.result.innerText = 'calculating...'
   const startTime = Date.now()
-  MessageHub.emit(peer, 'fib', +testCase2.input.value).then((resp) => {
+  postMessageHub.emit(peer, 'fib', +testCase2.input.value).then((resp) => {
     const period = Date.now() - startTime
     testCase2.result.innerHTML = resp + `<br> It takes ${period}ms to figure out`
   }, (err) => {
@@ -48,6 +48,6 @@ testCase2.input.addEventListener('keyup', (e) => {
 
 document.getElementById('hi-btn').addEventListener('click', (e) => {
   // send worker a message without message data, no care about the response
-  MessageHub.emit(peer, 'hi').then(res => console.log('`hi` response', res))
+  postMessageHub.emit(peer, 'hi').then(res => console.log('`hi` response', res))
 })
 
