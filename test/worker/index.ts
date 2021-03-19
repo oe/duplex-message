@@ -1,4 +1,6 @@
-import { postMessageHub } from '@evecalm/message-hub'
+import { PostMessageHub } from '@evecalm/message-hub'
+const postMessageHub = new PostMessageHub
+
 const peer = new Worker('./worker.ts')
 
 

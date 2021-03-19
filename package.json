@@ -1,16 +1,14 @@
 {
-  "name": "@evecalm/message-hub",
-  "version": "1.1.5",
-  "description": "a middleware based RPC library over `postMessage` can work with both web worker and iframe",
-  "main": "dist/message-hub.umd.js",
-  "module": "dist/message-hub.es.js",
+  "name": "duplex-message",
+  "version": "1.0.0",
+  "description": "makes one way message responsive, enhance postMessage/storageEvent/electron IPC/chrome extension scripts",
+  "main": "dist/duplex-message.umd.js",
+  "module": "dist/duplex-message.es.js",
   "typings": "dist/index.d.ts",
   "scripts": {
     "prebuild": "yarn run lint && rimraf dist/*",
     "build": "rollup -c rollup.config.ts",
-    "postbuild": "node ./build/update-pkg-version.js",
-    "postpublish": "./build/post-publish2npm.sh",
-    "dev": "parcel test/worker/index.html test/frame/index.html test/frame/frame.html --out-dir test/cache",
+    "dev": "parcel test/worker/index.html test/frame/index.html test/frame/frame.html test/storage/index.html --out-dir test/cache",
     "test": "jest --coverage",
     "test:server": "jest --coverage --watch",
     "lint": "tslint --project ./tsconfig.json --config tslint.json"
@@ -25,7 +23,9 @@
   ],
   "keywords": [
     "rpc",
-    "messagehub",
+    "duplex",
+    "ipc",
+    "duplex-message",
     "hub",
     "postmessage",
     "promise",
@@ -33,10 +33,10 @@
     "webworker",
     "worker"
   ],
-  "repository": "https://oe@github.com/oe/messagehub.git",
+  "repository": "https://oe@github.com/oe/duplex-message.git",
   "author": "Saiya",
   "license": "MIT",
-  "homepage": "https://github.com/oe/messagehub",
+  "homepage": "https://github.com/oe/duplex-message",
   "private": false,
   "devDependencies": {
     "@babel/core": "^7.0.0-0",
@@ -57,8 +57,5 @@
     "tslint-config-prettier": "^1.15.0",
     "tslint-config-standard": "^8.0.1",
     "typescript": "^4.1.3"
-  },
-  "dependencies": {
-    "@evecalm/message-hub": "^1.0.19"
   }
 }

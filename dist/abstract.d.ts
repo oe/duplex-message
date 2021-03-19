@@ -23,9 +23,9 @@ export declare class AbstractHub {
         isSuccess: boolean;
         data: any;
     }>;
-    emit(target: any, methodName: string, ...args: any[]): Promise<unknown>;
+    protected _emit(target: any, methodName: string, ...args: any[]): Promise<unknown>;
     protected sendMessage(target: any, msg: any): void;
-    protected onResponse(target: any, reqMsg: IRequest, callback: (resp: IResponse) => void): void;
+    protected listenResponse(target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean): void;
     protected buildReqMessage(methodName: string, args: any[]): {
         fromInstance: string;
         toInstance: string | undefined;

@@ -1,4 +1,5 @@
-import { postMessageHub } from '@evecalm/message-hub'
+import { PostMessageHub } from '@evecalm/message-hub'
+const postMessageHub = new PostMessageHub
 
 const frameWin = (document.getElementById('frame') as HTMLFrameElement).contentWindow
 
@@ -30,7 +31,7 @@ $('#button-1').addEventListener('click', () => {
 
 $('#button-2').addEventListener('click', () => {
   messageHub.emit('getHead',).then((res) => {
-    $('#result-2').innerText = res
+    $('#result-2').innerText = res as string
   })
 })
 

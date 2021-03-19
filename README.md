@@ -1,4 +1,7 @@
-<h1 align="center">MessageHub</h1>
+<h1 align="center">Duplex-Message</h1>
+[WIP] A tinny(~2kb) utility that can makes one way message responsive, enhance postMessage/storageEvent/electron IPC/chrome extension scripts
+
+---
 
 <h5 align="center">A tinny(~2kb) utility that can simplify cross window(iframes, even workers) communications over `postMessage` and `addEventListener('message', xxx)`</h5>
 <div align="center">

@@ -1,9 +1,10 @@
 import { AbstractHub, IResponse, IRequest, IHandlerMap } from './abstract';
 declare type IOwnPeer = Window | Worker | undefined;
-declare class PostMessageHub extends AbstractHub {
+export declare class PostMessageHub extends AbstractHub {
     constructor();
-    on(target: any, handlerMap: Function | IHandlerMap): any;
-    on(target: any, handlerMap: string, handler: Function): any;
+    on(target: Window | Worker | '*', handlerMap: Function | IHandlerMap): any;
+    on(target: Window | Worker | '*', handlerMap: string, handler: Function): any;
+    emit(peer: Window | Worker, methodName: string, ...args: any[]): Promise<unknown>;
     off(target: Window | Worker | '*'): void;
     /**
      * create a dedicated MessageHub that focus on communicate with the specified peer
@@ -30,7 +31,6 @@ declare class PostMessageHub extends AbstractHub {
     createProxyFor(peer: Window | Worker): void;
     protected onMessageReceived(evt: MessageEvent): Promise<void>;
     protected sendMessage(peer: Window | Worker, msg: any): void;
-    protected onResponse(target: any, reqMsg: IRequest, callback: (resp: IResponse) => void): void;
+    protected listenResponse(target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean): void;
 }
-export declare const postMessageHub: PostMessageHub;
 export {};

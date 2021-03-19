@@ -83,15 +83,16 @@ export class AbstractHub {
     }
   }
 
-  emit (target: any, methodName: string, ...args: any[]) {
+  protected _emit (target: any, methodName: string, ...args: any[]) {
     const msg = this.buildReqMessage(methodName, args)
     this.sendMessage(target, msg)
     return new Promise((resolve, reject) => {
       const callback = (response: IResponse) => {
-        if (!this.isResponse(msg, response)) return
+        if (!this.isResponse(msg, response)) return false
         response.isSuccess ? resolve(response.data) : reject(response.data)
+        return true
       }
-      this.onResponse(target, msg, callback)
+      this.listenResponse(target, msg, callback)
     })
   }
 
@@ -99,7 +100,7 @@ export class AbstractHub {
     throw new Error('you need to implements sendMessage in your own class')
   }
 
-  protected onResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => void) {
+  protected listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean) {
     throw new Error('you need to implements onMessageReceived in your own class')
   }
 

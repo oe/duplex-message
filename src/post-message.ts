@@ -9,7 +9,7 @@ const isWorker = typeof document === 'undefined'
 
 const hostedWorkers: Worker[] = []
 
-class PostMessageHub extends AbstractHub {
+export class PostMessageHub extends AbstractHub {
   constructor () {
     super()
     this.onMessageReceived = this.onMessageReceived.bind(this)
@@ -17,15 +17,19 @@ class PostMessageHub extends AbstractHub {
     WIN.addEventListener('message', this.onMessageReceived)
   }
 
-  on (target: any, handlerMap: Function | IHandlerMap)
-  on (target: any, handlerMap: string, handler: Function)
-  on (target: any, handlerMap: IHandlerMap | Function | string, handler?: Function) {
+  on (target: Window | Worker | '*', handlerMap: Function | IHandlerMap)
+  on (target: Window | Worker | '*', handlerMap: string, handler: Function)
+  on (target: Window | Worker | '*', handlerMap: IHandlerMap | Function | string, handler?: Function) {
     // @ts-ignore
     super.on(target, handlerMap, handler)
     if (target instanceof Worker && !hostedWorkers.includes(target)) {
       hostedWorkers.push(target)
       target.addEventListener('message', this.onMessageReceived)
     }
+  }
+
+  emit (peer: Window | Worker, methodName: string, ...args: any[]) {
+    return this._emit(peer, methodName, args)
   }
 
   off (target: Window | Worker | '*') {
@@ -141,10 +145,10 @@ class PostMessageHub extends AbstractHub {
     peer.postMessage(...args)
   }
 
-  protected onResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => void) {
+  protected listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean) {
     const win = (isWorker || !(target instanceof Worker)) ? WIN : target
     const evtCallback = (evt: MessageEvent) => {
-      callback(evt.data)
+      if(!callback(evt.data)) return
       // @ts-ignore
       win.removeEventListener('message', evtCallback)
     }
@@ -152,5 +156,3 @@ class PostMessageHub extends AbstractHub {
     win.addEventListener('message', evtCallback)
   }
 }
-
-export const postMessageHub = new PostMessageHub()

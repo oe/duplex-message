@@ -1,6 +1,6 @@
 /*!
- * @evecalm/message-hub v1.1.5
- * Copyright© 2021 Saiya https://github.com/oe/messagehub
+ * duplex-message
+ * Copyright© 2021 Saiya https://github.com/oe/duplex-message
  */
 class AbstractHub {
     constructor() {
@@ -70,22 +70,23 @@ class AbstractHub {
             throw this.buildRespMessage(error, reqMsg, false);
         }
     }
-    emit(target, methodName, ...args) {
+    _emit(target, methodName, ...args) {
         const msg = this.buildReqMessage(methodName, args);
         this.sendMessage(target, msg);
         return new Promise((resolve, reject) => {
             const callback = (response) => {
                 if (!this.isResponse(msg, response))
-                    return;
+                    return false;
                 response.isSuccess ? resolve(response.data) : reject(response.data);
+                return true;
             };
-            this.onResponse(target, msg, callback);
+            this.listenResponse(target, msg, callback);
         });
     }
     sendMessage(target, msg) {
         throw new Error('you need to implements sendMessage in your own class');
     }
-    onResponse(target, reqMsg, callback) {
+    listenResponse(target, reqMsg, callback) {
         throw new Error('you need to implements onMessageReceived in your own class');
     }
     buildReqMessage(methodName, args) {
@@ -148,6 +149,9 @@ class PostMessageHub extends AbstractHub {
             hostedWorkers.push(target);
             target.addEventListener('message', this.onMessageReceived);
         }
+    }
+    emit(peer, methodName, ...args) {
+        return this._emit(peer, methodName, args);
     }
     off(target) {
         super.off(target);
@@ -259,10 +263,11 @@ class PostMessageHub extends AbstractHub {
         // @ts-ignore
         peer.postMessage(...args);
     }
-    onResponse(target, reqMsg, callback) {
+    listenResponse(target, reqMsg, callback) {
         const win = (isWorker || !(target instanceof Worker)) ? WIN : target;
         const evtCallback = (evt) => {
-            callback(evt.data);
+            if (!callback(evt.data))
+                return;
             // @ts-ignore
             win.removeEventListener('message', evtCallback);
         };
@@ -270,6 +275,82 @@ class PostMessageHub extends AbstractHub {
         win.addEventListener('message', evtCallback);
     }
 }
-const postMessageHub = new PostMessageHub();
 
-export { AbstractHub, postMessageHub };
+class StorageMessageHub extends AbstractHub {
+    constructor() {
+        // tslint:disable-next-line
+        if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+            throw new Error('StorageMessageHub only available in normal browser context, nodejs/worker are not supported');
+        }
+        super();
+        this.responseCallbacks = [];
+        this.onMessageReceived = this.onMessageReceived.bind(this);
+        window.addEventListener('storage', this.onMessageReceived);
+    }
+    on(handlerMap, handler) {
+        // @ts-ignore
+        super.on('*', handlerMap, handler);
+    }
+    emit(method, ...args) {
+        return super._emit('*', method, ...args);
+    }
+    off() {
+        super.off('*');
+    }
+    async onMessageReceived(evt) {
+        const msg = this.getMsgFromEvent(evt);
+        if (!msg)
+            return;
+        if (!this.isRequest(msg)) {
+            const idx = this.responseCallbacks.findIndex(fn => fn(msg));
+            if (idx >= 0)
+                this.responseCallbacks.splice(idx, 1);
+            return;
+        }
+        // clear storage
+        setTimeout(() => {
+            if (localStorage.getItem(evt.key) === null)
+                return;
+            localStorage.removeItem(evt.key);
+        }, 100 + Math.floor(1000 * Math.random()));
+        let response;
+        try {
+            response = await this.onRequest('*', msg);
+        }
+        catch (error) {
+            response = error;
+        }
+        this.sendMessage('*', response);
+    }
+    sendMessage(target, msg) {
+        const msgKey = getMsgKey(msg);
+        localStorage.setItem(msgKey, JSON.stringify(msg));
+    }
+    listenResponse(target, reqMsg, callback) {
+        // callback handled via onMessageReceived
+        const evtCallback = (msg) => {
+            if (!callback(msg))
+                return false;
+            localStorage.removeItem(getMsgKey(msg));
+            return true;
+        };
+        this.responseCallbacks.push(evtCallback);
+    }
+    getMsgFromEvent(evt) {
+        if (!evt.key || !/^\$\$msghub\-/.test(evt.key) || !evt.newValue)
+            return;
+        let msg;
+        try {
+            msg = JSON.parse(evt.newValue);
+        }
+        catch (error) {
+            return;
+        }
+        return msg;
+    }
+}
+function getMsgKey(msg) {
+    return `$$msghub-${msg.type}-${msg.fromInstance}-${msg.toInstance || ''}-${msg.messageID}`;
+}
+
+export { AbstractHub, PostMessageHub, StorageMessageHub };

@@ -3,20 +3,18 @@ import resolve from 'rollup-plugin-node-resolve'
 import { terser } from 'rollup-plugin-terser'
 import { sizeSnapshot } from 'rollup-plugin-size-snapshot'
 const pkg = require('./package.json')
-const { increaseVersion } = require('./build/update-pkg-version.js')
-const newVer = increaseVersion(pkg.version)
 
 export default [
   {
     input: 'src/index.ts',
     output: {
-      name: 'MessageHub',
+      name: 'DuplexMessage',
       banner: `/*!
- * ${pkg.name} v${newVer}
+ * ${pkg.name}
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: 'es',
-      file: `dist/message-hub.es.js`
+      file: `dist/duplex-message.es.js`
     },
     plugins: [
       typescript({
@@ -31,13 +29,13 @@ export default [
   {
     input: 'src/index.ts',
     output: {
-      name: 'MessageHub',
+      name: 'DuplexMessage',
       banner: `/*!
- * ${pkg.name} v${newVer}
+ * ${pkg.name}
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: 'umd',
-      file: `dist/message-hub.umd.js`
+      file: `dist/duplex-message.umd.js`
     },
     plugins: [
       typescript({
@@ -52,13 +50,13 @@ export default [
   {
     input: 'src/index.ts',
     output: {
-      name: 'MessageHub',
+      name: 'DuplexMessage',
       banner: `/*!
- * ${pkg.name} v${newVer}
+ * ${pkg.name}
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: 'umd',
-      file: `dist/message-hub.browser.js`
+      file: `dist/duplex-message.browser.js`
     },
     plugins: [
       typescript({
