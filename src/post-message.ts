@@ -142,11 +142,14 @@ class PostMessageHub extends AbstractHub {
   }
 
   protected onResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => void) {
+    const win = (isWorker || !(target instanceof Worker)) ? WIN : target
     const evtCallback = (evt: MessageEvent) => {
       callback(evt.data)
-      WIN.removeEventListener('message', evtCallback)
+      // @ts-ignore
+      win.removeEventListener('message', evtCallback)
     }
-    WIN.addEventListener('message', evtCallback)
+    // @ts-ignore
+    win.addEventListener('message', evtCallback)
   }
 }
 

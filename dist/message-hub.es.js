@@ -1,5 +1,5 @@
 /*!
- * @evecalm/message-hub v1.1.2
+ * @evecalm/message-hub v1.1.5
  * Copyright© 2021 Saiya https://github.com/oe/messagehub
  */
 class AbstractHub {
@@ -44,7 +44,6 @@ class AbstractHub {
         }
     }
     async onRequest(target, reqMsg) {
-        // if (!this.isRequest(reqMsg)) return
         try {
             const matchedMap = this.eventHandlerMap.find(wm => wm[0] === target) || this.eventHandlerMap[0];
             const { methodName, args } = reqMsg;
@@ -98,7 +97,7 @@ class AbstractHub {
     isRequest(reqMsg) {
         return Boolean(reqMsg && reqMsg.fromInstance &&
             reqMsg.fromInstance !== this.instanceID &&
-            (reqMsg.toInstance && reqMsg.toInstance !== this.instanceID) &&
+            // (reqMsg.toInstance && reqMsg.toInstance !== this.instanceID) &&
             reqMsg.messageID && reqMsg.type === 'request');
     }
     isResponse(reqMsg, respMsg) {
@@ -261,11 +260,14 @@ class PostMessageHub extends AbstractHub {
         peer.postMessage(...args);
     }
     onResponse(target, reqMsg, callback) {
+        const win = (isWorker || !(target instanceof Worker)) ? WIN : target;
         const evtCallback = (evt) => {
             callback(evt.data);
-            WIN.removeEventListener('message', evtCallback);
+            // @ts-ignore
+            win.removeEventListener('message', evtCallback);
         };
-        WIN.addEventListener('message', evtCallback);
+        // @ts-ignore
+        win.addEventListener('message', evtCallback);
     }
 }
 const postMessageHub = new PostMessageHub();

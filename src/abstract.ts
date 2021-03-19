@@ -58,8 +58,6 @@ export class AbstractHub {
   }
 
   async onRequest (target: any, reqMsg: IRequest) {
-    // if (!this.isRequest(reqMsg)) return
-    
     try {
       const matchedMap = this.eventHandlerMap.find(wm => wm[0] === target) || this.eventHandlerMap[0]
       const { methodName, args } = reqMsg
@@ -116,7 +114,7 @@ export class AbstractHub {
   protected isRequest (reqMsg: IRequest): boolean {
     return Boolean(reqMsg && reqMsg.fromInstance &&
       reqMsg.fromInstance !== this.instanceID &&
-      (reqMsg.toInstance && reqMsg.toInstance !== this.instanceID) &&
+      // (reqMsg.toInstance && reqMsg.toInstance !== this.instanceID) &&
       reqMsg.messageID && reqMsg.type === 'request')
   }
 
