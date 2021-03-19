@@ -1,6 +1,6 @@
 {
   "name": "duplex-message",
-  "version": "1.0.0",
+  "version": "1.0.0-alpha.1",
   "description": "makes one way message responsive, enhance postMessage/storageEvent/electron IPC/chrome extension scripts",
   "main": "dist/duplex-message.umd.js",
   "module": "dist/duplex-message.es.js",
