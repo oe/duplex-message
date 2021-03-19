@@ -1,6 +1,7 @@
 import { AbstractHub, IResponse, IRequest, IHandlerMap } from './abstract';
 declare type IOwnPeer = Window | Worker | undefined;
 export declare class PostMessageHub extends AbstractHub {
+    private hostedWorkers;
     constructor();
     on(target: Window | Worker | '*', handlerMap: Function | IHandlerMap): any;
     on(target: Window | Worker | '*', handlerMap: string, handler: Function): any;

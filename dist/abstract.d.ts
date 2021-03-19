@@ -10,7 +10,6 @@ export declare class AbstractHub {
      *  array item struct: eventTarget, {eventName: eventHandler } | handler4AllEvents
      */
     protected eventHandlerMap: Array<[any, IHandlerMap | Function]>;
-    static generateInstanceID(): string;
     constructor();
     on(target: any, handlerMap: Function | IHandlerMap): any;
     on(target: any, handlerMap: string, handler: Function): any;
@@ -44,23 +43,23 @@ export declare class AbstractHub {
     };
     protected isRequest(reqMsg: IRequest): boolean;
     protected isResponse(reqMsg: IRequest, respMsg: IResponse): boolean;
+    static generateInstanceID(): string;
+    static buildReqMsg(instanceID: string, messageID: number, methodName: string, args: any[], toInstance?: string): {
+        fromInstance: string;
+        toInstance: string | undefined;
+        messageID: number;
+        type: string;
+        methodName: string;
+        args: any[];
+    };
+    static buildRespMsg(instanceID: string, data: any, reqMsg: IRequest, isSuccess: boolean): {
+        fromInstance: string;
+        toInstance: string;
+        messageID: number;
+        type: string;
+        isSuccess: boolean;
+        data: any;
+    };
 }
-declare function buildReqMsg(instanceID: string, messageID: number, methodName: string, args: any[], toInstance?: string): {
-    fromInstance: string;
-    toInstance: string | undefined;
-    messageID: number;
-    type: string;
-    methodName: string;
-    args: any[];
-};
-export declare type IRequest = ReturnType<typeof buildReqMsg>;
-declare function buildRespMsg(instanceID: string, data: any, reqMsg: IRequest, isSuccess: boolean): {
-    fromInstance: string;
-    toInstance: string;
-    messageID: number;
-    type: string;
-    isSuccess: boolean;
-    data: any;
-};
-export declare type IResponse = ReturnType<typeof buildRespMsg>;
-export {};
+export declare type IRequest = ReturnType<typeof AbstractHub.buildReqMsg>;
+export declare type IResponse = ReturnType<typeof AbstractHub.buildRespMsg>;

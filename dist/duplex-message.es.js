@@ -8,9 +8,6 @@ class AbstractHub {
         this.eventHandlerMap = [['*', {}]];
         this.messageID = 0;
     }
-    static generateInstanceID() {
-        return Math.random().toString(36).slice(2);
-    }
     on(target, handlerMap, handler) {
         const pair = this.eventHandlerMap.find(pair => pair[0] === target);
         let handlerResult;
@@ -90,10 +87,10 @@ class AbstractHub {
         throw new Error('you need to implements onMessageReceived in your own class');
     }
     buildReqMessage(methodName, args) {
-        return buildReqMsg(this.instanceID, ++this.messageID, methodName, args);
+        return AbstractHub.buildReqMsg(this.instanceID, ++this.messageID, methodName, args);
     }
     buildRespMessage(data, reqMsg, isSuccess) {
-        return buildRespMsg(this.instanceID, data, reqMsg, isSuccess);
+        return AbstractHub.buildRespMsg(this.instanceID, data, reqMsg, isSuccess);
     }
     isRequest(reqMsg) {
         return Boolean(reqMsg && reqMsg.fromInstance &&
@@ -108,36 +105,39 @@ class AbstractHub {
             respMsg.messageID === reqMsg.messageID &&
             respMsg.type === 'response';
     }
-}
-function buildReqMsg(instanceID, messageID, methodName, args, toInstance) {
-    return {
-        fromInstance: instanceID,
-        toInstance,
-        messageID: messageID,
-        type: 'request',
-        methodName,
-        args
-    };
-}
-function buildRespMsg(instanceID, data, reqMsg, isSuccess) {
-    return {
-        fromInstance: instanceID,
-        toInstance: reqMsg.fromInstance,
-        messageID: reqMsg.messageID,
-        type: 'response',
-        isSuccess,
-        data
-    };
+    static generateInstanceID() {
+        return Math.random().toString(36).slice(2);
+    }
+    static buildReqMsg(instanceID, messageID, methodName, args, toInstance) {
+        return {
+            fromInstance: instanceID,
+            toInstance,
+            messageID: messageID,
+            type: 'request',
+            methodName,
+            args
+        };
+    }
+    static buildRespMsg(instanceID, data, reqMsg, isSuccess) {
+        return {
+            fromInstance: instanceID,
+            toInstance: reqMsg.fromInstance,
+            messageID: reqMsg.messageID,
+            type: 'response',
+            isSuccess,
+            data
+        };
+    }
 }
 
 // save current window it's self
 const WIN = self;
 // tslint:disable-next-line
 const isWorker = typeof document === 'undefined';
-const hostedWorkers = [];
 class PostMessageHub extends AbstractHub {
     constructor() {
         super();
+        this.hostedWorkers = [];
         this.onMessageReceived = this.onMessageReceived.bind(this);
         this.proxyMessage = this.proxyMessage.bind(this);
         WIN.addEventListener('message', this.onMessageReceived);
@@ -145,8 +145,8 @@ class PostMessageHub extends AbstractHub {
     on(target, handlerMap, handler) {
         // @ts-ignore
         super.on(target, handlerMap, handler);
-        if (target instanceof Worker && !hostedWorkers.includes(target)) {
-            hostedWorkers.push(target);
+        if (target instanceof Worker && !this.hostedWorkers.includes(target)) {
+            this.hostedWorkers.push(target);
             target.addEventListener('message', this.onMessageReceived);
         }
     }
@@ -157,8 +157,8 @@ class PostMessageHub extends AbstractHub {
         super.off(target);
         if (target instanceof Worker) {
             target.removeEventListener('message', this.onMessageReceived);
-            const idx = hostedWorkers.indexOf(target);
-            idx > -1 && hostedWorkers.splice(idx, 1);
+            const idx = this.hostedWorkers.indexOf(target);
+            idx > -1 && this.hostedWorkers.splice(idx, 1);
         }
     }
     /**
@@ -303,8 +303,15 @@ class StorageMessageHub extends AbstractHub {
             return;
         if (!this.isRequest(msg)) {
             const idx = this.responseCallbacks.findIndex(fn => fn(msg));
-            if (idx >= 0)
+            if (idx >= 0) {
                 this.responseCallbacks.splice(idx, 1);
+            }
+            else {
+                // clear unhandled responses
+                if (msg.toInstance === this.instanceID && msg.type === 'response') {
+                    localStorage.removeItem(StorageMessageHub.getMsgKey(msg));
+                }
+            }
             return;
         }
         // clear storage
@@ -323,7 +330,7 @@ class StorageMessageHub extends AbstractHub {
         this.sendMessage('*', response);
     }
     sendMessage(target, msg) {
-        const msgKey = getMsgKey(msg);
+        const msgKey = StorageMessageHub.getMsgKey(msg);
         localStorage.setItem(msgKey, JSON.stringify(msg));
     }
     listenResponse(target, reqMsg, callback) {
@@ -331,7 +338,7 @@ class StorageMessageHub extends AbstractHub {
         const evtCallback = (msg) => {
             if (!callback(msg))
                 return false;
-            localStorage.removeItem(getMsgKey(msg));
+            localStorage.removeItem(StorageMessageHub.getMsgKey(msg));
             return true;
         };
         this.responseCallbacks.push(evtCallback);
@@ -348,9 +355,9 @@ class StorageMessageHub extends AbstractHub {
         }
         return msg;
     }
-}
-function getMsgKey(msg) {
-    return `$$msghub-${msg.type}-${msg.fromInstance}-${msg.toInstance || ''}-${msg.messageID}`;
+    static getMsgKey(msg) {
+        return `$$msghub-${msg.type}-${msg.fromInstance}-${msg.toInstance || ''}-${msg.messageID}`;
+    }
 }
 
 class PageScriptMessageHub extends AbstractHub {

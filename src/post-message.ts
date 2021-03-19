@@ -1,17 +1,16 @@
 import { AbstractHub, IResponse, IRequest, IHandlerMap } from './abstract'
 
+type IOwnPeer = Window | Worker | undefined
 // save current window it's self
 const WIN: Window = self
-type IOwnPeer = Window | Worker | undefined
-
 // tslint:disable-next-line
 const isWorker = typeof document === 'undefined'
-
-const hostedWorkers: Worker[] = []
-
 export class PostMessageHub extends AbstractHub {
+  private hostedWorkers: Worker[]
+
   constructor () {
     super()
+    this.hostedWorkers = []
     this.onMessageReceived = this.onMessageReceived.bind(this)
     this.proxyMessage = this.proxyMessage.bind(this)
     WIN.addEventListener('message', this.onMessageReceived)
@@ -22,8 +21,8 @@ export class PostMessageHub extends AbstractHub {
   on (target: Window | Worker | '*', handlerMap: IHandlerMap | Function | string, handler?: Function) {
     // @ts-ignore
     super.on(target, handlerMap, handler)
-    if (target instanceof Worker && !hostedWorkers.includes(target)) {
-      hostedWorkers.push(target)
+    if (target instanceof Worker && !this.hostedWorkers.includes(target)) {
+      this.hostedWorkers.push(target)
       target.addEventListener('message', this.onMessageReceived)
     }
   }
@@ -36,8 +35,8 @@ export class PostMessageHub extends AbstractHub {
     super.off(target)
     if (target instanceof Worker) {
       target.removeEventListener('message', this.onMessageReceived)
-      const idx = hostedWorkers.indexOf(target)
-      idx > -1 && hostedWorkers.splice(idx, 1)
+      const idx = this.hostedWorkers.indexOf(target)
+      idx > -1 && this.hostedWorkers.splice(idx, 1)
     }
   }
 

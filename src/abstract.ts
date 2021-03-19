@@ -12,9 +12,6 @@ export class AbstractHub {
    *  array item struct: eventTarget, {eventName: eventHandler } | handler4AllEvents
    */
   protected eventHandlerMap: Array<[any, IHandlerMap | Function]>
-  static generateInstanceID () {
-    return Math.random().toString(36).slice(2)
-  }
 
   constructor () {
     this.instanceID = AbstractHub.generateInstanceID()
@@ -105,11 +102,11 @@ export class AbstractHub {
   }
 
   protected buildReqMessage (methodName: string, args: any[]) {
-    return buildReqMsg(this.instanceID, ++this.messageID, methodName, args)
+    return AbstractHub.buildReqMsg(this.instanceID, ++this.messageID, methodName, args)
   }
 
   protected buildRespMessage (data: any, reqMsg: IRequest, isSuccess) {
-    return buildRespMsg(this.instanceID, data, reqMsg, isSuccess)
+    return AbstractHub.buildRespMsg(this.instanceID, data, reqMsg, isSuccess)
   }
 
   protected isRequest (reqMsg: IRequest): boolean {
@@ -126,9 +123,12 @@ export class AbstractHub {
       respMsg.messageID === reqMsg.messageID &&
       respMsg.type === 'response'
   }
-}
 
-function buildReqMsg (instanceID: string, messageID: number, methodName: string, args: any[], toInstance?: string) {
+  static generateInstanceID () {
+    return Math.random().toString(36).slice(2)
+  }
+
+  static buildReqMsg (instanceID: string, messageID: number, methodName: string, args: any[], toInstance?: string) {
     return {
       fromInstance: instanceID,
       toInstance,
@@ -139,17 +139,17 @@ function buildReqMsg (instanceID: string, messageID: number, methodName: string,
     }
   }
 
-export type IRequest = ReturnType<typeof buildReqMsg>
-
-function buildRespMsg (instanceID: string, data: any, reqMsg: IRequest, isSuccess: boolean) {
-  return {
-    fromInstance: instanceID,
-    toInstance: reqMsg.fromInstance,
-    messageID: reqMsg.messageID,
-    type: 'response',
-    isSuccess,
-    data
+  static buildRespMsg (instanceID: string, data: any, reqMsg: IRequest, isSuccess: boolean) {
+    return {
+      fromInstance: instanceID,
+      toInstance: reqMsg.fromInstance,
+      messageID: reqMsg.messageID,
+      type: 'response',
+      isSuccess,
+      data
+    }
   }
 }
 
-export type IResponse = ReturnType<typeof buildRespMsg>
+export type IRequest = ReturnType<typeof AbstractHub.buildReqMsg>
+export type IResponse = ReturnType<typeof AbstractHub.buildRespMsg>

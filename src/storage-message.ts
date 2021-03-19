@@ -35,7 +35,14 @@ export class StorageMessageHub extends AbstractHub {
     if (!msg) return
     if (!this.isRequest(msg)) {
       const idx = this.responseCallbacks.findIndex(fn => fn(msg))
-      if (idx >= 0) this.responseCallbacks.splice(idx, 1)
+      if (idx >= 0) {
+        this.responseCallbacks.splice(idx, 1)
+      } else {
+        // clear unhandled responses
+        if (msg.toInstance === this.instanceID && msg.type === 'response') {
+          localStorage.removeItem(StorageMessageHub.getMsgKey(msg))
+        }
+      }
       return
     }
 
@@ -56,7 +63,7 @@ export class StorageMessageHub extends AbstractHub {
   }
 
   protected sendMessage (target: string, msg: IRequest | IResponse) {
-    const msgKey = getMsgKey(msg)
+    const msgKey = StorageMessageHub.getMsgKey(msg)
     localStorage.setItem(msgKey, JSON.stringify(msg))
   }
 
@@ -64,7 +71,7 @@ export class StorageMessageHub extends AbstractHub {
     // callback handled via onMessageReceived
     const evtCallback = (msg: IResponse) => {
       if (!callback(msg)) return false
-      localStorage.removeItem(getMsgKey(msg))
+      localStorage.removeItem(StorageMessageHub.getMsgKey(msg))
       return true
     }
     this.responseCallbacks.push(evtCallback)
@@ -76,8 +83,8 @@ export class StorageMessageHub extends AbstractHub {
     try { msg = JSON.parse(evt.newValue) } catch (error) { return }
     return msg
   }
-}
 
-function getMsgKey (msg: IRequest | IResponse) {
-  return `$$msghub-${msg.type}-${msg.fromInstance}-${msg.toInstance || ''}-${msg.messageID}`
+  static getMsgKey (msg: IRequest | IResponse) {
+    return `$$msghub-${msg.type}-${msg.fromInstance}-${msg.toInstance || ''}-${msg.messageID}`
+  }
 }

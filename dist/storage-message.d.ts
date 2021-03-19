@@ -10,4 +10,5 @@ export declare class StorageMessageHub extends AbstractHub {
     protected sendMessage(target: string, msg: IRequest | IResponse): void;
     protected listenResponse(target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean): void;
     private getMsgFromEvent;
+    static getMsgKey(msg: IRequest | IResponse): string;
 }
