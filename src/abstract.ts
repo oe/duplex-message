@@ -1,28 +1,70 @@
 export type IHandlerMap = Record<string, Function>
 
-export class AbstractHub {
+export abstract class AbstractHub {
   /**
    * hub instance 
    */
-  protected instanceID: string
+  readonly instanceID: string
 
-  protected messageID: number
+  protected _messageID: number
   /**
    * message handler map
    *  array item struct: eventTarget, {eventName: eventHandler } | handler4AllEvents
    */
-  protected eventHandlerMap: Array<[any, IHandlerMap | Function]>
+  protected readonly _eventHandlerMap: Array<[any, IHandlerMap | Function]>
 
+  /**
+   * init Hub, subclass should implement its own constructor
+   */
   constructor () {
     this.instanceID = AbstractHub.generateInstanceID()
-    this.eventHandlerMap = [['*', {}]]
-    this.messageID = 0
+    this._eventHandlerMap = []
+    this._messageID = 0
   }
 
-  on (target: any, handlerMap: Function | IHandlerMap)
-  on (target: any, handlerMap: string, handler: Function)
-  on (target: any, handlerMap: IHandlerMap | Function | string, handler?: Function) {
-    const pair = this.eventHandlerMap.find(pair => pair[0] === target)
+  /**
+   * subclass' own off method, should use _off to implements it
+   * @param args args to off method, normally are target and methodName
+   */
+  abstract off (...args: any[]): void
+  
+  /**
+   * subclass' own on method, should use _on to implements it
+   * @param args args to listen method, normally are target, methodName and method
+   */
+  abstract on (...args: any[]): void
+
+  /**
+   * subclass' own emit method, should use _emit to implements it
+   * @param args args to emit message, normally are target, methodName and method's params
+   */
+  abstract emit (...args: any[]): void
+
+  /**
+   * subclass' own send message method, should send msg to target
+   * @param target peer to receive message. if only one/no specified peer, target will be *
+   * @param msg message send to peer
+   */
+  protected abstract sendMessage (target: any, msg: IRequest): void
+
+  /**
+   * subclass' own listenResponse method, should get response from target and pass response to callback
+   * @param target peer that respond message
+   * @param reqMsg message sent to peer
+   * @param callback when get the response, pass it to callback
+   */
+  protected abstract listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean): void
+
+  protected _hasListeners () {
+    return this._eventHandlerMap.length > 0
+  }
+  /**
+   * add listener for target
+   */
+  protected _on (target: any, handlerMap: Function | IHandlerMap)
+  protected _on (target: any, methodName: string, handler: Function)
+  protected _on (target: any, handlerMap: IHandlerMap | Function | string, handler?: Function) {
+    const pair = this._eventHandlerMap.find(pair => pair[0] === target)
     let handlerResult: Function | IHandlerMap
     if (typeof handlerMap === 'string') {      
       handlerResult = { [handlerMap]: handler! }
@@ -39,24 +81,30 @@ export class AbstractHub {
 
       return
     }
-    this.eventHandlerMap[target === '*' ? 'unshift' : 'push']([target, handlerResult])
+    this._eventHandlerMap[target === '*' ? 'unshift' : 'push']([target, handlerResult])
   }
 
-  off (target: Window | Worker | '*') {
-    const index = this.eventHandlerMap.findIndex(pair => pair[0] === target)
-    if (index !== -1) {
-      if (target === '*') {
-        // clear * (general) handler, instead of remove it
-        this.eventHandlerMap[index][1] = {}
-      } else {
-        this.eventHandlerMap.splice(index, 1)
+
+  protected _off (target: Window | Worker | '*', methodName?: string) {
+    const index = this._eventHandlerMap.findIndex(pair => pair[0] === target)
+    if (index === -1) return
+    if (!methodName) {
+      this._eventHandlerMap.splice(index, 1)
+      return
+    }
+    const handlerMap = this._eventHandlerMap[index][1]
+    if (typeof handlerMap === 'object') {
+      delete handlerMap[methodName]
+      // nothing left
+      if (!Object.keys(handlerMap).length) {
+        this._eventHandlerMap.splice(index, 1)
       }
     }
   }
 
   async onRequest (target: any, reqMsg: IRequest) {
     try {
-      const matchedMap = this.eventHandlerMap.find(wm => wm[0] === target) || this.eventHandlerMap[0]
+      const matchedMap = this._eventHandlerMap.find(wm => wm[0] === target) || this._eventHandlerMap[0]
       const { methodName, args } = reqMsg
       const handlerMap = matchedMap && matchedMap[1]
       // handler map could be a function
@@ -74,18 +122,18 @@ export class AbstractHub {
         throw new Error(`[MessageHub] no corresponding handler found for ${methodName}`)
       }
       const data = await method.apply(null, args)
-      return this.buildRespMessage(data, reqMsg, true)
+      return this._buildRespMessage(data, reqMsg, true)
     } catch (error) {
-      throw this.buildRespMessage(error, reqMsg, false)
+      throw this._buildRespMessage(error, reqMsg, false)
     }
   }
 
   protected _emit (target: any, methodName: string, ...args: any[]) {
-    const msg = this.buildReqMessage(methodName, args)
+    const msg = this._buildReqMessage(methodName, args)
     this.sendMessage(target, msg)
     return new Promise((resolve, reject) => {
       const callback = (response: IResponse) => {
-        if (!this.isResponse(msg, response)) return false
+        if (!this._isResponse(msg, response)) return false
         response.isSuccess ? resolve(response.data) : reject(response.data)
         return true
       }
@@ -93,30 +141,22 @@ export class AbstractHub {
     })
   }
 
-  protected sendMessage (target: any, msg: any) {
-    throw new Error('you need to implements sendMessage in your own class')
+  protected _buildReqMessage (methodName: string, args: any[]) {
+    return AbstractHub.buildReqMsg(this.instanceID, ++this._messageID, methodName, args)
   }
 
-  protected listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean) {
-    throw new Error('you need to implements onMessageReceived in your own class')
-  }
-
-  protected buildReqMessage (methodName: string, args: any[]) {
-    return AbstractHub.buildReqMsg(this.instanceID, ++this.messageID, methodName, args)
-  }
-
-  protected buildRespMessage (data: any, reqMsg: IRequest, isSuccess) {
+  protected _buildRespMessage (data: any, reqMsg: IRequest, isSuccess) {
     return AbstractHub.buildRespMsg(this.instanceID, data, reqMsg, isSuccess)
   }
 
-  protected isRequest (reqMsg: IRequest): boolean {
+  protected _isRequest (reqMsg: IRequest): boolean {
     return Boolean(reqMsg && reqMsg.fromInstance &&
       reqMsg.fromInstance !== this.instanceID &&
-      // (reqMsg.toInstance && reqMsg.toInstance !== this.instanceID) &&
+      (!reqMsg.toInstance || (reqMsg.toInstance === this.instanceID)) &&
       reqMsg.messageID && reqMsg.type === 'request')
   }
 
-  protected isResponse (reqMsg: IRequest, respMsg: IResponse): boolean {
+  protected _isResponse (reqMsg: IRequest, respMsg: IResponse): boolean {
     return reqMsg && reqMsg && 
       respMsg.toInstance === this.instanceID &&
       respMsg.toInstance === reqMsg.fromInstance && 

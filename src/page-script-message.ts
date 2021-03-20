@@ -1,43 +1,51 @@
 import { AbstractHub, IResponse, IHandlerMap, IRequest } from './abstract'
 
 export class PageScriptMessageHub extends AbstractHub {
-  private customEventName: string
-  private responseCallbacks: Function[]
+  protected readonly _customEventName: string
+  protected readonly _responseCallbacks: Function[]
+  protected _isEventAttached: boolean
   constructor (customEventName = 'message-hub') {
     // tslint:disable-next-line
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
       throw new Error('StorageMessageHub only available in normal browser context, nodejs/worker are not supported')
     }
     super()
-    this.customEventName = customEventName
-    this.responseCallbacks = []
-    this.onMessageReceived = this.onMessageReceived.bind(this)
-    // @ts-ignore
-    window.addEventListener(customEventName, this.onMessageReceived)
+    this._customEventName = customEventName
+    this._responseCallbacks = []
+    this._onMessageReceived = this._onMessageReceived.bind(this)
+    this._isEventAttached = false
   }
 
   on (handlerMap: Function | IHandlerMap)
-  on (handlerMap: string, handler: Function)
+  on (methodName: string, handler: Function)
   on (handlerMap: IHandlerMap | Function | string, handler?: Function) {
     // @ts-ignore
-    super.on('*', handlerMap, handler)
+    super._on('*', handlerMap, handler)
+    if (this._isEventAttached) return
+    // @ts-ignore
+    window.addEventListener(this._customEventName, this._onMessageReceived)
   }
 
   emit (method: string, ...args: any[]) {
     return super._emit('*', method, ...args)
   }
 
-  off () {
-    super.off('*')
+  off (methodName?: string) {
+    super._off('*', methodName)
+    if (!this._hasListeners() || (!methodName && this._isEventAttached)) {
+      // @ts-ignore
+      window.removeEventListener(this._customEventName, this._onMessageReceived)
+      this._isEventAttached = false
+    }
   }
 
-  protected async onMessageReceived (evt: CustomEvent) {
+  protected async _onMessageReceived (evt: CustomEvent) {
     const msg = evt.detail 
     if (!msg) return
 
-    if (!this.isRequest(msg)) {
-      const idx = this.responseCallbacks.findIndex(fn => fn(msg))
-      if (idx >= 0) this.responseCallbacks.splice(idx, 1)
+    if (!this._isRequest(msg)) {
+      const idx = this._responseCallbacks.findIndex(fn => fn(msg))
+      if (idx >= 0) this._responseCallbacks.splice(idx, 1)
       return
     }
 
@@ -52,11 +60,11 @@ export class PageScriptMessageHub extends AbstractHub {
   }
 
   protected sendMessage (target: string, msg: IRequest | IResponse) {
-    const evt = new CustomEvent(this.customEventName, { detail: msg })
+    const evt = new CustomEvent(this._customEventName, { detail: msg })
     window.dispatchEvent(evt)
   }
 
   protected listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean) {
-    this.responseCallbacks.push(callback)
+    this._responseCallbacks.push(callback)
   }
 }

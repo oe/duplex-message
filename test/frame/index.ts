@@ -1,9 +1,14 @@
 import { PostMessageHub } from '@evecalm/message-hub'
 const postMessageHub = new PostMessageHub
 
+// @ts-ignore
+window.pm = postMessageHub
+
 const frameWin = (document.getElementById('frame') as HTMLFrameElement).contentWindow
 
 const messageHub = postMessageHub.createDedicatedMessageHub(frameWin)
+// @ts-ignore
+window.mh = messageHub
 const $ = (id: string) => {
   return document.getElementById(id.replace(/^\#/, ''))
 }

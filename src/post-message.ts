@@ -6,24 +6,24 @@ const WIN: Window = self
 // tslint:disable-next-line
 const isWorker = typeof document === 'undefined'
 export class PostMessageHub extends AbstractHub {
-  private hostedWorkers: Worker[]
+  protected _hostedWorkers: Worker[]
 
   constructor () {
     super()
-    this.hostedWorkers = []
-    this.onMessageReceived = this.onMessageReceived.bind(this)
+    this._hostedWorkers = []
+    this._onMessageReceived = this._onMessageReceived.bind(this)
     this.proxyMessage = this.proxyMessage.bind(this)
-    WIN.addEventListener('message', this.onMessageReceived)
+    WIN.addEventListener('message', this._onMessageReceived)
   }
 
   on (target: Window | Worker | '*', handlerMap: Function | IHandlerMap)
   on (target: Window | Worker | '*', handlerMap: string, handler: Function)
   on (target: Window | Worker | '*', handlerMap: IHandlerMap | Function | string, handler?: Function) {
     // @ts-ignore
-    super.on(target, handlerMap, handler)
-    if (target instanceof Worker && !this.hostedWorkers.includes(target)) {
-      this.hostedWorkers.push(target)
-      target.addEventListener('message', this.onMessageReceived)
+    super._on(target, handlerMap, handler)
+    if (target instanceof Worker && !this._hostedWorkers.includes(target)) {
+      this._hostedWorkers.push(target)
+      target.addEventListener('message', this._onMessageReceived)
     }
   }
 
@@ -31,12 +31,12 @@ export class PostMessageHub extends AbstractHub {
     return this._emit(peer, methodName, args)
   }
 
-  off (target: Window | Worker | '*') {
-    super.off(target)
+  off (target: Window | Worker | '*', methodName?: string) {
+    super._off(target, methodName)
     if (target instanceof Worker) {
-      target.removeEventListener('message', this.onMessageReceived)
-      const idx = this.hostedWorkers.indexOf(target)
-      idx > -1 && this.hostedWorkers.splice(idx, 1)
+      target.removeEventListener('message', this._onMessageReceived)
+      const idx = this._hostedWorkers.indexOf(target)
+      idx > -1 && this._hostedWorkers.splice(idx, 1)
     }
   }
 
@@ -83,7 +83,7 @@ export class PostMessageHub extends AbstractHub {
       checkPeer()
       // @ts-ignore
       if (!methodName) return this.off(ownPeer)
-      const matchedMap = this.eventHandlerMap.find(wm => wm[0] === ownPeer)
+      const matchedMap = this._eventHandlerMap.find(wm => wm[0] === ownPeer)
       if (matchedMap) {
         delete matchedMap[methodName]
       }
@@ -121,9 +121,9 @@ export class PostMessageHub extends AbstractHub {
   }
 
 
-  protected async onMessageReceived (evt: MessageEvent) {
+  protected async _onMessageReceived (evt: MessageEvent) {
     const data = evt.data as IRequest
-    if (!this.isRequest(data)) return
+    if (!this._isRequest(data)) return
     const target = evt.source || evt.currentTarget || WIN
     let response: IResponse
     try {

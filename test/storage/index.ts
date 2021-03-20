@@ -1,6 +1,8 @@
 import { StorageMessageHub } from '@evecalm/message-hub'
 
 const storageMessageHub = new StorageMessageHub
+// @ts-ignore
+window.sm = storageMessageHub
 
 const $ = (id: string) => {
   return document.getElementById(id.replace(/^\#/, ''))

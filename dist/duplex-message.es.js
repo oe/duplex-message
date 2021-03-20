@@ -3,13 +3,19 @@
  * Copyright© 2021 Saiya https://github.com/oe/duplex-message
  */
 class AbstractHub {
+    /**
+     * init Hub, subclass should implement its own constructor
+     */
     constructor() {
         this.instanceID = AbstractHub.generateInstanceID();
-        this.eventHandlerMap = [['*', {}]];
-        this.messageID = 0;
+        this._eventHandlerMap = [];
+        this._messageID = 0;
     }
-    on(target, handlerMap, handler) {
-        const pair = this.eventHandlerMap.find(pair => pair[0] === target);
+    _hasListeners() {
+        return this._eventHandlerMap.length > 0;
+    }
+    _on(target, handlerMap, handler) {
+        const pair = this._eventHandlerMap.find(pair => pair[0] === target);
         let handlerResult;
         if (typeof handlerMap === 'string') {
             handlerResult = { [handlerMap]: handler };
@@ -26,23 +32,28 @@ class AbstractHub {
                 handlerResult : Object.assign({}, existingMap, handlerResult);
             return;
         }
-        this.eventHandlerMap[target === '*' ? 'unshift' : 'push']([target, handlerResult]);
+        this._eventHandlerMap[target === '*' ? 'unshift' : 'push']([target, handlerResult]);
     }
-    off(target) {
-        const index = this.eventHandlerMap.findIndex(pair => pair[0] === target);
-        if (index !== -1) {
-            if (target === '*') {
-                // clear * (general) handler, instead of remove it
-                this.eventHandlerMap[index][1] = {};
-            }
-            else {
-                this.eventHandlerMap.splice(index, 1);
+    _off(target, methodName) {
+        const index = this._eventHandlerMap.findIndex(pair => pair[0] === target);
+        if (index === -1)
+            return;
+        if (!methodName) {
+            this._eventHandlerMap.splice(index, 1);
+            return;
+        }
+        const handlerMap = this._eventHandlerMap[index][1];
+        if (typeof handlerMap === 'object') {
+            delete handlerMap[methodName];
+            // nothing left
+            if (!Object.keys(handlerMap).length) {
+                this._eventHandlerMap.splice(index, 1);
             }
         }
     }
     async onRequest(target, reqMsg) {
         try {
-            const matchedMap = this.eventHandlerMap.find(wm => wm[0] === target) || this.eventHandlerMap[0];
+            const matchedMap = this._eventHandlerMap.find(wm => wm[0] === target) || this._eventHandlerMap[0];
             const { methodName, args } = reqMsg;
             const handlerMap = matchedMap && matchedMap[1];
             // handler map could be a function
@@ -61,18 +72,18 @@ class AbstractHub {
                 throw new Error(`[MessageHub] no corresponding handler found for ${methodName}`);
             }
             const data = await method.apply(null, args);
-            return this.buildRespMessage(data, reqMsg, true);
+            return this._buildRespMessage(data, reqMsg, true);
         }
         catch (error) {
-            throw this.buildRespMessage(error, reqMsg, false);
+            throw this._buildRespMessage(error, reqMsg, false);
         }
     }
     _emit(target, methodName, ...args) {
-        const msg = this.buildReqMessage(methodName, args);
+        const msg = this._buildReqMessage(methodName, args);
         this.sendMessage(target, msg);
         return new Promise((resolve, reject) => {
             const callback = (response) => {
-                if (!this.isResponse(msg, response))
+                if (!this._isResponse(msg, response))
                     return false;
                 response.isSuccess ? resolve(response.data) : reject(response.data);
                 return true;
@@ -80,25 +91,19 @@ class AbstractHub {
             this.listenResponse(target, msg, callback);
         });
     }
-    sendMessage(target, msg) {
-        throw new Error('you need to implements sendMessage in your own class');
+    _buildReqMessage(methodName, args) {
+        return AbstractHub.buildReqMsg(this.instanceID, ++this._messageID, methodName, args);
     }
-    listenResponse(target, reqMsg, callback) {
-        throw new Error('you need to implements onMessageReceived in your own class');
-    }
-    buildReqMessage(methodName, args) {
-        return AbstractHub.buildReqMsg(this.instanceID, ++this.messageID, methodName, args);
-    }
-    buildRespMessage(data, reqMsg, isSuccess) {
+    _buildRespMessage(data, reqMsg, isSuccess) {
         return AbstractHub.buildRespMsg(this.instanceID, data, reqMsg, isSuccess);
     }
-    isRequest(reqMsg) {
+    _isRequest(reqMsg) {
         return Boolean(reqMsg && reqMsg.fromInstance &&
             reqMsg.fromInstance !== this.instanceID &&
-            // (reqMsg.toInstance && reqMsg.toInstance !== this.instanceID) &&
+            (!reqMsg.toInstance || (reqMsg.toInstance === this.instanceID)) &&
             reqMsg.messageID && reqMsg.type === 'request');
     }
-    isResponse(reqMsg, respMsg) {
+    _isResponse(reqMsg, respMsg) {
         return reqMsg && reqMsg &&
             respMsg.toInstance === this.instanceID &&
             respMsg.toInstance === reqMsg.fromInstance &&
@@ -137,28 +142,28 @@ const isWorker = typeof document === 'undefined';
 class PostMessageHub extends AbstractHub {
     constructor() {
         super();
-        this.hostedWorkers = [];
-        this.onMessageReceived = this.onMessageReceived.bind(this);
+        this._hostedWorkers = [];
+        this._onMessageReceived = this._onMessageReceived.bind(this);
         this.proxyMessage = this.proxyMessage.bind(this);
-        WIN.addEventListener('message', this.onMessageReceived);
+        WIN.addEventListener('message', this._onMessageReceived);
     }
     on(target, handlerMap, handler) {
         // @ts-ignore
-        super.on(target, handlerMap, handler);
-        if (target instanceof Worker && !this.hostedWorkers.includes(target)) {
-            this.hostedWorkers.push(target);
-            target.addEventListener('message', this.onMessageReceived);
+        super._on(target, handlerMap, handler);
+        if (target instanceof Worker && !this._hostedWorkers.includes(target)) {
+            this._hostedWorkers.push(target);
+            target.addEventListener('message', this._onMessageReceived);
         }
     }
     emit(peer, methodName, ...args) {
         return this._emit(peer, methodName, args);
     }
-    off(target) {
-        super.off(target);
+    off(target, methodName) {
+        super._off(target, methodName);
         if (target instanceof Worker) {
-            target.removeEventListener('message', this.onMessageReceived);
-            const idx = this.hostedWorkers.indexOf(target);
-            idx > -1 && this.hostedWorkers.splice(idx, 1);
+            target.removeEventListener('message', this._onMessageReceived);
+            const idx = this._hostedWorkers.indexOf(target);
+            idx > -1 && this._hostedWorkers.splice(idx, 1);
         }
     }
     /**
@@ -206,7 +211,7 @@ class PostMessageHub extends AbstractHub {
             // @ts-ignore
             if (!methodName)
                 return this.off(ownPeer);
-            const matchedMap = this.eventHandlerMap.find(wm => wm[0] === ownPeer);
+            const matchedMap = this._eventHandlerMap.find(wm => wm[0] === ownPeer);
             if (matchedMap) {
                 delete matchedMap[methodName];
             }
@@ -240,9 +245,9 @@ class PostMessageHub extends AbstractHub {
     createProxyFor(peer) {
         this.createProxy(peer, WIN.parent);
     }
-    async onMessageReceived(evt) {
+    async _onMessageReceived(evt) {
         const data = evt.data;
-        if (!this.isRequest(data))
+        if (!this._isRequest(data))
             return;
         const target = evt.source || evt.currentTarget || WIN;
         let response;
@@ -283,33 +288,56 @@ class StorageMessageHub extends AbstractHub {
             throw new Error('StorageMessageHub only available in normal browser context, nodejs/worker are not supported');
         }
         super();
-        this.responseCallbacks = [];
-        this.onMessageReceived = this.onMessageReceived.bind(this);
-        window.addEventListener('storage', this.onMessageReceived);
+        this._responseCallbacks = [];
+        this._onMessageReceived = this._onMessageReceived.bind(this);
+        this._isEventAttached = false;
     }
     on(handlerMap, handler) {
         // @ts-ignore
-        super.on('*', handlerMap, handler);
+        super._on('*', handlerMap, handler);
+        if (this._isEventAttached)
+            return;
+        window.addEventListener('storage', this._onMessageReceived);
+        this._isEventAttached = true;
     }
-    emit(method, ...args) {
-        return super._emit('*', method, ...args);
+    emit(methodName, ...args) {
+        return super._emit('*', methodName, ...args);
     }
-    off() {
-        super.off('*');
+    off(methodName) {
+        super._off('*', methodName);
+        if (!this._hasListeners() || (methodName && this._isEventAttached)) {
+            window.removeEventListener('storage', this._onMessageReceived);
+            this._isEventAttached = false;
+        }
     }
-    async onMessageReceived(evt) {
-        const msg = this.getMsgFromEvent(evt);
+    sendMessage(target, msg) {
+        const msgKey = StorageMessageHub._getMsgKey(msg);
+        localStorage.setItem(msgKey, JSON.stringify(msg));
+    }
+    listenResponse(target, reqMsg, callback) {
+        // callback handled via onMessageReceived
+        const evtCallback = (msg) => {
+            if (!callback(msg))
+                return false;
+            localStorage.removeItem(StorageMessageHub._getMsgKey(msg));
+            return true;
+        };
+        this._responseCallbacks.push(evtCallback);
+    }
+    async _onMessageReceived(evt) {
+        console.warn('storage event', evt);
+        const msg = StorageMessageHub._getMsgFromEvent(evt);
         if (!msg)
             return;
-        if (!this.isRequest(msg)) {
-            const idx = this.responseCallbacks.findIndex(fn => fn(msg));
+        if (!this._isRequest(msg)) {
+            const idx = this._responseCallbacks.findIndex(fn => fn(msg));
             if (idx >= 0) {
-                this.responseCallbacks.splice(idx, 1);
+                this._responseCallbacks.splice(idx, 1);
             }
             else {
-                // clear unhandled responses
+                // clean unhandled responses
                 if (msg.toInstance === this.instanceID && msg.type === 'response') {
-                    localStorage.removeItem(StorageMessageHub.getMsgKey(msg));
+                    localStorage.removeItem(StorageMessageHub._getMsgKey(msg));
                 }
             }
             return;
@@ -329,21 +357,7 @@ class StorageMessageHub extends AbstractHub {
         }
         this.sendMessage('*', response);
     }
-    sendMessage(target, msg) {
-        const msgKey = StorageMessageHub.getMsgKey(msg);
-        localStorage.setItem(msgKey, JSON.stringify(msg));
-    }
-    listenResponse(target, reqMsg, callback) {
-        // callback handled via onMessageReceived
-        const evtCallback = (msg) => {
-            if (!callback(msg))
-                return false;
-            localStorage.removeItem(StorageMessageHub.getMsgKey(msg));
-            return true;
-        };
-        this.responseCallbacks.push(evtCallback);
-    }
-    getMsgFromEvent(evt) {
+    static _getMsgFromEvent(evt) {
         if (!evt.key || !/^\$\$msghub\-/.test(evt.key) || !evt.newValue)
             return;
         let msg;
@@ -355,7 +369,7 @@ class StorageMessageHub extends AbstractHub {
         }
         return msg;
     }
-    static getMsgKey(msg) {
+    static _getMsgKey(msg) {
         return `$$msghub-${msg.type}-${msg.fromInstance}-${msg.toInstance || ''}-${msg.messageID}`;
     }
 }
@@ -367,30 +381,38 @@ class PageScriptMessageHub extends AbstractHub {
             throw new Error('StorageMessageHub only available in normal browser context, nodejs/worker are not supported');
         }
         super();
-        this.customEventName = customEventName;
-        this.responseCallbacks = [];
-        this.onMessageReceived = this.onMessageReceived.bind(this);
-        // @ts-ignore
-        window.addEventListener(customEventName, this.onMessageReceived);
+        this._customEventName = customEventName;
+        this._responseCallbacks = [];
+        this._onMessageReceived = this._onMessageReceived.bind(this);
+        this._isEventAttached = false;
     }
     on(handlerMap, handler) {
         // @ts-ignore
-        super.on('*', handlerMap, handler);
+        super._on('*', handlerMap, handler);
+        if (this._isEventAttached)
+            return;
+        // @ts-ignore
+        window.addEventListener(this._customEventName, this._onMessageReceived);
     }
     emit(method, ...args) {
         return super._emit('*', method, ...args);
     }
-    off() {
-        super.off('*');
+    off(methodName) {
+        super._off('*', methodName);
+        if (!this._hasListeners() || (!methodName && this._isEventAttached)) {
+            // @ts-ignore
+            window.removeEventListener(this._customEventName, this._onMessageReceived);
+            this._isEventAttached = false;
+        }
     }
-    async onMessageReceived(evt) {
+    async _onMessageReceived(evt) {
         const msg = evt.detail;
         if (!msg)
             return;
-        if (!this.isRequest(msg)) {
-            const idx = this.responseCallbacks.findIndex(fn => fn(msg));
+        if (!this._isRequest(msg)) {
+            const idx = this._responseCallbacks.findIndex(fn => fn(msg));
             if (idx >= 0)
-                this.responseCallbacks.splice(idx, 1);
+                this._responseCallbacks.splice(idx, 1);
             return;
         }
         let response;
@@ -403,11 +425,11 @@ class PageScriptMessageHub extends AbstractHub {
         this.sendMessage('*', response);
     }
     sendMessage(target, msg) {
-        const evt = new CustomEvent(this.customEventName, { detail: msg });
+        const evt = new CustomEvent(this._customEventName, { detail: msg });
         window.dispatchEvent(evt);
     }
     listenResponse(target, reqMsg, callback) {
-        this.responseCallbacks.push(callback);
+        this._responseCallbacks.push(callback);
     }
 }
 
