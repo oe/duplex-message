@@ -23,6 +23,6 @@ let count = 0
 
 $('btn').addEventListener('click', () => {
   storageMessageHub.emit('tik-tok', { what: 'xxx', count: ++count, time: Date.now() }).then(result => {
-    $('tik-tok-resp').innerHTML = result as string
-  })
+    $('tik-tok-resp').innerHTML = result.join('<br>')
+  }).catch(err => console.warn('error', err))
 })

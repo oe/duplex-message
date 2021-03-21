@@ -290,6 +290,7 @@ class StorageMessageHub extends AbstractHub {
         super();
         this._responseCallbacks = [];
         this._onMessageReceived = this._onMessageReceived.bind(this);
+        this._responseTimeout = 200;
         this._isEventAttached = false;
     }
     on(handlerMap, handler) {
@@ -315,14 +316,59 @@ class StorageMessageHub extends AbstractHub {
         localStorage.setItem(msgKey, JSON.stringify(msg));
     }
     listenResponse(target, reqMsg, callback) {
+        let hasResp = false;
+        const msgs = [];
+        let allMsgReceived = false;
+        let tid = 0;
         // callback handled via onMessageReceived
         const evtCallback = (msg) => {
-            if (!callback(msg))
-                return false;
+            {
+                if (!this._isResponse(reqMsg, msg))
+                    return 0;
+                if (allMsgReceived) {
+                    callback(msg);
+                    return 1;
+                }
+                msgs.push(msg.data);
+                clearTimeout(tid);
+                // @ts-ignore
+                tid = setTimeout(() => {
+                    allMsgReceived = true;
+                    const resp = this._buildRespMessage(msgs, reqMsg, true);
+                    console.warn('response', resp);
+                    this._runResponseCallback(resp);
+                }, this._responseTimeout);
+            }
+            hasResp = true;
             localStorage.removeItem(StorageMessageHub._getMsgKey(msg));
-            return true;
+            return  2 ;
         };
         this._responseCallbacks.push(evtCallback);
+        // timeout when no response, callback get a failure
+        setTimeout(() => {
+            if (hasResp)
+                return;
+            const resp = this._buildRespMessage({ message: 'timeout' }, reqMsg, false);
+            this._runResponseCallback(resp);
+        }, this._responseTimeout);
+    }
+    _runResponseCallback(resp) {
+        let mc = 0;
+        const idx = this._responseCallbacks.findIndex(fn => {
+            mc = fn(resp);
+            return Boolean(mc);
+        });
+        if (idx >= 0) {
+            if (mc > 1)
+                return;
+            this._responseCallbacks.splice(idx, 1);
+        }
+        else {
+            // clean unhandled responses
+            if (resp.toInstance === this.instanceID && resp.type === 'response') {
+                localStorage.removeItem(StorageMessageHub._getMsgKey(resp));
+            }
+        }
     }
     async _onMessageReceived(evt) {
         console.warn('storage event', evt);
@@ -330,19 +376,10 @@ class StorageMessageHub extends AbstractHub {
         if (!msg)
             return;
         if (!this._isRequest(msg)) {
-            const idx = this._responseCallbacks.findIndex(fn => fn(msg));
-            if (idx >= 0) {
-                this._responseCallbacks.splice(idx, 1);
-            }
-            else {
-                // clean unhandled responses
-                if (msg.toInstance === this.instanceID && msg.type === 'response') {
-                    localStorage.removeItem(StorageMessageHub._getMsgKey(msg));
-                }
-            }
+            this._runResponseCallback(msg);
             return;
         }
-        // clear storage
+        // clear received message after proceeded
         setTimeout(() => {
             if (localStorage.getItem(evt.key) === null)
                 return;

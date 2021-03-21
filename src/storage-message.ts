@@ -4,6 +4,8 @@ export class StorageMessageHub extends AbstractHub {
   
   protected readonly _responseCallbacks: Function[]
   protected _isEventAttached: boolean
+  // timeout when no response sent back
+  protected _responseTimeout: number
   constructor () {
     // tslint:disable-next-line
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
@@ -12,6 +14,7 @@ export class StorageMessageHub extends AbstractHub {
     super()
     this._responseCallbacks = []
     this._onMessageReceived = this._onMessageReceived.bind(this)
+    this._responseTimeout = 200
     this._isEventAttached = false
   }
 
@@ -43,13 +46,67 @@ export class StorageMessageHub extends AbstractHub {
   }
 
   protected listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean) {
-    // callback handled via onMessageReceived
+    let hasResp = false
+    const needAllResponses = true
+    const msgs: IResponse[] = []
+    let allMsgReceived = false
+    let tid = 0
+    /**
+     * callback handled via onMessageReceived
+     *  returns:  0 not a corresponding response
+     *            1 corresponding response and everything get proceeded
+     *            2 corresponding response and need waiting for rest responses
+     * @param msg 
+     * @returns number
+     */
     const evtCallback = (msg: IResponse) => {
-      if (!callback(msg)) return false
+      if (!needAllResponses) {
+        if (!callback(msg)) return 0
+      } else {
+        if (!this._isResponse(reqMsg, msg)) return 0
+        if (allMsgReceived) {
+          callback(msg)
+          return 1
+        }
+        msgs.push(msg.data)
+
+        // waiting for others to respond
+        clearTimeout(tid)
+        // @ts-ignore
+        tid = setTimeout(() => {
+          allMsgReceived = true
+          const resp = this._buildRespMessage(msgs, reqMsg, true)
+          this._runResponseCallback(resp)
+        }, this._responseTimeout)
+      }
+      hasResp = true
       localStorage.removeItem(StorageMessageHub._getMsgKey(msg))
-      return true
+      return needAllResponses ? 2 : 1
     }
     this._responseCallbacks.push(evtCallback)
+    // timeout when no response, callback get a failure
+    setTimeout(() => {
+      if (hasResp) return
+      const resp = this._buildRespMessage({message: 'timeout'}, reqMsg, false)
+      this._runResponseCallback(resp)
+    }, this._responseTimeout)
+  }
+
+  protected _runResponseCallback (resp: IResponse) {
+    let mc = 0
+    const idx = this._responseCallbacks.findIndex(fn => {
+      mc = fn(resp)
+      return Boolean(mc)
+    })
+    if (idx >= 0) {
+      if (mc > 1) return
+      this._responseCallbacks.splice(idx, 1)
+    } else {
+      // clean unhandled responses
+      if (resp.toInstance === this.instanceID && resp.type === 'response') {
+        localStorage.removeItem(StorageMessageHub._getMsgKey(resp))
+      }
+    }
   }
 
    protected async _onMessageReceived (evt: StorageEvent) {
@@ -57,19 +114,11 @@ export class StorageMessageHub extends AbstractHub {
     const msg = StorageMessageHub._getMsgFromEvent(evt)
     if (!msg) return
     if (!this._isRequest(msg)) {
-      const idx = this._responseCallbacks.findIndex(fn => fn(msg))
-      if (idx >= 0) {
-        this._responseCallbacks.splice(idx, 1)
-      } else {
-        // clean unhandled responses
-        if (msg.toInstance === this.instanceID && msg.type === 'response') {
-          localStorage.removeItem(StorageMessageHub._getMsgKey(msg))
-        }
-      }
+      this._runResponseCallback(msg)
       return
     }
 
-    // clear storage
+    // clear received message after proceeded
     setTimeout(() => {
       if (localStorage.getItem(evt.key!) === null) return
       localStorage.removeItem(evt.key!)
