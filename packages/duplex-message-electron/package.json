@@ -1,9 +1,8 @@
 {
-  "name": "duplex-message-electron",
+  "name": "simple-electron-ipc",
   "version": "1.0.0-alpha.1",
-  "description": "makes one way message responsive, enhance postMessage/storageEvent/electron IPC/chrome extension scripts",
-  "main": "dist/duplex-message.umd.js",
-  "module": "dist/duplex-message.es.js",
+  "description": "an easy way to use electron ipc, get a response via promise, event support progress callback",
+  "main": "dist/index.js",
   "typings": "dist/index.d.ts",
   "scripts": {
     "prebuild": "rimraf dist/*",
@@ -18,11 +17,8 @@
     "ipc",
     "duplex-message",
     "hub",
-    "postmessage",
-    "promise",
-    "iframe",
-    "webworker",
-    "worker"
+    "electron",
+    "promise"
   ],
   "dependencies": {
     "duplex-message": "^1.0.0-alpha.1"
@@ -34,4 +30,4 @@
   "author": "Saiya",
   "license": "MIT",
   "homepage": "https://github.com/oe/duplex-message"
-  }
+}
