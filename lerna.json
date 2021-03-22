@@ -1,0 +1,15 @@
+{
+  "npmClient": "yarn",
+  "packages": [
+    "packages/*"
+  ],
+  "command": {
+    "publish": {
+      "access": "public",
+      "ignoreChanges": ["*.md", "scripts/**/*.js"],
+      "message": "chore(release): publish"
+    }
+  },
+  "version": "independent",
+  "useWorkspaces": true
+}

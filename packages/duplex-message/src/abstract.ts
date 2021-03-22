@@ -61,9 +61,9 @@ export abstract class AbstractHub {
   /**
    * add listener for target
    */
-  protected _on (target: any, handlerMap: Function | IHandlerMap)
-  protected _on (target: any, methodName: string, handler: Function)
-  protected _on (target: any, handlerMap: IHandlerMap | Function | string, handler?: Function) {
+  protected _on (target: any, handlerMap: Function | IHandlerMap): void
+  protected _on (target: any, methodName: string, handler: Function): void
+  protected _on (target: any, handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     const pair = this._eventHandlerMap.find(pair => pair[0] === target)
     let handlerResult: Function | IHandlerMap
     if (typeof handlerMap === 'string') {      
@@ -145,7 +145,7 @@ export abstract class AbstractHub {
     return AbstractHub.buildReqMsg(this.instanceID, ++this._messageID, methodName, args)
   }
 
-  protected _buildRespMessage (data: any, reqMsg: IRequest, isSuccess) {
+  protected _buildRespMessage (data: any, reqMsg: IRequest, isSuccess: boolean) {
     return AbstractHub.buildRespMsg(this.instanceID, data, reqMsg, isSuccess)
   }
 

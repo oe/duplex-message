@@ -1,0 +1,34 @@
+{
+  "name": "duplex-message-electron",
+  "version": "1.0.0-alpha.1",
+  "description": "makes one way message responsive, enhance postMessage/storageEvent/electron IPC/chrome extension scripts",
+  "main": "dist/duplex-message.umd.js",
+  "module": "dist/duplex-message.es.js",
+  "typings": "dist/index.d.ts",
+  "scripts": {
+    "prebuild": "rimraf dist/*",
+    "build": "tsc"
+  },
+  "files": [
+    "dist/*"
+  ],
+  "keywords": [
+    "rpc",
+    "duplex",
+    "ipc",
+    "duplex-message",
+    "hub",
+    "postmessage",
+    "promise",
+    "iframe",
+    "webworker",
+    "worker"
+  ],
+  "dependencies": {
+    "duplex-message": "^1.0.0-alpha.1"
+  },
+  "repository": "https://oe@github.com/oe/duplex-message.git",
+  "author": "Saiya",
+  "license": "MIT",
+  "homepage": "https://github.com/oe/duplex-message"
+  }

@@ -1,6 +1,7 @@
 import typescript from 'rollup-plugin-typescript2'
 import resolve from 'rollup-plugin-node-resolve'
 import { terser } from 'rollup-plugin-terser'
+// @ts-ignore
 import { sizeSnapshot } from 'rollup-plugin-size-snapshot'
 const pkg = require('./package.json')
 
@@ -19,7 +20,7 @@ export default [
     plugins: [
       typescript({
         tsconfigOverride: {
-          compilerOptions: { module: 'esnext', target: 'es2017' }
+          compilerOptions: { module: 'esnext', target: 'es2017', declaration: false }
         },
         typescript: require('typescript')
       }),
@@ -40,7 +41,7 @@ export default [
     plugins: [
       typescript({
         tsconfigOverride: {
-          compilerOptions: { module: 'esnext', target: 'es6' }
+          compilerOptions: { module: 'esnext', target: 'es6', declaration: false }
         },
         typescript: require('typescript')
       }),
@@ -61,7 +62,7 @@ export default [
     plugins: [
       typescript({
         tsconfigOverride: {
-          compilerOptions: { module: 'esnext', target: 'es5' }
+          compilerOptions: { module: 'esnext', target: 'es5', declaration: false }
         },
         typescript: require('typescript')
       }),
@@ -71,7 +72,8 @@ export default [
       sizeSnapshot(),
       terser({
         output: {
-          comments: function (node, comment) {
+          // @ts-ignore
+          comments (node, comment) {
             const text = comment.value
             const type = comment.type
             if (type === 'comment2') {

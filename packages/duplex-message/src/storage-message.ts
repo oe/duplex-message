@@ -18,9 +18,9 @@ export class StorageMessageHub extends AbstractHub {
     this._isEventAttached = false
   }
 
-  on (handlerMap: Function | IHandlerMap)
-  on (handlerMap: string, handler: Function)
-  on (handlerMap: IHandlerMap | Function | string, handler?: Function) {
+  on (handlerMap: Function | IHandlerMap): void
+  on (handlerMap: string, handler: Function): void
+  on (handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     // @ts-ignore
     super._on('*', handlerMap, handler)
     if (this._isEventAttached) return

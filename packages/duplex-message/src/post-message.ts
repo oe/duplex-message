@@ -16,9 +16,9 @@ export class PostMessageHub extends AbstractHub {
     WIN.addEventListener('message', this._onMessageReceived)
   }
 
-  on (target: Window | Worker | '*', handlerMap: Function | IHandlerMap)
-  on (target: Window | Worker | '*', handlerMap: string, handler: Function)
-  on (target: Window | Worker | '*', handlerMap: IHandlerMap | Function | string, handler?: Function) {
+  on (target: Window | Worker | '*', handlerMap: Function | IHandlerMap): void
+  on (target: Window | Worker | '*', handlerMap: string, handler: Function): void
+  on (target: Window | Worker | '*', handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     // @ts-ignore
     super._on(target, handlerMap, handler)
     if (target instanceof Worker && !this._hostedWorkers.includes(target)) {
@@ -84,8 +84,8 @@ export class PostMessageHub extends AbstractHub {
       // @ts-ignore
       if (!methodName) return this.off(ownPeer)
       const matchedMap = this._eventHandlerMap.find(wm => wm[0] === ownPeer)
-      if (matchedMap) {
-        delete matchedMap[methodName]
+      if (matchedMap && typeof matchedMap[1] === 'object') {
+        delete matchedMap[1][methodName]
       }
     }
     return { setPeer, emit, on, off }

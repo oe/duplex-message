@@ -69,3 +69,4 @@ typings/
 .cache
 test-cache
 test/cache
+**/dist
