@@ -1,12 +1,12 @@
 import electron, { IpcRenderer } from 'electron'
 import { IHandlerMap } from 'duplex-message'
-import { ElectronMessageHub } from './abstract'
+import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 
 export class RendererMessageHub extends ElectronMessageHub {
   protected readonly _ipc: IpcRenderer
-  constructor(channelName?: string) {
+  constructor(options?: IElectronMessageHubOptions) {
     if (process.type === 'browser') throw new TypeError('RendererMessageHub only available in renderer process')
-    super(channelName)
+    super(options)
     this._ipc = electron.ipcRenderer
     this._ipc.on(this._channelName, this._onMessageReceived)
   }

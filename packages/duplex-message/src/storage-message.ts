@@ -1,20 +1,34 @@
 import { AbstractHub, IResponse, IHandlerMap, IRequest } from './abstract'
 
+export interface IStorageMessageHubOptions {
+  timeout?: number
+  keyPrefix?: string
+}
+
+export interface IStorageMessageHubEmit {
+  needAllResponses?: boolean
+  toInstance?: string
+  methodName: string
+}
+
 export class StorageMessageHub extends AbstractHub {
   
   protected readonly _responseCallbacks: Function[]
   protected _isEventAttached: boolean
-  // timeout when no response sent back
-  protected _responseTimeout: number
-  constructor () {
+  protected readonly _keyPrefix: string
+  /** timeout when no response sent back */
+  protected readonly _responseTimeout: number
+  constructor (options?: IStorageMessageHubOptions) {
     // tslint:disable-next-line
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
       throw new Error('StorageMessageHub only available in normal browser context, nodejs/worker are not supported')
     }
     super()
+    options = Object.assign({timeout: 200, keyPrefix: '$$xiu'}, options)
     this._responseCallbacks = []
     this._onMessageReceived = this._onMessageReceived.bind(this)
-    this._responseTimeout = 200
+    this._responseTimeout = options.timeout!
+    this._keyPrefix = options.keyPrefix!
     this._isEventAttached = false
   }
 
@@ -28,7 +42,7 @@ export class StorageMessageHub extends AbstractHub {
     this._isEventAttached = true
   }
 
-  emit (methodName: string, ...args: any[]) {
+  emit (methodName: string | IStorageMessageHubEmit, ...args: any[]) {
     return super._emit('*', methodName, ...args)
   }
 
@@ -41,14 +55,14 @@ export class StorageMessageHub extends AbstractHub {
   }
 
   protected sendMessage (target: string, msg: IRequest | IResponse) {
-    const msgKey = StorageMessageHub._getMsgKey(msg)
+    const msgKey = this._getMsgKey(msg)
     localStorage.setItem(msgKey, JSON.stringify(msg))
   }
 
   protected listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean) {
     let hasResp = false
-    const needAllResponses = true
-    const msgs: IResponse[] = []
+    const needAllResponses = reqMsg.needAllResponses
+    const msgs: Record<string, IResponse> = {}
     let allMsgReceived = false
     let tid = 0
     /**
@@ -68,7 +82,8 @@ export class StorageMessageHub extends AbstractHub {
           callback(msg)
           return 1
         }
-        msgs.push(msg.data)
+        // save response by fromInstance id
+        msgs[msg.fromInstance] = msg.data
 
         // waiting for others to respond
         clearTimeout(tid)
@@ -80,7 +95,7 @@ export class StorageMessageHub extends AbstractHub {
         }, this._responseTimeout)
       }
       hasResp = true
-      localStorage.removeItem(StorageMessageHub._getMsgKey(msg))
+      localStorage.removeItem(this._getMsgKey(msg))
       return needAllResponses ? 2 : 1
     }
     this._responseCallbacks.push(evtCallback)
@@ -104,14 +119,14 @@ export class StorageMessageHub extends AbstractHub {
     } else {
       // clean unhandled responses
       if (resp.toInstance === this.instanceID && resp.type === 'response') {
-        localStorage.removeItem(StorageMessageHub._getMsgKey(resp))
+        localStorage.removeItem(this._getMsgKey(resp))
       }
     }
   }
 
    protected async _onMessageReceived (evt: StorageEvent) {
     console.warn('storage event', evt)
-    const msg = StorageMessageHub._getMsgFromEvent(evt)
+    const msg = this._getMsgFromEvent(evt)
     if (!msg) return
     if (!this._isRequest(msg)) {
       this._runResponseCallback(msg)
@@ -134,14 +149,14 @@ export class StorageMessageHub extends AbstractHub {
     this.sendMessage('*', response)
   }
 
-  protected static _getMsgFromEvent (evt: StorageEvent) {
-    if (!evt.key || !/^\$\$msghub\-/.test(evt.key) || !evt.newValue ) return
+  protected _getMsgFromEvent (evt: StorageEvent) {
+    if (!evt.key || evt.key.indexOf(this._keyPrefix + '-') !== 0 || !evt.newValue ) return
     let msg
     try { msg = JSON.parse(evt.newValue) } catch (error) { return }
     return msg
   }
 
-  protected static _getMsgKey (msg: IRequest | IResponse) {
-    return `$$msghub-${msg.type}-${msg.fromInstance}-${msg.toInstance || ''}-${msg.messageID}`
+  protected _getMsgKey (msg: IRequest | IResponse) {
+    return `${this._keyPrefix}-${msg.type}-${msg.fromInstance}-${msg.toInstance || ''}-${msg.messageID}`
   }
 }

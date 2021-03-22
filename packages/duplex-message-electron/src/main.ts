@@ -1,12 +1,12 @@
 import electron, { WebContents, IpcMain } from 'electron'
 import { IHandlerMap } from 'duplex-message'
-import { ElectronMessageHub } from './abstract'
+import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 
 export class MainMessageHub extends ElectronMessageHub {
   protected readonly _ipc: IpcMain
-  constructor(channelName?: string) {
+  constructor(options?: IElectronMessageHubOptions) {
     if (process.type === 'browser') throw new TypeError('MainMessageHub only available in main process')
-    super(channelName)
+    super(options)
     this._ipc = electron.ipcMain
     this._ipc.on(this._channelName, this._onMessageReceived)
   }

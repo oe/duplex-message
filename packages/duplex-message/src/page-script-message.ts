@@ -1,16 +1,22 @@
 import { AbstractHub, IResponse, IHandlerMap, IRequest } from './abstract'
 
+export interface IPageScriptMessageHubOptions {
+  customEventName?: string
+}
+
 export class PageScriptMessageHub extends AbstractHub {
   protected readonly _customEventName: string
   protected readonly _responseCallbacks: Function[]
   protected _isEventAttached: boolean
-  constructor (customEventName = 'message-hub') {
+  constructor (options?: IPageScriptMessageHubOptions) {
     // tslint:disable-next-line
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
       throw new Error('StorageMessageHub only available in normal browser context, nodejs/worker are not supported')
     }
+    options = Object.assign({ customEventName: 'message-hub'}, options)
+
     super()
-    this._customEventName = customEventName
+    this._customEventName = options.customEventName!
     this._responseCallbacks = []
     this._onMessageReceived = this._onMessageReceived.bind(this)
     this._isEventAttached = false
