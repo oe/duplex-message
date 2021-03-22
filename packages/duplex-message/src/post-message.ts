@@ -7,13 +7,15 @@ const WIN: Window = self
 const isWorker = typeof document === 'undefined'
 export class PostMessageHub extends AbstractHub {
   protected _hostedWorkers: Worker[]
-
+  protected readonly _responseCallbacks: Function[]
+  protected _isEventAttached: boolean
   constructor () {
     super()
     this._hostedWorkers = []
+    this._responseCallbacks = []
+    this._isEventAttached = false
     this._onMessageReceived = this._onMessageReceived.bind(this)
     this.proxyMessage = this.proxyMessage.bind(this)
-    WIN.addEventListener('message', this._onMessageReceived)
   }
 
   on (target: Window | Worker | '*', handlerMap: Function | IHandlerMap): void
@@ -25,6 +27,9 @@ export class PostMessageHub extends AbstractHub {
       this._hostedWorkers.push(target)
       target.addEventListener('message', this._onMessageReceived)
     }
+    if (this._isEventAttached) return
+    WIN.addEventListener('message', this._onMessageReceived)
+    this._isEventAttached = true
   }
 
   emit (peer: Window | Worker, methodName: string, ...args: any[]) {
@@ -33,11 +38,17 @@ export class PostMessageHub extends AbstractHub {
 
   off (target: Window | Worker | '*', methodName?: string) {
     super._off(target, methodName)
-    if (target instanceof Worker) {
-      target.removeEventListener('message', this._onMessageReceived)
+    const evtMpIndx = this._eventHandlerMap.findIndex(m => m[0] === target)
+    if (evtMpIndx === -1 && target instanceof Worker) {
       const idx = this._hostedWorkers.indexOf(target)
-      idx > -1 && this._hostedWorkers.splice(idx, 1)
+      if (idx > -1) {
+        this._hostedWorkers.splice(idx, 1)
+        target.removeEventListener('message', this._onMessageReceived)
+      } 
     }
+    if (this._eventHandlerMap.length || !this._isEventAttached) return
+    WIN.removeEventListener('message', this._onMessageReceived)
+    this._isEventAttached = false
   }
 
   /**
@@ -123,7 +134,12 @@ export class PostMessageHub extends AbstractHub {
 
   protected async _onMessageReceived (evt: MessageEvent) {
     const data = evt.data as IRequest
-    if (!this._isRequest(data)) return
+    if (!data) return
+    if (!this._isRequest(data)) {
+      const idx = this._responseCallbacks.findIndex(fn => fn(data))
+      if (idx >= 0) this._responseCallbacks.splice(idx, 1)
+      return
+    }
     const target = evt.source || evt.currentTarget || WIN
     let response: IResponse
     try {
@@ -145,13 +161,6 @@ export class PostMessageHub extends AbstractHub {
   }
 
   protected listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean) {
-    const win = (isWorker || !(target instanceof Worker)) ? WIN : target
-    const evtCallback = (evt: MessageEvent) => {
-      if(!callback(evt.data)) return
-      // @ts-ignore
-      win.removeEventListener('message', evtCallback)
-    }
-    // @ts-ignore
-    win.addEventListener('message', evtCallback)
+    this._responseCallbacks.push(callback)
   }
 }

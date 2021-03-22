@@ -1,4 +1,4 @@
-import { PostMessageHub } from '@evecalm/message-hub'
+import { PostMessageHub } from 'duplex-message'
 const postMessageHub = new PostMessageHub
 const peer = self
 

@@ -1,4 +1,4 @@
-import { StorageMessageHub } from '@evecalm/message-hub'
+import { StorageMessageHub } from 'duplex-message'
 
 const storageMessageHub = new StorageMessageHub
 // @ts-ignore

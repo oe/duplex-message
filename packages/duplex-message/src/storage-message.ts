@@ -125,7 +125,6 @@ export class StorageMessageHub extends AbstractHub {
   }
 
    protected async _onMessageReceived (evt: StorageEvent) {
-    console.warn('storage event', evt)
     const msg = this._getMsgFromEvent(evt)
     if (!msg) return
     if (!this._isRequest(msg)) {
