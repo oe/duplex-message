@@ -85,7 +85,7 @@ export abstract class AbstractHub {
   }
 
 
-  protected _off (target: Window | Worker | '*', methodName?: string) {
+  protected _off (target: any, methodName?: string) {
     const index = this._eventHandlerMap.findIndex(pair => pair[0] === target)
     if (index === -1) return
     if (!methodName) {

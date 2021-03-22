@@ -27,6 +27,9 @@
   "dependencies": {
     "duplex-message": "^1.0.0-alpha.1"
   },
+  "peerDependencies": {
+    "electron": "*"
+  },
   "repository": "https://oe@github.com/oe/duplex-message.git",
   "author": "Saiya",
   "license": "MIT",
