@@ -72,7 +72,12 @@ export class StorageMessageHub extends AbstractHub {
 
   protected sendMessage (target: string, msg: IRequest | IResponse) {
     const msgKey = this._getMsgKey(msg)
-    localStorage.setItem(msgKey, JSON.stringify(msg))
+    try {
+      localStorage.setItem(msgKey, JSON.stringify(msg))
+    } catch (e) {
+      console.warn('[StorageMessageHub] unable to stringify message, message not sent', e)
+      throw e
+    }
   }
 
   protected _listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => number) {
