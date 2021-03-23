@@ -8,10 +8,7 @@ const $ = (id: string) => {
   return document.getElementById(id.replace(/^\#/, ''))
 }
 
-let peers: IPeerIdentity[] = []
-storageMessageHub.getPeerIdentifies().then(res => peers = Object.values(res))
-// @ts-ignore
-window.getPeerByName = (name: string) => peers.find(p => p.identity === name)?.instanceID
+
 
 storageMessageHub.on({
   testError (...args: any[]) {
@@ -40,9 +37,26 @@ let count = 0
 
 $('btn').addEventListener('click', () => {
   storageMessageHub.emit('tik-tok', { what: 'xxx', count: ++count, time: Date.now() }).then(result => {
-    $('tik-tok-resp').innerHTML = result.join('<br>')
+    $('tik-tok-resp').innerHTML = Array.isArray(result) ? result.join('<br>') : result
   }).catch(err => console.warn('error', err))
 })
 
-// test progress
-// sm.emit({methodName: 'mockDownload', toInstance: getPeerByName('xiu')}, {onprogress: (p) => console.log('progress', p)}).then(res => console.log('ss', res)).catch(res => console.log('ee', res))
+$('test-progress').addEventListener('click', async () => {
+  try {
+    let peers: any = await storageMessageHub.getPeerIdentifies()
+    peers = Object.values(peers)
+    $('peers').innerHTML = `success: <pre>${JSON.stringify(peers)}</pre>`
+    const getPeerByName = (name: string) => peers.find(p => p.identity === name)?.instanceID
+    const response = await storageMessageHub.emit({
+      methodName: 'mockDownload',
+      toInstance: getPeerByName('xiu')
+    }, {
+      onprogress: (p) => $('progress-response').innerHTML = `progress ${p}`
+    })
+  
+    $('progress-response').innerHTML = `progress ${response}`
+  } catch (error) {
+    console.error(error)
+    $('progress-response').innerHTML = `error ${error.message}`
+  }
+})

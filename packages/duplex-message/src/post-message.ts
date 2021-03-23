@@ -20,14 +20,12 @@ export class PostMessageHub extends AbstractHub {
   on (target: Window | Worker | '*', handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     // @ts-ignore
     super._on(target, handlerMap, handler)
-    if (target instanceof Worker && !this._hostedWorkers.includes(target)) {
-      this._hostedWorkers.push(target)
-      target.addEventListener('message', this._onMessageReceived)
-    }
+    this._addWorkerListener(target)
   }
 
-  emit (peer: Window | Worker, methodName: string, ...args: any[]) {
-    return this._emit(peer, methodName, args)
+  emit (target: Window | Worker, methodName: string, ...args: any[]) {
+    this._addWorkerListener(target)
+    return this._emit(target, methodName, args)
   }
 
   off (target: Window | Worker | '*', methodName?: string) {
@@ -120,6 +118,13 @@ export class PostMessageHub extends AbstractHub {
    */
   createProxyFor (peer: Window | Worker) {
     this.createProxy(peer, WIN.parent)
+  }
+
+  protected _addWorkerListener (target: Window | Worker | '*') {
+    if (target instanceof Worker && !this._hostedWorkers.includes(target)) {
+      this._hostedWorkers.push(target)
+      target.addEventListener('message', this._onMessageReceived)
+    }
   }
 
 

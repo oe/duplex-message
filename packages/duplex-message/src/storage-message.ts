@@ -87,17 +87,14 @@ export class StorageMessageHub extends AbstractHub {
      * @returns number
      */
     const evtCallback = (msg: IResponse | IProgress) => {
-      console.log('reqMsg', reqMsg, msg, this._isProgress(reqMsg, msg))
       if (this._isProgress(reqMsg, msg)) {
-        console.warn('is progress', msg)
         hasResp = true
         return callback(msg)
       }
       if (!this._isResponse(reqMsg, msg)) return 0
-      if (!needAllResponses) {
-        return callback(msg)
-      } else if (!allMsgReceived) {
-        if (!this._isResponse(reqMsg, msg)) return 0
+      hasResp = true
+      localStorage.removeItem(this._getMsgKey(msg))
+      if (needAllResponses && !allMsgReceived) {
         // save response by fromInstance id
         msgs[msg.fromInstance] = msg.data
 
@@ -111,8 +108,6 @@ export class StorageMessageHub extends AbstractHub {
         }, this._responseTimeout)
         return 2
       }
-      hasResp = true
-      localStorage.removeItem(this._getMsgKey(msg))
       reqMsg.progress && localStorage.removeItem(this._getMsgKey(Object.assign({}, msg, {type: 'progress'})))
       return callback(msg)
     }
@@ -123,6 +118,7 @@ export class StorageMessageHub extends AbstractHub {
       if (hasResp) return
       const resp = this._buildRespMessage({message: 'timeout'}, reqMsg, false)
       this._runResponseCallback(resp)
+      localStorage.removeItem(this._getMsgKey(reqMsg))
     }, this._responseTimeout)
   }
 
@@ -140,7 +136,6 @@ export class StorageMessageHub extends AbstractHub {
   protected _onMessageReceived (evt: StorageEvent) {
     const msg = this._getMsgFromEvent(evt)
     if (!msg) return
-    console.warn('onMessageReceived', msg)
     if (this._isRequest(msg)) {
       // clear received message after proceeded
       setTimeout(() => {
