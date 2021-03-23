@@ -3,6 +3,7 @@ import { AbstractHub, IResponse, IHandlerMap, IRequest } from './abstract'
 export interface IStorageMessageHubOptions {
   timeout?: number
   keyPrefix?: string
+  identity?: any
 }
 
 export interface IStorageMessageHubEmit {
@@ -11,11 +12,17 @@ export interface IStorageMessageHubEmit {
   methodName: string
 }
 
+export interface IPeerIdentity {
+  instanceID: string
+  identity?: any
+}
+
+const GET_PEERS_EVENT_NAME = '--get-all-peers-to-xiu--'
+
 export class StorageMessageHub extends AbstractHub {
-  
-  protected readonly _responseCallbacks: Function[]
   protected _isEventAttached: boolean
   protected readonly _keyPrefix: string
+  protected readonly _identity?: string
   /** timeout when no response sent back */
   protected readonly _responseTimeout: number
   constructor (options?: IStorageMessageHubOptions) {
@@ -25,8 +32,8 @@ export class StorageMessageHub extends AbstractHub {
     }
     super()
     options = Object.assign({timeout: 200, keyPrefix: '$$xiu'}, options)
-    this._responseCallbacks = []
     this._onMessageReceived = this._onMessageReceived.bind(this)
+    this._identity = options.identity
     this._responseTimeout = options.timeout!
     this._keyPrefix = options.keyPrefix!
     this._isEventAttached = false
@@ -36,22 +43,31 @@ export class StorageMessageHub extends AbstractHub {
   on (handlerMap: string, handler: Function): void
   on (handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     // @ts-ignore
-    super._on('*', handlerMap, handler)
+    super._on(this.instanceID, handlerMap, handler)
     if (this._isEventAttached) return
     window.addEventListener('storage', this._onMessageReceived)
     this._isEventAttached = true
   }
 
   emit (methodName: string | IStorageMessageHubEmit, ...args: any[]) {
-    return super._emit('*', methodName, ...args)
+    // if no specified toInstance, then should not have progress event
+    const target = methodName && typeof methodName === 'object' && methodName.toInstance || '*'
+    return super._emit(target, methodName, ...args)
   }
 
   off (methodName?: string) {
-    super._off('*', methodName)
+    super._off(this.instanceID, methodName)
     if (!this._hasListeners() || (methodName && this._isEventAttached)) {
       window.removeEventListener('storage', this._onMessageReceived)
       this._isEventAttached = false
     }
+  }
+
+  getPeerIdentifies () {
+    return this.emit({
+      methodName: GET_PEERS_EVENT_NAME,
+      needAllResponses: true
+    }) as Promise<IPeerIdentity[]>
   }
 
   protected sendMessage (target: string, msg: IRequest | IResponse) {
@@ -59,7 +75,7 @@ export class StorageMessageHub extends AbstractHub {
     localStorage.setItem(msgKey, JSON.stringify(msg))
   }
 
-  protected listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean) {
+  protected _listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => number) {
     let hasResp = false
     const needAllResponses = reqMsg.needAllResponses
     const msgs: Record<string, IResponse> = {}
@@ -124,28 +140,28 @@ export class StorageMessageHub extends AbstractHub {
     }
   }
 
-   protected async _onMessageReceived (evt: StorageEvent) {
+  protected _onMessageReceived (evt: StorageEvent) {
     const msg = this._getMsgFromEvent(evt)
     if (!msg) return
-    if (!this._isRequest(msg)) {
-      this._runResponseCallback(msg)
-      return
+    if (this._isRequest(msg)) {
+      // clear received message after proceeded
+      setTimeout(() => {
+        if (localStorage.getItem(evt.key!) === null) return
+        localStorage.removeItem(evt.key!)
+      }, 100 + Math.floor(1000 * Math.random()))
+
+      if (msg.methodName === GET_PEERS_EVENT_NAME) {
+        let response: IResponse
+        try {
+          response = this._buildRespMessage({ instanceID: this.instanceID, identity: this._identity }, msg, true)
+        } catch (error) {
+          response = error
+        }
+        this.sendMessage('*', response)
+        return
+      }
     }
-
-    // clear received message after proceeded
-    setTimeout(() => {
-      if (localStorage.getItem(evt.key!) === null) return
-      localStorage.removeItem(evt.key!)
-    }, 100 + Math.floor(1000 * Math.random()))
-
-    let response: IResponse
-
-    try {
-      response = await this.onRequest('*', msg)
-    } catch (error) {
-      response = error
-    }
-    this.sendMessage('*', response)
+    this._onMessage('*', msg)
   }
 
   protected _getMsgFromEvent (evt: StorageEvent) {

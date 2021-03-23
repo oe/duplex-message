@@ -1,4 +1,4 @@
-import { AbstractHub, IResponse, IRequest, IHandlerMap } from './abstract'
+import { AbstractHub, IResponse, IRequest, IProgress, IHandlerMap } from './abstract'
 
 type IOwnPeer = Window | Worker | undefined
 // save current window it's self
@@ -7,12 +7,10 @@ const WIN: Window = self
 const isWorker = typeof document === 'undefined'
 export class PostMessageHub extends AbstractHub {
   protected _hostedWorkers: Worker[]
-  protected readonly _responseCallbacks: Function[]
   protected _isEventAttached: boolean
   constructor () {
     super()
     this._hostedWorkers = []
-    this._responseCallbacks = []
     this._isEventAttached = false
     this._onMessageReceived = this._onMessageReceived.bind(this)
     this.proxyMessage = this.proxyMessage.bind(this)
@@ -132,35 +130,18 @@ export class PostMessageHub extends AbstractHub {
   }
 
 
-  protected async _onMessageReceived (evt: MessageEvent) {
-    const data = evt.data as IRequest
-    if (!data) return
-    if (!this._isRequest(data)) {
-      const idx = this._responseCallbacks.findIndex(fn => fn(data))
-      if (idx >= 0) this._responseCallbacks.splice(idx, 1)
-      return
-    }
+  protected _onMessageReceived (evt: MessageEvent) {
     const target = evt.source || evt.currentTarget || WIN
-    let response: IResponse
-    try {
-      response = await this.onRequest(target, data)
-    } catch (error) {
-      response = error
-    }
-    this.sendMessage(target as Window, response)
+    this._onMessage(target, evt.data)
   }
 
-  protected sendMessage (peer: Window | Worker, msg: any) {
-    const args = [msg]
+  protected sendMessage (peer: Window | Worker, msg: IRequest | IResponse | IProgress) {
+    const args: any[] = [msg]
     // tslint:disable-next-line
     if (typeof Window === 'function' && peer instanceof Window) {
       args.push('*')
     }
     // @ts-ignore
     peer.postMessage(...args)
-  }
-
-  protected listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean) {
-    this._responseCallbacks.push(callback)
   }
 }

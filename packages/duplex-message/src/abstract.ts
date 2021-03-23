@@ -20,6 +20,14 @@ export interface IResponse {
   data: any
 }
 
+export interface IProgress {
+  fromInstance: string
+  toInstance: string
+  messageID: number
+  type: 'progress'
+  data: any
+}
+
 export interface IMethodNameConfig {
   methodName: string
   [k: string]: any
@@ -30,6 +38,8 @@ export abstract class AbstractHub {
    * hub instance 
    */
   readonly instanceID: string
+
+  protected readonly _responseCallbacks: ((...args: any[]) => number)[]
 
   protected _messageID: number
   /**
@@ -44,6 +54,7 @@ export abstract class AbstractHub {
   constructor () {
     this.instanceID = AbstractHub.generateInstanceID()
     this._eventHandlerMap = []
+    this._responseCallbacks = []
     this._messageID = 0
   }
 
@@ -70,15 +81,8 @@ export abstract class AbstractHub {
    * @param target peer to receive message. if only one/no specified peer, target will be *
    * @param msg message send to peer
    */
-  protected abstract sendMessage (target: any, msg: IRequest): void
+  protected abstract sendMessage (target: any, msg: IRequest | IProgress | IResponse): void
 
-  /**
-   * subclass' own listenResponse method, should get response from target and pass response to callback
-   * @param target peer that respond message
-   * @param reqMsg message sent to peer
-   * @param callback when get the response, pass it to callback
-   */
-  protected abstract listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => boolean): void
 
   protected _hasListeners () {
     return this._eventHandlerMap.length > 0
@@ -127,7 +131,35 @@ export abstract class AbstractHub {
     }
   }
 
-  async onRequest (target: any, reqMsg: IRequest) {
+  protected async _onMessage (target: any, msg: any) {
+    if (!msg) return
+    if (!this._isRequest(msg)) {
+      let ret = 0
+      const idx = this._responseCallbacks.findIndex(fn => {
+        ret = fn(msg)
+        return Boolean(ret)
+      })
+      if (idx >= 0) {
+        if (ret > 1) return
+        this._responseCallbacks.splice(idx, 1)
+      }
+      return
+    }
+    if (msg.progress && msg.args[0]) {
+      msg.args[0].onprogress = (data: any) => {
+        this.sendMessage(target, this._buildProgressMessage(data, msg))
+      }
+    }
+    let response: IResponse
+    try {
+      response = await this._runMsgCallback(target, msg)
+    } catch (error) {
+      response = error
+    }
+    this.sendMessage(target, response)
+  }
+
+  async _runMsgCallback (target: any, reqMsg: IRequest) {
     try {
       const matchedMap = this._eventHandlerMap.find(wm => wm[0] === target) ||
         // use * for default
@@ -157,16 +189,50 @@ export abstract class AbstractHub {
   }
 
   protected _emit (target: any, methodName: string | IMethodNameConfig, ...args: any[]) {
-    const msg = this._buildReqMessage(methodName, args)
-    this.sendMessage(target, msg)
+    const reqMsg = this._buildReqMessage(methodName, args)
+    this.sendMessage(target, this._normalizeRequest(target, reqMsg))
     return new Promise((resolve, reject) => {
-      const callback = (response: IResponse) => {
-        if (!this._isResponse(msg, response)) return false
+      // 0 for not match
+      // 1 for done
+      // 2 for need to be continue
+      const callback = (response: IResponse | IProgress) => {
+        if (!this._isResponse(reqMsg, response)) {
+          if (!this._isProgress(reqMsg, response)) return 0
+          if (reqMsg.args[0] && typeof reqMsg.args[0].onprogress === 'function') {
+            try {
+              reqMsg.args[0].onprogress(response.data)
+            } catch (error) {
+              console.warn('progress callback for', reqMsg, 'response', response, ', error:', error)
+            }
+          }
+          return 2
+        }
         response.isSuccess ? resolve(response.data) : reject(response.data)
-        return true
+        return 1
       }
-      this.listenResponse(target, msg, callback)
+      this._listenResponse(target, reqMsg, callback)
     })
+  }
+  /**
+   * should get response from target and pass response to callback
+   */
+  protected _listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => number) {
+    this._responseCallbacks.push(callback)
+  }
+
+  // normalize progress callback on message
+  protected _normalizeRequest(target: any, msg: IRequest) {
+    // skip if target is * 
+    if (target === '*') return msg
+    const options = msg.args[0]
+    if (!options || typeof options.onprogress !== 'function') return msg
+    const newMsg = Object.assign({}, msg, { progress: true })
+    newMsg.args = newMsg.args.slice()
+    const copied = Object.assign({}, options)
+    delete copied.onprogress
+    newMsg.args[0] = copied
+
+    return newMsg
   }
 
   protected _buildReqMessage (methodName: string | IMethodNameConfig, args: any[]): IRequest {
@@ -192,6 +258,16 @@ export abstract class AbstractHub {
     }
   }
 
+  protected _buildProgressMessage (data: any, reqMsg: IRequest): IProgress {
+    return {
+      fromInstance: this.instanceID,
+      toInstance: reqMsg.fromInstance,
+      messageID: reqMsg.messageID,
+      type: 'progress',
+      data
+    }
+  }
+
   protected _isRequest (reqMsg: any): reqMsg is IRequest {
     return Boolean(reqMsg && reqMsg.fromInstance &&
       reqMsg.fromInstance !== this.instanceID &&
@@ -207,7 +283,15 @@ export abstract class AbstractHub {
       respMsg.type === 'response'
   }
 
+  protected _isProgress (reqMsg: IRequest, respMsg: any): respMsg is IProgress {
+    return reqMsg && reqMsg && 
+      respMsg.toInstance === this.instanceID &&
+      respMsg.toInstance === reqMsg.fromInstance && 
+      respMsg.messageID === reqMsg.messageID &&
+      respMsg.type === 'progress'
+  }
+
   static generateInstanceID () {
-    return Math.random().toString(36).slice(2)
+    return Array(3).join(Math.random().toString(36).slice(2) + '-').slice(0, -1)
   }
 }
