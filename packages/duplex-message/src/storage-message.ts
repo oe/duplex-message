@@ -157,11 +157,11 @@ export class StorageMessageHub extends AbstractHub {
         } catch (error) {
           response = error
         }
-        this.sendMessage('*', response)
+        this.sendMessage(this.instanceID, response)
         return
       }
     }
-    this._onMessage('*', msg)
+    this._onMessage(this.instanceID, msg)
   }
 
   protected _getMsgFromEvent (evt: StorageEvent) {
