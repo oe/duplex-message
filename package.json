@@ -6,7 +6,6 @@
     "postinstall": "lerna bootstrap",
     "build": "lerna run build",
     "publish": "lerna publish",
-    "dev": "parcel test/worker/index.html test/frame/index.html test/frame/frame.html test/storage/index.html --out-dir test/cache",
     "lint": "tslint --project ./tsconfig.json --config tslint.json"
   },
   "husky": {

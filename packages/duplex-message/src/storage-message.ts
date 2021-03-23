@@ -1,4 +1,4 @@
-import { AbstractHub, IResponse, IHandlerMap, IRequest } from './abstract'
+import { AbstractHub, IResponse, IHandlerMap, IRequest, IProgress } from './abstract'
 
 export interface IStorageMessageHubOptions {
   timeout?: number
@@ -20,7 +20,6 @@ export interface IPeerIdentity {
 const GET_PEERS_EVENT_NAME = '--get-all-peers-to-xiu--'
 
 export class StorageMessageHub extends AbstractHub {
-  protected _isEventAttached: boolean
   protected readonly _keyPrefix: string
   protected readonly _identity?: string
   /** timeout when no response sent back */
@@ -31,12 +30,12 @@ export class StorageMessageHub extends AbstractHub {
       throw new Error('StorageMessageHub only available in normal browser context, nodejs/worker are not supported')
     }
     super()
-    options = Object.assign({timeout: 200, keyPrefix: '$$xiu'}, options)
+    options = Object.assign({timeout: 1000, keyPrefix: '$$xiu'}, options)
     this._onMessageReceived = this._onMessageReceived.bind(this)
     this._identity = options.identity
     this._responseTimeout = options.timeout!
     this._keyPrefix = options.keyPrefix!
-    this._isEventAttached = false
+    window.addEventListener('storage', this._onMessageReceived)
   }
 
   on (handlerMap: Function | IHandlerMap): void
@@ -44,9 +43,6 @@ export class StorageMessageHub extends AbstractHub {
   on (handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     // @ts-ignore
     super._on(this.instanceID, handlerMap, handler)
-    if (this._isEventAttached) return
-    window.addEventListener('storage', this._onMessageReceived)
-    this._isEventAttached = true
   }
 
   emit (methodName: string | IStorageMessageHubEmit, ...args: any[]) {
@@ -57,17 +53,13 @@ export class StorageMessageHub extends AbstractHub {
 
   off (methodName?: string) {
     super._off(this.instanceID, methodName)
-    if (!this._hasListeners() || (methodName && this._isEventAttached)) {
-      window.removeEventListener('storage', this._onMessageReceived)
-      this._isEventAttached = false
-    }
   }
 
   getPeerIdentifies () {
     return this.emit({
       methodName: GET_PEERS_EVENT_NAME,
       needAllResponses: true
-    }) as Promise<IPeerIdentity[]>
+    }) as Promise<Record<string, IPeerIdentity>>
   }
 
   protected sendMessage (target: string, msg: IRequest | IResponse) {
@@ -80,7 +72,7 @@ export class StorageMessageHub extends AbstractHub {
     }
   }
 
-  protected _listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => number) {
+  protected _listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse | IProgress) => number) {
     let hasResp = false
     const needAllResponses = reqMsg.needAllResponses
     const msgs: Record<string, IResponse> = {}
@@ -94,15 +86,18 @@ export class StorageMessageHub extends AbstractHub {
      * @param msg 
      * @returns number
      */
-    const evtCallback = (msg: IResponse) => {
+    const evtCallback = (msg: IResponse | IProgress) => {
+      console.log('reqMsg', reqMsg, msg, this._isProgress(reqMsg, msg))
+      if (this._isProgress(reqMsg, msg)) {
+        console.warn('is progress', msg)
+        hasResp = true
+        return callback(msg)
+      }
+      if (!this._isResponse(reqMsg, msg)) return 0
       if (!needAllResponses) {
-        if (!callback(msg)) return 0
-      } else {
+        return callback(msg)
+      } else if (!allMsgReceived) {
         if (!this._isResponse(reqMsg, msg)) return 0
-        if (allMsgReceived) {
-          callback(msg)
-          return 1
-        }
         // save response by fromInstance id
         msgs[msg.fromInstance] = msg.data
 
@@ -114,12 +109,15 @@ export class StorageMessageHub extends AbstractHub {
           const resp = this._buildRespMessage(msgs, reqMsg, true)
           this._runResponseCallback(resp)
         }, this._responseTimeout)
+        return 2
       }
       hasResp = true
       localStorage.removeItem(this._getMsgKey(msg))
-      return needAllResponses ? 2 : 1
+      reqMsg.progress && localStorage.removeItem(this._getMsgKey(Object.assign({}, msg, {type: 'progress'})))
+      return callback(msg)
     }
     this._responseCallbacks.push(evtCallback)
+    
     // timeout when no response, callback get a failure
     setTimeout(() => {
       if (hasResp) return
@@ -129,25 +127,20 @@ export class StorageMessageHub extends AbstractHub {
   }
 
   protected _runResponseCallback (resp: IResponse) {
-    let mc = 0
-    const idx = this._responseCallbacks.findIndex(fn => {
-      mc = fn(resp)
-      return Boolean(mc)
-    })
-    if (idx >= 0) {
-      if (mc > 1) return
-      this._responseCallbacks.splice(idx, 1)
-    } else {
+    if (!super._runResponseCallback(resp)) {
       // clean unhandled responses
       if (resp.toInstance === this.instanceID && resp.type === 'response') {
         localStorage.removeItem(this._getMsgKey(resp))
       }
+      return false
     }
+    return true
   }
 
   protected _onMessageReceived (evt: StorageEvent) {
     const msg = this._getMsgFromEvent(evt)
     if (!msg) return
+    console.warn('onMessageReceived', msg)
     if (this._isRequest(msg)) {
       // clear received message after proceeded
       setTimeout(() => {
@@ -157,11 +150,7 @@ export class StorageMessageHub extends AbstractHub {
 
       if (msg.methodName === GET_PEERS_EVENT_NAME) {
         let response: IResponse
-        try {
-          response = this._buildRespMessage({ instanceID: this.instanceID, identity: this._identity }, msg, true)
-        } catch (error) {
-          response = error
-        }
+        response = this._buildRespMessage({ instanceID: this.instanceID, identity: this._identity }, msg, true)
         this.sendMessage(this.instanceID, response)
         return
       }

@@ -134,15 +134,7 @@ export abstract class AbstractHub {
   protected async _onMessage (target: any, msg: any) {
     if (!msg) return
     if (!this._isRequest(msg)) {
-      let ret = 0
-      const idx = this._responseCallbacks.findIndex(fn => {
-        ret = fn(msg)
-        return Boolean(ret)
-      })
-      if (idx >= 0) {
-        if (ret > 1) return
-        this._responseCallbacks.splice(idx, 1)
-      }
+      this._runResponseCallback(msg)
       return
     }
     if (msg.progress && msg.args[0]) {
@@ -152,14 +144,28 @@ export abstract class AbstractHub {
     }
     let response: IResponse
     try {
-      response = await this._runMsgCallback(target, msg)
+      response = await this._runMsgHandler(target, msg)
     } catch (error) {
       response = error
     }
     this.sendMessage(target, response)
   }
 
-  async _runMsgCallback (target: any, reqMsg: IRequest) {
+  protected _runResponseCallback (resp: IResponse) {
+    let ret = 0
+    const idx = this._responseCallbacks.findIndex(fn => {
+      ret = fn(resp)
+      return Boolean(ret)
+    })
+    if (idx >= 0) {
+      if (ret > 1) return true
+      this._responseCallbacks.splice(idx, 1)
+      return true
+    }
+    return false
+  }
+
+  async _runMsgHandler (target: any, reqMsg: IRequest) {
     try {
       const matchedMap = this._eventHandlerMap.find(wm => wm[0] === target) ||
         // use * for default
@@ -190,8 +196,7 @@ export abstract class AbstractHub {
 
   protected _emit (target: any, methodName: string | IMethodNameConfig, ...args: any[]) {
     const reqMsg = this._buildReqMessage(methodName, args)
-    this.sendMessage(target, this._normalizeRequest(target, reqMsg))
-    return new Promise((resolve, reject) => {
+    const result = new Promise((resolve, reject) => {
       // 0 for not match
       // 1 for done
       // 2 for need to be continue
@@ -212,21 +217,25 @@ export abstract class AbstractHub {
       }
       this._listenResponse(target, reqMsg, callback)
     })
+    this.sendMessage(target, this._normalizeRequest(target, reqMsg))
+    return result
   }
   /**
    * should get response from target and pass response to callback
    */
-  protected _listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse) => number) {
+  protected _listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse | IProgress) => number) {
     this._responseCallbacks.push(callback)
   }
 
   // normalize progress callback on message
   protected _normalizeRequest(target: any, msg: IRequest) {
     // skip if target is * 
-    if (target === '*') return msg
+    if (target === '*' || !msg.progress) {
+      delete msg.progress
+      return msg
+    }
     const options = msg.args[0]
-    if (!options || typeof options.onprogress !== 'function') return msg
-    const newMsg = Object.assign({}, msg, { progress: true })
+    const newMsg = Object.assign({}, msg)
     newMsg.args = newMsg.args.slice()
     const copied = Object.assign({}, options)
     delete copied.onprogress
@@ -237,13 +246,16 @@ export abstract class AbstractHub {
 
   protected _buildReqMessage (methodName: string | IMethodNameConfig, args: any[]): IRequest {
     const basicCfg = typeof methodName === 'string' ? { methodName } : methodName
+    const options = args[0]
+    const progress = Boolean(options && typeof options.onprogress === 'function')
     // @ts-ignore
     return Object.assign(basicCfg, {
       fromInstance: this.instanceID,
       // toInstance,
       messageID: ++this._messageID,
       type: 'request',
-      args
+      args,
+      progress
     })
   }
 
@@ -276,7 +288,7 @@ export abstract class AbstractHub {
   }
 
   protected _isResponse (reqMsg: IRequest, respMsg: any): respMsg is IResponse {
-    return reqMsg && reqMsg && 
+    return reqMsg && respMsg && 
       respMsg.toInstance === this.instanceID &&
       respMsg.toInstance === reqMsg.fromInstance && 
       respMsg.messageID === reqMsg.messageID &&
@@ -284,7 +296,7 @@ export abstract class AbstractHub {
   }
 
   protected _isProgress (reqMsg: IRequest, respMsg: any): respMsg is IProgress {
-    return reqMsg && reqMsg && 
+    return reqMsg && respMsg && reqMsg.progress &&
       respMsg.toInstance === this.instanceID &&
       respMsg.toInstance === reqMsg.fromInstance && 
       respMsg.messageID === reqMsg.messageID &&

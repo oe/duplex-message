@@ -6,7 +6,6 @@ export interface IPageScriptMessageHubOptions {
 
 export class PageScriptMessageHub extends AbstractHub {
   protected readonly _customEventName: string
-  protected _isEventAttached: boolean
   constructor (options?: IPageScriptMessageHubOptions) {
     // tslint:disable-next-line
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
@@ -17,7 +16,8 @@ export class PageScriptMessageHub extends AbstractHub {
     super()
     this._customEventName = options.customEventName!
     this._onMessageReceived = this._onMessageReceived.bind(this)
-    this._isEventAttached = false
+    // @ts-ignore
+    window.addEventListener(this._customEventName, this._onMessageReceived)
   }
 
   on (handlerMap: Function | IHandlerMap): void
@@ -25,9 +25,6 @@ export class PageScriptMessageHub extends AbstractHub {
   on (handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     // @ts-ignore
     super._on(this.instanceID, handlerMap, handler)
-    if (this._isEventAttached) return
-    // @ts-ignore
-    window.addEventListener(this._customEventName, this._onMessageReceived)
   }
 
   emit (method: string, ...args: any[]) {
@@ -36,11 +33,6 @@ export class PageScriptMessageHub extends AbstractHub {
 
   off (methodName?: string) {
     super._off(this.instanceID, methodName)
-    if (!this._hasListeners() || (!methodName && this._isEventAttached)) {
-      // @ts-ignore
-      window.removeEventListener(this._customEventName, this._onMessageReceived)
-      this._isEventAttached = false
-    }
   }
 
   protected _onMessageReceived (evt: CustomEvent) {

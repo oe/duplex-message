@@ -67,6 +67,7 @@ typings/
 */config.codekit3
 .size-snapshot.json
 .cache
+cache
 test-cache
 test/cache
 **/dist

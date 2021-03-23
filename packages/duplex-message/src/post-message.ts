@@ -7,13 +7,12 @@ const WIN: Window = self
 const isWorker = typeof document === 'undefined'
 export class PostMessageHub extends AbstractHub {
   protected _hostedWorkers: Worker[]
-  protected _isEventAttached: boolean
   constructor () {
     super()
     this._hostedWorkers = []
-    this._isEventAttached = false
     this._onMessageReceived = this._onMessageReceived.bind(this)
     this.proxyMessage = this.proxyMessage.bind(this)
+    WIN.addEventListener('message', this._onMessageReceived)
   }
 
   on (target: Window | Worker | '*', handlerMap: Function | IHandlerMap): void
@@ -25,9 +24,6 @@ export class PostMessageHub extends AbstractHub {
       this._hostedWorkers.push(target)
       target.addEventListener('message', this._onMessageReceived)
     }
-    if (this._isEventAttached) return
-    WIN.addEventListener('message', this._onMessageReceived)
-    this._isEventAttached = true
   }
 
   emit (peer: Window | Worker, methodName: string, ...args: any[]) {
@@ -44,9 +40,6 @@ export class PostMessageHub extends AbstractHub {
         target.removeEventListener('message', this._onMessageReceived)
       } 
     }
-    if (this._eventHandlerMap.length || !this._isEventAttached) return
-    WIN.removeEventListener('message', this._onMessageReceived)
-    this._isEventAttached = false
   }
 
   /**
