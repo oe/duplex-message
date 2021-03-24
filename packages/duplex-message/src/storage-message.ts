@@ -118,7 +118,13 @@ export class StorageMessageHub extends AbstractHub {
           allMsgReceived = true
           let resp: IResponse
           if (needAllResponses) {
-            const finalData = msgs.reduce((acc, msg) => { acc[msg.fromInstance] = msg.data; return acc }, {} as Record<string, any>)
+            const finalData = msgs.reduce((acc, msg) => {
+              acc[msg.fromInstance] = {
+                isSuccess: msg.isSuccess,
+                data: msg.data
+              }
+              return acc
+            }, {} as Record<string, any>)
             resp = this._buildRespMessage(finalData, reqMsg, true)
           } else {
             resp = msgs[0]

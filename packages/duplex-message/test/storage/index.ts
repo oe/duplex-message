@@ -45,6 +45,14 @@ $('btn').addEventListener('click', () => {
   })
 })
 
+$('get-all-response').addEventListener('click', () => {
+  storageMessageHub.emit({methodName: 'tik-tok', needAllResponses: true}, { what: 'xxx', count: ++count, time: Date.now() }).then(result => {
+    $('get-all-response-content').innerHTML = typeof result === 'object' ? '<pre>' + JSON.stringify(result, null, 2) + '</pre>' : result
+  }).catch(err => {
+    $('get-all-response-content').innerHTML = 'error: ' + JSON.stringify(err)
+  })
+})
+
 $('test-progress').addEventListener('click', async () => {
   try {
     let peers: any = await storageMessageHub.getPeerIdentifies()
