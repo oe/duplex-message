@@ -6,7 +6,9 @@
   "typings": "dist/index.d.ts",
   "scripts": {
     "prebuild": "rimraf dist/*",
-    "build": "tsc"
+    "build": "tsc",
+    "predev": "cd test && tsc ./*.ts --outDir dist",
+    "dev": "electron ./test/dist/main.js"
   },
   "files": [
     "dist/*"

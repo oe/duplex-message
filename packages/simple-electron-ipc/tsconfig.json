@@ -18,6 +18,7 @@
   },
   "exclude": [
     "dist",
-    "rollup.config.ts"
+    "rollup.config.ts",
+    "test"
   ]
 }

@@ -14,8 +14,19 @@ const $ = (id: string) => {
 }
 
 postMessageHub.on(frameWin, 'page-title', (arg) => {
-  return document.title + ( arg ? ', echo  --- ' + arg : '')
+  return new Promise((resolve, reject) => {
+    let count = 0
+    if (!arg || !arg.onprogress) return resolve(document.title)
+    const tid = setInterval(() => {
+      arg.onprogress(count += 10)
+      if (count >= 100) {
+        clearInterval(tid)
+        resolve(document.title + ( arg.echo ? ', echo  --- ' + arg.echo : ''))
+      }
+    }, 100)
+  })
 })
+
 // listen message from frameWin
 messageHub.on({
   testError (...args) {
@@ -44,7 +55,8 @@ $('#button-3').addEventListener('click', () => {
   messageHub.emit('not-existing-method',).then((res) => {
     $('#result-3').innerHTML = 'success: ' + res
   }).catch(err => {
-    $('#result-3').innerHTML = 'failed: ' + String(err)
+    console.log('err', err)
+    $('#result-3').innerHTML = 'failed: ' + JSON.stringify(err)
   })
 })
 

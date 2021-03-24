@@ -7,6 +7,10 @@ window.port1 = port1
 // @ts-ignore
 window.port2 = port2
 
+const $ = (id: string) => {
+  return document.getElementById(id.replace(/^\#/, ''))
+}
+
 port1.on({
   download(msg: any) {
     return new Promise((resolve, reject) => {
@@ -17,12 +21,28 @@ port1.on({
           clearInterval(tid)
           resolve('done')
         }
-      }, 180)
+      }, 50)
     })
   },
   getTitle(a: string, b: string) {
     return document.title + ' ' + a + ' ' + b
   }
+})
+
+$('get-title').addEventListener('click', () => {
+  port2.emit('getTitle', 'xiu', 'saiya').then((e) => {
+    $('get-title-resp').innerHTML = String(e)
+  })
+})
+
+$('download').addEventListener('click', () => {
+  port2.emit('download', {
+    onprogress(e) {
+      $('download-resp').innerHTML = 'progress ' + e
+    }
+  }).then((e) => {
+    $('download-resp').innerHTML = String(e)
+  })
 })
 
 // port2.on({})

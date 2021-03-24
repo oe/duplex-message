@@ -13,7 +13,12 @@ postMessageHub.createProxy(subFrameWin, parent)
 postMessageHub.createProxy(peer, parent)
 
 $('#test-1').addEventListener('click', () => {
-  messageHub.emit('page-title', ($('input-1') as HTMLInputElement).value).then((res) => {
+  messageHub.emit('page-title', {
+    onprogress(e) { 
+      $('#result-1').innerText = 'progress ' + e
+    },
+    echo: ($('input-1') as HTMLInputElement).value
+  }).then((res) => {
     $('#result-1').innerText = res
   })
 })
@@ -23,7 +28,8 @@ $('#test-2').addEventListener('click', () => {
     $('#result-2').innerText = 'success: ' + res
   })
   .catch((err) => {
-    $('#result-2').innerText = 'failed: ' + String(err)
+    console.log('err', err)
+    $('#result-2').innerText = 'failed: ' + JSON.stringify(err)
   })
 })
 

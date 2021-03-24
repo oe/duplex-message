@@ -25,13 +25,12 @@ postMessageHub.on(peer, {
     return new Promise((resolve, reject) => {
       let hiCount = 0
       const tid = setInterval(() => {
-        if (hiCount > 100) {
+        if (hiCount >= 100) {
           clearInterval(tid)
           return resolve('done')
         }
         msg.onprogress({count: hiCount += 10})
       }, 200)
-
     })
   }
 })

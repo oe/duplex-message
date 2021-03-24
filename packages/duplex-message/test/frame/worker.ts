@@ -14,7 +14,9 @@ setInterval(() => {
 setTimeout(async (param) => {
   console.log('mes from h', param)
   // get data from main thread
-  const title = await postMessageHub.emit(peer, 'page-title')
+  const title = await postMessageHub.emit(peer, 'page-title', {
+    onprogress(e) { console.log('progress from worker thread', e)}
+  })
   console.log('page title', title)
   return `# ${param} (${title})`
 }, 1000)

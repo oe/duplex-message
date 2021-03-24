@@ -1,18 +1,20 @@
 import { AbstractHub, IResponse, IRequest, IProgress, IHandlerMap, EErrorCode } from './abstract'
 
 type IOwnPeer = Window | Worker | undefined
-// save current window it's self
-const WIN: Window = self
-// tslint:disable-next-line
-const isWorker = typeof document === 'undefined'
 export class PostMessageHub extends AbstractHub {
   protected _hostedWorkers: Worker[]
+  protected readonly _WIN: Window | Worker
+  protected readonly _isWorker: boolean
   constructor () {
     super()
     this._hostedWorkers = []
+    // save current window it's self
+    this._WIN = self
+    // tslint:disable-next-line
+    this._isWorker = typeof document === 'undefined'
     this._onMessageReceived = this._onMessageReceived.bind(this)
     this.proxyMessage = this.proxyMessage.bind(this)
-    WIN.addEventListener('message', this._onMessageReceived)
+    this._WIN.addEventListener('message', this._onMessageReceived)
   }
 
   on (target: Window | Worker | '*', handlerMap: Function | IHandlerMap): void
@@ -24,7 +26,7 @@ export class PostMessageHub extends AbstractHub {
   }
 
   emit (target: Window | Worker, methodName: string, ...args: any[]) {
-    if (!isWorker && target instanceof Window && !target.parent) {
+    if (!this._isWorker && target instanceof Window && !target.parent) {
       return Promise.reject({code: EErrorCode.TARGET_NOT_FOUND, message: 'target window is unloaded'})
     }
     this._addWorkerListener(target)
@@ -105,8 +107,8 @@ export class PostMessageHub extends AbstractHub {
    * @param toWin message target win
    */
   createProxy (fromWin: Window | Worker, toWin: Window | Worker) {
-    if (isWorker) throw new Error('[PostMessageHub] createProxy can only be used in a normal window context')
-    if (WIN === fromWin || WIN === toWin || fromWin === toWin) {
+    if (this._isWorker) throw new Error('[PostMessageHub] createProxy can only be used in a normal window context')
+    if (this._WIN === fromWin || this._WIN === toWin || fromWin === toWin) {
       throw new Error('[PostMessageHub] can not forward message to own')
     }
     this.on(fromWin, this.proxyMessage(toWin))
@@ -119,15 +121,6 @@ export class PostMessageHub extends AbstractHub {
     }
   }
 
-  /**
-   * proxy all message from peer to parent window
-   * @deprecated use createProxy instead
-   * @param peer 
-   */
-  createProxyFor (peer: Window | Worker) {
-    this.createProxy(peer, WIN.parent)
-  }
-
   protected _addWorkerListener (target: Window | Worker | '*') {
     if (target instanceof Worker && !this._hostedWorkers.includes(target)) {
       this._hostedWorkers.push(target)
@@ -137,13 +130,13 @@ export class PostMessageHub extends AbstractHub {
 
 
   protected _onMessageReceived (evt: MessageEvent) {
-    const target = evt.source || evt.currentTarget || WIN
+    const target = evt.source || evt.currentTarget || this._WIN
     this._onMessage(target, evt.data)
   }
 
   protected sendMessage (peer: Window | Worker, msg: IRequest | IResponse | IProgress) {
     const args: any[] = [msg]
-    if (!isWorker && peer instanceof Window) {
+    if (!this._isWorker && peer instanceof Window) {
       args.push('*')
     }
     // @ts-ignore
