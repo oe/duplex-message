@@ -50,6 +50,9 @@ testCase2.input.addEventListener('keyup', (e) => {
 
 document.getElementById('hi-btn').addEventListener('click', (e) => {
   // send worker a message without message data, no care about the response
-  postMessageHub.emit(peer, 'hi').then(res => console.log('`hi` response', res))
+  postMessageHub.emit(peer, 'hi', {
+    onprogress(e) { console.log('progress', e) }
+  }).then(res => console.log('`hi` response', res))
+  .catch(err => console.warn('hi error', err))
 })
 

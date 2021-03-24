@@ -24,11 +24,11 @@ export class PostMessageHub extends AbstractHub {
   }
 
   emit (target: Window | Worker, methodName: string, ...args: any[]) {
-    if (target instanceof Window && !target.parent) {
+    if (!isWorker && target instanceof Window && !target.parent) {
       return Promise.reject({code: EErrorCode.TARGET_NOT_FOUND, message: 'target window is unloaded'})
     }
     this._addWorkerListener(target)
-    return this._emit(target, methodName, args)
+    return this._emit(target, methodName, ...args)
   }
 
   off (target: Window | Worker | '*', methodName?: string) {
@@ -143,8 +143,7 @@ export class PostMessageHub extends AbstractHub {
 
   protected sendMessage (peer: Window | Worker, msg: IRequest | IResponse | IProgress) {
     const args: any[] = [msg]
-    // tslint:disable-next-line
-    if (typeof Window === 'function' && peer instanceof Window) {
+    if (!isWorker && peer instanceof Window) {
       args.push('*')
     }
     // @ts-ignore

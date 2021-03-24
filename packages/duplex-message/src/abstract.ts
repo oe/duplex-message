@@ -37,8 +37,10 @@ export enum EErrorCode {
   TARGET_NOT_FOUND = 3,
   /** message not responded in time */
   TIMEOUT = 4,
+  /** message has invalid content, can't be sent  */
+  INVALID_MESSAGE = 5,
   /** other unspecified error */
-  UNKNOWN = 5,
+  UNKNOWN = 6,
 }
 
 export interface IError {
@@ -224,7 +226,7 @@ export abstract class AbstractHub {
       const callback = (response: IResponse | IProgress) => {
         if (!this._isResponse(reqMsg, response)) {
           if (!this._isProgress(reqMsg, response)) return 0
-          if (reqMsg.args[0] && typeof reqMsg.args[0].onprogress === 'function') {
+          if (reqMsg.progress && reqMsg.args[0]) {
             try {
               reqMsg.args[0].onprogress(response.data)
             } catch (error) {
@@ -238,7 +240,12 @@ export abstract class AbstractHub {
       }
       this._listenResponse(target, reqMsg, callback)
     })
-    this.sendMessage(target, this._normalizeRequest(target, reqMsg))
+    try {
+      this.sendMessage(target, this._normalizeRequest(target, reqMsg))
+    } catch (error) {
+      console.warn('[duplex-message] unable to serialize message, message not sent', error)
+      return Promise.reject({code: EErrorCode.INVALID_MESSAGE, message: 'unable to send message'})
+    }
     return result
   }
   /**
@@ -261,7 +268,6 @@ export abstract class AbstractHub {
     const copied = Object.assign({}, options)
     delete copied.onprogress
     newMsg.args[0] = copied
-
     return newMsg
   }
 

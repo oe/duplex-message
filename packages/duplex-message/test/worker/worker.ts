@@ -20,10 +20,19 @@ postMessageHub.on(peer, {
   }
 })
 
-let hiCount = 0
 postMessageHub.on(peer, {
-  'hi': () => {
-    console.log(`main thread say hi ${++hiCount} time(s)`)
+  'hi': (msg) => {
+    return new Promise((resolve, reject) => {
+      let hiCount = 0
+      const tid = setInterval(() => {
+        if (hiCount > 100) {
+          clearInterval(tid)
+          return resolve('done')
+        }
+        msg.onprogress({count: hiCount += 10})
+      }, 200)
+
+    })
   }
 })
 // calc fibonacci, read request data from ctx.request, response it by setting result to ctx.request
