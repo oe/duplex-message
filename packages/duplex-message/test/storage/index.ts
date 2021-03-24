@@ -17,6 +17,8 @@ storageMessageHub.on({
   },
   'tik-tok': msg => {
     $('tik-tok').innerHTML = JSON.stringify(msg)
+    console.log('tik-tok on message', msg)
+    if (query.get('name') === 'xiu') throw new Error('xiu stop working')
     return 'nothing to return <h1>' + Math.random() + '</h1>'
   },
   mockDownload (msg: any) {
@@ -38,7 +40,9 @@ let count = 0
 $('btn').addEventListener('click', () => {
   storageMessageHub.emit('tik-tok', { what: 'xxx', count: ++count, time: Date.now() }).then(result => {
     $('tik-tok-resp').innerHTML = Array.isArray(result) ? result.join('<br>') : result
-  }).catch(err => console.warn('error', err))
+  }).catch(err => {
+    $('tik-tok-resp').innerHTML = 'error: ' + JSON.stringify(err)
+  })
 })
 
 $('test-progress').addEventListener('click', async () => {

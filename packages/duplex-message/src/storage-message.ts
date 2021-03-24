@@ -46,9 +46,19 @@ export class StorageMessageHub extends AbstractHub {
   }
 
   emit (methodName: string | IStorageMessageHubEmit, ...args: any[]) {
+    let newMethodName = methodName
+    const isObj = methodName && typeof methodName === 'object'
     // if no specified toInstance, then should not have progress event
-    const target = methodName && typeof methodName === 'object' && methodName.toInstance || '*'
-    return super._emit(target, methodName, ...args)
+    // @ts-ignore
+    const target = isObj && methodName.toInstance || '*'
+    // @ts-ignore
+    if (isObj && methodName.toInstance && methodName.needAllResponses) {
+      console.warn('[duplex-message] StorageMessageHub: toInstance and needAllResponses should not specified at the same time, use `toInstance` in priority')
+      newMethodName = Object.assign({}, methodName)
+      // @ts-ignore
+      delete newMethodName.needAllResponses
+    }
+    return super._emit(target, newMethodName, ...args)
   }
 
   off (methodName?: string) {
@@ -75,7 +85,8 @@ export class StorageMessageHub extends AbstractHub {
   protected _listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse | IProgress) => number) {
     let hasResp = false
     const needAllResponses = reqMsg.needAllResponses
-    const msgs: Record<string, IResponse> = {}
+    const needWaitAllResponses = reqMsg.needAllResponses || (!reqMsg.toInstance && !reqMsg.needAllResponses)
+    const msgs: IResponse[] = []
     let allMsgReceived = false
     let tid = 0
     /**
@@ -94,16 +105,24 @@ export class StorageMessageHub extends AbstractHub {
       if (!this._isResponse(reqMsg, msg)) return 0
       hasResp = true
       localStorage.removeItem(this._getMsgKey(msg))
-      if (needAllResponses && !allMsgReceived) {
-        // save response by fromInstance id
-        msgs[msg.fromInstance] = msg.data
-
+      if (needWaitAllResponses && !allMsgReceived) {
         // waiting for others to respond
         clearTimeout(tid)
+        // run callback if succeed
+        if (!needAllResponses && msg.isSuccess) return callback(msg)
+        // save response by fromInstance id
+        msgs.push(msg)
+
         // @ts-ignore
         tid = setTimeout(() => {
           allMsgReceived = true
-          const resp = this._buildRespMessage(msgs, reqMsg, true)
+          let resp: IResponse
+          if (needAllResponses) {
+            const finalData = msgs.reduce((acc, msg) => { acc[msg.fromInstance] = msg.data; return acc }, {} as Record<string, any>)
+            resp = this._buildRespMessage(finalData, reqMsg, true)
+          } else {
+            resp = msgs[0]
+          }
           this._runResponseCallback(resp)
         }, this._responseTimeout)
         return 2
