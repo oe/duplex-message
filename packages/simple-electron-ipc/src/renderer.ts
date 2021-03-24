@@ -5,7 +5,7 @@ import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 export class RendererMessageHub extends ElectronMessageHub {
   protected readonly _ipc: IpcRenderer
   constructor(options?: IElectronMessageHubOptions) {
-    if (process.type === 'browser') throw new TypeError('RendererMessageHub only available in renderer process')
+    if (process.type === 'browser') throw new TypeError('RendererMessageHub only available in main renderer process')
     super(options)
     this._ipc = electron.ipcRenderer
     this._ipc.on(this._channelName, this._onMessageReceived)

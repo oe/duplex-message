@@ -28,6 +28,25 @@ export interface IProgress {
   data: any
 }
 
+export enum EErrorCode {
+  /** handler on other side encounter an error  */
+  HANDLER_EXEC_ERROR = 1,
+  /** no corresponding handler found */
+  HANDLER_NOT_EXIST = 2,
+  /** target(peer) not found*/
+  TARGET_NOT_FOUND = 3,
+  /** message not responded in time */
+  TIMEOUT = 4,
+  /** other unspecified error */
+  UNKNOWN = 5,
+}
+
+export interface IError {
+  code: EErrorCode
+  message: string
+  error?: Error
+}
+
 export interface IMethodNameConfig {
   methodName: string
   [k: string]: any
@@ -184,13 +203,15 @@ export abstract class AbstractHub {
       }
       // tslint:disable-next-line
       if (typeof method !== 'function') {
-        console.warn(`[MessageHub] no corresponding handler found for ${methodName}, message from`, target)
-        throw new Error(`[MessageHub] no corresponding handler found for ${methodName}`)
+        console.warn(`[duplex-message] no corresponding handler found for ${methodName}, message from`, target)
+        const error = { code: EErrorCode.HANDLER_NOT_EXIST, message: `no corresponding handler found for ${methodName}`}
+        return this._buildRespMessage(error, reqMsg, false)
       }
       const data = await method.apply(null, args)
       return this._buildRespMessage(data, reqMsg, true)
     } catch (error) {
-      throw this._buildRespMessage(error, reqMsg, false)
+      const data = { code: EErrorCode.HANDLER_EXEC_ERROR, message: error.message || error.stack, error }
+      throw this._buildRespMessage(data, reqMsg, false)
     }
   }
 
@@ -207,7 +228,7 @@ export abstract class AbstractHub {
             try {
               reqMsg.args[0].onprogress(response.data)
             } catch (error) {
-              console.warn('progress callback for', reqMsg, 'response', response, ', error:', error)
+              console.warn('[duplex-message] progress callback for', reqMsg, 'response', response, ', error:', error)
             }
           }
           return 2

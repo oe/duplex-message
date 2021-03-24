@@ -1,4 +1,4 @@
-import { AbstractHub, IResponse, IRequest, IProgress, IHandlerMap } from './abstract'
+import { AbstractHub, IResponse, IRequest, IProgress, IHandlerMap, EErrorCode } from './abstract'
 
 type IOwnPeer = Window | Worker | undefined
 // save current window it's self
@@ -24,6 +24,9 @@ export class PostMessageHub extends AbstractHub {
   }
 
   emit (target: Window | Worker, methodName: string, ...args: any[]) {
+    if (target instanceof Window && !target.parent) {
+      return Promise.reject({code: EErrorCode.TARGET_NOT_FOUND, message: 'target window is unloaded'})
+    }
     this._addWorkerListener(target)
     return this._emit(target, methodName, args)
   }
@@ -43,11 +46,16 @@ export class PostMessageHub extends AbstractHub {
   /**
    * create a dedicated MessageHub that focus on communicate with the specified peer
    * @param peer peer window to communicate with, or you can set it later via `setPeer`
+   * @param silent when peer not exists, keep silent instead of throw an error
    */
-  createDedicatedMessageHub (peer?: IOwnPeer) {
+  createDedicatedMessageHub (peer?: IOwnPeer, silent?: boolean) {
     let ownPeer = peer
     const checkPeer = () => {
-      if (!ownPeer) throw new Error('peer is not set in dedicated message-hub')
+      if (!ownPeer) {
+        if (silent) return false
+        throw new Error('[PostMessageHub] peer is not set in dedicated postMessageHub')
+      }
+      return true
     }
     /**
      * set peer that this dedicated message-hub want communicate with
@@ -60,7 +68,7 @@ export class PostMessageHub extends AbstractHub {
      * @param handler omit if methodName is handler map
      */
     const on = (methodName: string | object, handler?: Function) => {
-      checkPeer()
+      if (!checkPeer()) return
       const handlerMap = typeof methodName === 'string' ? {[methodName]: handler} : methodName
       // @ts-ignore
       this.on(ownPeer, handlerMap)
@@ -71,7 +79,7 @@ export class PostMessageHub extends AbstractHub {
      * @param args 
      */
     const emit = (methodName: string, ...args: any[]) => {
-      checkPeer()
+      if (!checkPeer()) return Promise.reject({code: EErrorCode.TARGET_NOT_FOUND, message: 'target not specified'})
       // @ts-ignore
       return this.emit(ownPeer, methodName, ...args)
     }
@@ -80,7 +88,7 @@ export class PostMessageHub extends AbstractHub {
      * @param methodName method meed to remove
      */
     const off = (methodName?: string) => {
-      checkPeer()
+      if (!checkPeer()) return
       // @ts-ignore
       if (!methodName) return this.off(ownPeer)
       const matchedMap = this._eventHandlerMap.find(wm => wm[0] === ownPeer)
@@ -97,9 +105,9 @@ export class PostMessageHub extends AbstractHub {
    * @param toWin message target win
    */
   createProxy (fromWin: Window | Worker, toWin: Window | Worker) {
-    if (isWorker) throw new Error('[MessageHub] createProxy can only be used in a normal window context')
+    if (isWorker) throw new Error('[PostMessageHub] createProxy can only be used in a normal window context')
     if (WIN === fromWin || WIN === toWin || fromWin === toWin) {
-      throw new Error('[MessageHub] can not forward message to own')
+      throw new Error('[PostMessageHub] can not forward message to own')
     }
     this.on(fromWin, this.proxyMessage(toWin))
   }

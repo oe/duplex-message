@@ -5,7 +5,7 @@ import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 export class MainMessageHub extends ElectronMessageHub {
   protected readonly _ipc: IpcMain
   constructor(options?: IElectronMessageHubOptions) {
-    if (process.type === 'browser') throw new TypeError('MainMessageHub only available in main process')
+    if (process.type === 'browser') throw new TypeError('MainMessageHub only available in electron main process')
     super(options)
     this._ipc = electron.ipcMain
     this._ipc.on(this._channelName, this._onMessageReceived)

@@ -1,4 +1,4 @@
-import { AbstractHub, IResponse, IHandlerMap, IRequest, IProgress } from './abstract'
+import { AbstractHub, IResponse, IHandlerMap, IRequest, IProgress, EErrorCode } from './abstract'
 
 export interface IStorageMessageHubOptions {
   timeout?: number
@@ -67,7 +67,7 @@ export class StorageMessageHub extends AbstractHub {
     try {
       localStorage.setItem(msgKey, JSON.stringify(msg))
     } catch (e) {
-      console.warn('[StorageMessageHub] unable to stringify message, message not sent', e)
+      console.warn('[duplex-message] unable to stringify message, message not sent', e)
       throw e
     }
   }
@@ -116,7 +116,7 @@ export class StorageMessageHub extends AbstractHub {
     // timeout when no response, callback get a failure
     setTimeout(() => {
       if (hasResp) return
-      const resp = this._buildRespMessage({message: 'timeout'}, reqMsg, false)
+      const resp = this._buildRespMessage({code: EErrorCode.TIMEOUT, message: 'timeout'}, reqMsg, false)
       this._runResponseCallback(resp)
       localStorage.removeItem(this._getMsgKey(reqMsg))
     }, this._responseTimeout)
