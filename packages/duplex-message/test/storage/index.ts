@@ -39,7 +39,7 @@ let count = 0
 
 $('btn').addEventListener('click', () => {
   storageMessageHub.emit('tik-tok', { what: 'xxx', count: ++count, time: Date.now() }).then(result => {
-    $('tik-tok-resp').innerHTML = Array.isArray(result) ? result.join('<br>') : result
+    $('tik-tok-resp').innerHTML = (Array.isArray(result) ? result.join('<br>') : result) as string
   }).catch(err => {
     $('tik-tok-resp').innerHTML = 'error: ' + JSON.stringify(err)
   })
@@ -47,7 +47,7 @@ $('btn').addEventListener('click', () => {
 
 $('get-all-response').addEventListener('click', () => {
   storageMessageHub.emit({methodName: 'tik-tok', needAllResponses: true}, { what: 'xxx', count: ++count, time: Date.now() }).then(result => {
-    $('get-all-response-content').innerHTML = typeof result === 'object' ? '<pre>' + JSON.stringify(result, null, 2) + '</pre>' : result
+    $('get-all-response-content').innerHTML = (typeof result === 'object' ? '<pre>' + JSON.stringify(result, null, 2) + '</pre>' : result) as string
   }).catch(err => {
     $('get-all-response-content').innerHTML = 'error: ' + JSON.stringify(err)
   })

@@ -19,33 +19,39 @@
   </a>
 </div>
 
+## 📝 Table of Contents
+- [Features](#features)
+- [Install](#install)
+- [Example](#example)
+- [Usage](#usage)
+  - [PostMessageHub](#postmessagehub) use it when windows/frames/workers are connected(opened by on another)
+  - [StorageMessageHub](#storagemessagehub) use it when windows are with same origin and are weak connected
+  - [PageScriptMessageHub](#pagescriptmessagehub) use it between browser content-scripts and page-scripts(scripts running in same window but are isolated)
+  - [simple-electron-ipc](../simple-electron-ipc/readme.md) use it in electron main process and renderer process
+
 ## Features
-* **Tinny**: less than 2kb gzipped, no external dependencies required
-* **Compatibility**: use `postMessage` under the hood, support all modern browser(even IE8)
-* **Consistency**: use same api every where(parent window, iframe window, worker, etc)
-* **Simple API**: use api `on` `emit` `off` to handle all messages in current context from any window(parent window, child window, workers)
-* **Dedicated API**: use api `createDedicatedMessageHub` to create a dedicated message-hub to communicate with specified window(parent window, child window or worker)
-* **Responsible**: `emit` will return a promise that you can get response from the other side. You can respond `emit` on other side by return result in `on`'s callback
-* **Proxy Message**: with api `createProxy`, you can proxy all messages from a window(iframe, webworker, etc) to another window(worker)
+* **Simple API**: `on` `emit` `off` are all you need
+* **Responsible**: `emit` will return a promise with the response from the other side
+* **Progress-able**: get response with progress easily
+* **Multi-scenario**: using it via `postMessage` 、 `storage` event or  customEvent on varied situations
+* **Tinny**: less than 3kb gzipped(even smaller with tree-shaking), no external dependencies required
+* **Consistency**: same api every where 
 * **Typescript support**: this utility is written in typescript, has type definition inborn
 
 ## Install
-
-There are too many packages with similar names, and it's so hard to pick a pretty package name, so I use [scoped package](https://docs.npmjs.com/misc/scope) :)
-
-```sh
-npm install duplex-message -S
-```
-
-or
-
+using yarn
 ```sh
 yarn add duplex-message
 ```
 
-## Usage
+or npm
+```sh
+npm install duplex-message -S
+```
 
-The following demo shows you how to use it to make normal window and its iframe communicate easily
+## Example
+
+The following example shows you how to use it to make normal window and its iframe communicate easily
 
 in main window
 ```js
@@ -54,29 +60,40 @@ import { PostMessageHub } from "duplex-message"
 const postMessageHub = new PostMessageHub()
 
 // get child iframe's window, peerWin could be `self.parent` or `new Worker('./worker.js')`
-const iframeWin1 = document.getElementById('child-iframe-1').contentWindow
-const iframeWin2 = document.getElementById('child-iframe-2').contentWindow
+const iframeWin = document.getElementById('child-iframe-1').contentWindow
 
 // ----- listen messages from peer ----
 
-// listen the message pageTitle from iframeWin1, and respond it
-postMessageHub.on(iframeWin1, 'pageTitle', () => {
+// listen the message pageTitle from iframeWin, and respond it
+postMessageHub.on(iframeWin, 'pageTitle', () => {
   return document.title
 })
 //  respond to message getHead from iframeWin2
-postMessageHub.on(iframeWin2, 'getHead', () => {
-  return document.head.outHTML
+postMessageHub.on(iframeWin, 'add', async (a, b) => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve(a + b)
+    }, 1000)
+  })
 })
 
 // listen multi messages by passing a handler map
-postMessageHub.on(iframeWin1, {
-  // no return, then the response is undefined
-  notice: (name, msg) => {
-    console.log(`notice message from ${name} with message ${msg}`)
+postMessageHub.on(iframeWin, {
+  // mock a download
+  download (msg) {
+    return new Promise((resolve, reject) => {
+      let progress = 0
+      const tid = setInterval(() => {
+        if (progress >= 100) {
+          clearInterval(tid)
+          return resolve('done')
+        }
+        // send progress if msg has onprogress property
+        msg.onprogress && msg.onprogress({progress: progress += 10})
+      }, 200)
+    })
   },
-  getToken () {
-    return Math.random()
-  }
+  method2() {}
 })
 
 // ---- send message to peer ---
@@ -85,7 +102,7 @@ postMessageHub.emit(iframeWin1, "fib", 10).then(resp => {
   console.log("fibonacci of 10 is", resp)
 })
 
-// sending a message not handled by the peer  will catch an error
+// sending a message not handled by the peer will catch an error
 postMessageHub.emit(iframeWin1, "some-not-existing-method").then(resp => {
   console.log('response', resp) // this won't run
 }).catch(err => {
@@ -111,7 +128,13 @@ postMessageHub.emit(peerWin, "pageTitle").then(title => {
 const dedicatedMessageHub = postMessageHub.createDedicatedMessageHub(peerWin)
 
 // send message to the parent, don't need the response
-dedicatedMessageHub.emit("notice", 'Jim', 'hello!')
+dedicatedMessageHub.emit("add", 1, 3).then(res => console.log(res))
+
+dedicatedMessageHub.emit("download", {
+  // pass onprogress so it can receive progress updates
+  onprogress: (p) => console.log('progress', p)
+}).then(res => console.log(res))
+
 
 // calc fibonacci, respond by a return
 dedicatedMessageHub.on("fib", async (num) => {
@@ -120,11 +143,7 @@ dedicatedMessageHub.on("fib", async (num) => {
   console.log(title)
   return fib(num)
 });
-// listen multi messages by passing a handler map
-dedicatedMessageHub.on({
-  method1 () {},
-  method2 () {},
-})
+
 
 // use a recursive algorithm which will take more than half a minute when n big than 50
 function fib(n) {
@@ -132,24 +151,17 @@ function fib(n) {
   return fib(n - 1) + fib(n - 2)
 }
 ```
-
-To see a real world example, you may:
-
-1.  clone [this repo](https://github.com/evecalm/messagehub)
-2.  check the code in folder `test`
-3.  run `yarn` to install the project dependencies
-4.  run `yarn run dev` to view the sample
-5.  navigate to <http://localhost:1234/worker/index.html> to see worker example
-6.  navigate to <http://localhost:1234/frame/index.html> to see iframe example
-
-## API
+## Usage
 
 ### PostMessageHub
-`PostMessageHub` works in browser and use `postMessage` under the hood, it enable you to communicate between **window / iframe / worker / window.opener** easily.
+`PostMessageHub` works in browser and use `postMessage` under the hood, it enable you:
+1. communicate between multi **windows / iframes / workers / window.openers** easily at the same time
+2. listen and respond messages with the same code.
+
 
 When to use it:  
 > 1. you have iframes / workers / windows opened by another window
-> 2. and you need to communicate between them.
+> 2. you need to communicate between them.
 
 `PostMessageHub` is a class, new an instance before using it:
 ```js
