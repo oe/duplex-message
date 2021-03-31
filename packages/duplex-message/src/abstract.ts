@@ -28,6 +28,7 @@ export interface IProgress {
   data: any
 }
 
+/** enum of error code */
 export enum EErrorCode {
   /** handler on other side encounter an error  */
   HANDLER_EXEC_ERROR = 1,
@@ -43,9 +44,13 @@ export enum EErrorCode {
   UNKNOWN = 6,
 }
 
+/** error object could be caught via emit().catch(err) */
 export interface IError {
+  /** none-zero error code */
   code: EErrorCode
+  /** error message */
   message: string
+  /** error object if it could pass through via the message channel underground*/
   error?: Error
 }
 

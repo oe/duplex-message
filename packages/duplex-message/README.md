@@ -20,14 +20,20 @@
 </div>
 
 ## 📝 Table of Contents
+- [📝 Table of Contents](#-table-of-contents)
 - [Features](#features)
 - [Install](#install)
 - [Example](#example)
 - [Usage](#usage)
-  - [PostMessageHub](#postmessagehub) use it when windows/frames/workers are connected(opened by on another)
-  - [StorageMessageHub](#storagemessagehub) use it when windows are with same origin and are weak connected
-  - [PageScriptMessageHub](#pagescriptmessagehub) use it between browser content-scripts and page-scripts(scripts running in same window but are isolated)
-  - [simple-electron-ipc](../simple-electron-ipc/readme.md) use it in electron main process and renderer process
+  - [PostMessageHub](#postmessagehub)
+    - [postMessageHub.emit](#postmessagehubemit)
+    - [postMessageHub.on](#postmessagehubon)
+    - [postMessageHub.off](#postmessagehuboff)
+    - [postMessageHub.createDedicatedMessageHub](#postmessagehubcreatededicatedmessagehub)
+    - [postMessageHub.createProxy(fromWin: Window | Worker, toWin: Window | Worker)](#postmessagehubcreateproxyfromwin-window--worker-towin-window--worker)
+    - [postMessageHub.createProxyFor(peer: Window | Worker) * deprecated *](#postmessagehubcreateproxyforpeer-window--worker--deprecated-)
+  - [StorageMessageHub](#storagemessagehub)
+  - [Error](#error)
 
 ## Features
 * **Simple API**: `on` `emit` `off` are all you need
@@ -163,7 +169,7 @@ When to use it:
 > 1. you have iframes / workers / windows opened by another window
 > 2. you need to communicate between them.
 
-`PostMessageHub` is a class, new an instance before using it:
+`PostMessageHub` is a class, `new` an instance in every peer before using it 
 ```js
 import { PostMessageHub } from "duplex-message"
 
@@ -171,19 +177,26 @@ const postMessageHub = new PostMessageHub()
 ```
 
 
-#### postMessageHub.emit(peer: Window | Worker, methodName: string, ...args: any[])
-Send a message to peer, invoking `methodName` registered on the peer via `on` with all its arguments `args`.
+#### postMessageHub.emit
+Send a message to peer, invoking `methodName` registered on the peer via [`on`](#postmessagehubon) with all its arguments `args`:
+
+`postMessageHub.emit(peer: Window | Worker, methodName: string, ...args: any[])`
 
 This api return a promise, you can get response or catch the exception via it.
 
-##### peer
-1. if you are using it in worker thread and want to send message to parent,  just set `peer` to `self`
-2. if you are using it in normal window thread and want to handle message from worker, just set `peer` to a instance of `Worker`(aka `new Worker('./xxxx.js')`) or `ServiceWorker`( not tested yet, should works fine 🧐 )
+e.g.
+```js
+postMessageHub
+  .emit(peerWindow, 'some-method', 'arg1', 'arg2', 'otherArgs')
+  .then(res => console.log('success', res))
+  .catch(err => console.warn('error', err))
+```
 
-##### methodName
-method name you can want to call(emit) which registered(on) in peer
-##### args
-`args` vary with `methodName`'s handler registered via `on` in peer's context
+Notice:
+1. look into [Error](#error) when you catch an error
+2. set `peer` to `self` if you want to send message from worker to outside
+3. omit args if no args are required, e.g `postMessageHub.emit(peerWindow, 'some-method')`
+
 
 #### postMessageHub.on
 Listen messages sent from peer, it has following forms:
@@ -196,29 +209,62 @@ postMessageHub.on(peer: Window | Worker | '*', handlerMap: Record<string, Functi
 postMessageHub.on(peer: Window | Worker | '*', singleHandler: Function)
 ```
 
-##### peer
-1. if you are using it in Worker thread and want to handle message from parent, just set `peer` to `self`
-2. if you are using it in normal window thread and want to handle message from worker, just set `peer` to a instance of `Worker`(aka `new Worker('./xxxx.js')`) or `ServiceWorker`( not tested yet, should works fine 🧐 )
-3. you can set `peer` to `*` to listen all messages from all peers(parent, children, workers) to current window. **Due to worker's restrictions, you need register worker so that `*` could works worker's message by `MessageHub.on(worker, {})`**
+e.g.
+```js
+// listen multi messages from peerWindow  by passing a handler map
+postMessageHub.on(peerWindow, {
+  hi (name) {
+    console.log(`hi ${name}`)
+  },
+  'some-method': function (a, b) {
+    ...
+  }
+})
 
-##### methodName
-Method name to register, a `methodName` can only has one `handler`, the `handler` will be overrode if you set same `methodName` multi times
+// listen 'some-other-method' from peerWindow with an async callback
+postMessageHub.on(peerWindow, 'some-other-method', async function (a, b, c) {
+  try {
+    const result = await someAsyncFn(a, b, c)
+    return result
+  } catch (e) {
+    throw e
+  }
+})
 
-##### handler
-1. handler could be an async function
-3. if handlers with same methodName registered both in specified peer and `*`, only handler for peer will be triggered when a message sent to peer
+// listen all peers' 'some-common-method' with a same callback
+postMessageHub.on('*', 'some-common-method', async function (a, b) {
+  ...
+})
 
-##### handlerMap
-A object of handlers, keys are methodNames, values are handlers
+// listen all messages to peerWindow2 with on callback (first arg is the methodName)
+postMessageHub.on(peerWindow2, async function (methodName, ...args) {
+  ...
+})
+```
 
-##### singleHandler
-`singleHandler` will receive all parameters, i.e. `(methodName, ...args)`
+Notice:
+1. set `peer` to `self` if you want to listen messages in worker
+2. set `peer` to a `Worker` instance(e.g `new Worker('./xxxx.js')`) if you want to listen its messages in a normal window context
+3. the specified callback will be called if you listen same `methodName` in specified peer and `*`
+4. if you want worker's messages handled by callbacks registered via peer `*` , **you must call `postMessageHub.on` with worker(e.g `postMessageHub.on(worker, {})`) to register worker due to worker's restrictions**
 
-#### postMessageHub.off(peer: Window | Worker | '*', methodName?: string)
+
+#### postMessageHub.off
+
+`postMessageHub.off(peer: Window | Worker | '*', methodName?: string)`
+
 Remove message listener. if `methodName` presented, remove `methodName`'s listener, or remove the whole peer's listener
 
-#### postMessageHub.createDedicatedMessageHub(peer?: Window | Worker)
-Create a dedicated message-hub for specified peer, so that you won't need to pass peer every time. 
+#### postMessageHub.createDedicatedMessageHub
+Create a dedicated message-hub for specified peer, so that you won't need to pass peer every time:   
+
+```ts
+/**
+* @param peer peer window to communicate with, or you can set it later via `setPeer`
+* @param silent when peer not exists, keep silent instead of throw an error when call emit, on, off
+*/
+postMessageHub.createDedicatedMessageHub (peer?: IOwnPeer, silent?: boolean)
+```
 
 It returns a new messageHub with following properties:
 ```ts
@@ -230,6 +276,21 @@ It returns a new messageHub with following properties:
   on: (handlerMap: Record<string, Function>) => void;
   off: (methodName?: string) => any;
 }
+```
+
+e.g.
+```js
+// create without a peer
+const dedicatedMessageHub = postMessageHub.createDedicatedMessageHub (null, true)
+
+// this won't work, but won't throw an error neither
+dedicatedMessageHub.on('a', () => {...})
+
+dedicatedMessageHub.setPeer(someWorker)
+
+dedicatedMessageHub.on('xx', () => {...})
+dedicatedMessageHub.emit('----', () => {...})
+
 ```
 
 #### postMessageHub.createProxy(fromWin: Window | Worker, toWin: Window | Worker) 
@@ -261,3 +322,34 @@ import { StorageMessageHub } from "duplex-message"
 const storageMessageHub = new StorageMessageHub()
 ```
 
+
+### Error
+when you catch an error from `emit`, it conforms the following structure `IError`
+
+```ts
+/** error object could be caught via emit().catch(err) */
+export interface IError {
+  /** none-zero error code */
+  code: EErrorCode
+  /** error message */
+  message: string
+  /** error object if it could pass through via the message channel underground*/
+  error?: Error
+}
+
+/** enum of error code */
+export enum EErrorCode {
+  /** handler on other side encounter an error  */
+  HANDLER_EXEC_ERROR = 1,
+  /** no corresponding handler found */
+  HANDLER_NOT_EXIST = 2,
+  /** target(peer) not found*/
+  TARGET_NOT_FOUND = 3,
+  /** message not responded in time */
+  TIMEOUT = 4,
+  /** message has invalid content, can't be sent  */
+  INVALID_MESSAGE = 5,
+  /** other unspecified error */
+  UNKNOWN = 6,
+}
+```
