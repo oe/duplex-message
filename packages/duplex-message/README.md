@@ -14,7 +14,7 @@
     <img src="https://img.shields.io/npm/dm/duplex-message.svg" alt="npm downloads" height="20">
   </a>
 </div>
----
+
 
 <h5 align="center">A tinny(~2kb) utility that can simplify cross window(iframes, even workers) communications over `postMessage` and `addEventListener('message', xxx)`</h5>
 

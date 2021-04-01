@@ -13,7 +13,7 @@
     <img src="https://img.shields.io/npm/dm/simple-electron-ipc.svg" alt="npm downloads" height="20">
   </a>
 </div>
----
+
 
 an easy way to use electron ipc, get a response via promise, event support progress callback
 
