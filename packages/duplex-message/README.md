@@ -31,7 +31,6 @@
     - [postMessageHub.off](#postmessagehuboff)
     - [postMessageHub.createDedicatedMessageHub](#postmessagehubcreatededicatedmessagehub)
     - [postMessageHub.createProxy(fromWin: Window | Worker, toWin: Window | Worker)](#postmessagehubcreateproxyfromwin-window--worker-towin-window--worker)
-    - [postMessageHub.createProxyFor(peer: Window | Worker) * deprecated *](#postmessagehubcreateproxyforpeer-window--worker--deprecated-)
   - [StorageMessageHub](#storagemessagehub)
   - [Error](#error)
 
@@ -293,7 +292,7 @@ dedicatedMessageHub.emit('----', () => {...})
 
 ```
 
-#### postMessageHub.createProxy(fromWin: Window | Worker, toWin: Window | Worker) 
+#### postMessageHub.createProxy(fromWin: Window | Worker, toWin: Window | Worker)
 Forward all messages from `fromWin` to `toWin` then forward `toWin`'s response to the `fromWin`, instead of handle messages by self
 
 There is a funny use case:  
@@ -302,11 +301,6 @@ If you got two iframes in your page, you can make them communicate directly by f
 postMessageHub.createProxy(frame1Win, frame2Win) // forward message from frame1Win to frame2Win
 postMessageHub.createProxy(frame2Win, frame1Win) // forward message from frame2Win to frame1Win
 ```
-
-#### postMessageHub.createProxyFor(peer: Window | Worker) * deprecated *
-Deprecated, but still working, you should use `MessageHub.createProxy(peer, window.parent)` instead.
-
-Forward all messages from peer to parent window then forward parent's response to the peer, instead of handle messages by self.
 
 ### StorageMessageHub
 `StorageMessageHub` works in browser and use `storage` event(trigger via changing localStorage) under the hood, it enable you to communicate between pages with the [same origin](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy), aka with the same `location.origin`(protocol/domain/port) in a simple way.
