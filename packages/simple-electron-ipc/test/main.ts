@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from "electron";
 import { MainMessageHub } from 'simple-electron-ipc'
 import * as path from "path";
-let mainWindow
+let mainWindow //: BrowserWindow
 const messageHub = new MainMessageHub()
 messageHub.on('*', {
   getUserToken: (a, b) => Math.random().toString(36) + a + b,
@@ -17,10 +17,11 @@ messageHub.on('*', {
       }, 200)
     })
   },
-  async getTitle (t: string) {
-    const title = await messageHub.emit(mainWindow, 'pageTitle')
-    return t + '---' + title
-  },
+  // async getTitle (t: string) {
+  //   console.log('getTitle', mainWindow.send)
+  //   const title = await messageHub.emit(mainWindow, 'pageTitle')
+  //   return t + '---' + title
+  // },
   calc (a, b) {
     return messageHub.emit(mainWindow, 'addNumber', {
       a,
@@ -29,6 +30,7 @@ messageHub.on('*', {
     })
   }
 })
+
 
 function createWindow() {
   // Create the browser window.
@@ -43,12 +45,19 @@ function createWindow() {
     },
     width: 800,
   });
+  // mainWindow.send()
 
   // and load the index.html of the app.
   mainWindow.loadFile(path.join(__dirname, "../index.html"));
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
+
+  messageHub.on(mainWindow.webContents,  'getTitle',  async function (t: string) {
+    console.log('getTitle', mainWindow.send)
+    const title = await messageHub.emit(mainWindow.webContents, 'pageTitle')
+    return t + '---' + title
+  })
 }
 
 // This method will be called when Electron has finished

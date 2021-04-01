@@ -2,6 +2,7 @@ import { WebContents, IpcRenderer, IpcMain, IpcMainEvent, IpcRendererEvent } fro
 import { AbstractHub, IResponse, IRequest, IProgress } from 'duplex-message'
 
 export interface IElectronMessageHubOptions {
+  /** ipc channel name used under the hood, default: message-hub */
   channelName?: string
 }
 

@@ -2,6 +2,7 @@ import electron, { WebContents, IpcMain } from 'electron'
 import { IHandlerMap } from 'duplex-message'
 import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 
+
 export class MainMessageHub extends ElectronMessageHub {
   protected readonly _ipc: IpcMain
   constructor(options?: IElectronMessageHubOptions) {

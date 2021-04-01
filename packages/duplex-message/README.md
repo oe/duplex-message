@@ -1,15 +1,11 @@
 <h1 align="center">Duplex-Message</h1>
-[WIP] A tinny(~2kb) utility that can makes one way message responsive, enhance postMessage / storageEvent / electron IPC / chrome extension scripts
 
----
-
-<h5 align="center">A tinny(~2kb) utility that can simplify cross window(iframes, even workers) communications over `postMessage` and `addEventListener('message', xxx)`</h5>
 <div align="center">
-  <a href="https://travis-ci.com/oe/duplex-message">
-    <img src="https://travis-ci.com/oe/duplex-message.svg?branch=master" alt="Travis CI">
+  <a href="https://github.com/oe/duplex-message/actions">
+    <img src="https://github.com/oe/duplex-message/actions/workflows/main.yml/badge.svg" alt="github actions">
   </a>
   <a href="#readme">
-    <img src="https://badges.frapsoft.com/typescript/code/typescript.svg?v=101" alt="code with typescript" height="20">
+    <img src="https://badgen.net/badge/Built%20With/TypeScript/blue" alt="code with typescript" height="20">
   </a>
   <a href="#readme">
     <img src="https://badge.fury.io/js/duplex-message.svg" alt="npm version" height="20">
@@ -18,9 +14,11 @@
     <img src="https://img.shields.io/npm/dm/duplex-message.svg" alt="npm downloads" height="20">
   </a>
 </div>
+---
+
+<h5 align="center">A tinny(~2kb) utility that can simplify cross window(iframes, even workers) communications over `postMessage` and `addEventListener('message', xxx)`</h5>
 
 ## 📝 Table of Contents
-- [📝 Table of Contents](#-table-of-contents)
 - [Features](#features)
 - [Install](#install)
 - [Example](#example)
@@ -213,7 +211,9 @@ e.g.
 // listen multi messages from peerWindow  by passing a handler map
 postMessageHub.on(peerWindow, {
   hi (name) {
-    console.log(`hi ${name}`)
+    console.log(`name ${name}`)
+    // response by return
+    return `hi ${name}`
   },
   'some-method': function (a, b) {
     ...
@@ -249,10 +249,13 @@ Notice:
 
 
 #### postMessageHub.off
+Remove message handlers. 
 
-`postMessageHub.off(peer: Window | Worker | '*', methodName?: string)`
+```ts
+postMessageHub.off(peer: Window | Worker | '*', methodName?: string)
+```
 
-Remove message listener. if `methodName` presented, remove `methodName`'s listener, or remove the whole peer's listener
+if `methodName` presented, remove `methodName`'s listener, or remove the whole peer's listener
 
 #### postMessageHub.createDedicatedMessageHub
 Create a dedicated message-hub for specified peer, so that you won't need to pass peer every time:   
