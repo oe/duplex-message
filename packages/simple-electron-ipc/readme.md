@@ -23,6 +23,11 @@ an easy way to use electron ipc, get a response via promise, event support progr
 - [Example](#example)
 - [Usage](#usage)
   - [MainMessageHub & RendererMessageHub](#mainmessagehub--renderermessagehub)
+  - [emit](#emit)
+  - [on](#on)
+  - [progress](#progress)
+  - [off](#off)
+  - [Error](#error)
 ## Features
 * **Simple API**: `on` `emit` `off` are all you need
 * **Responsible**: `emit` will return a promise with the response from the other side

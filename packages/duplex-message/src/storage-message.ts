@@ -1,14 +1,30 @@
 import { AbstractHub, IResponse, IHandlerMap, IRequest, IProgress, EErrorCode } from './abstract'
 
 export interface IStorageMessageHubOptions {
+  /** timeout number(millisecond as unit) when no response is received, default: 1000 milliseconds */
   timeout?: number
+  /** localStorage key prefix to store message, default: $$xiu */
   keyPrefix?: string
+  /** a customable identity that can make your self identified by others, will be used by StorageMessageHub.getPeerIdentifies  */
   identity?: any
 }
 
-export interface IStorageMessageHubEmit {
+export interface IStorageMessageHubEmitConfig {
+  /**
+   * need all peers' responses
+   * 
+   *  if set true, the promise result will be an object, key is the peer's instance id, value is its response
+   */
   needAllResponses?: boolean
+  /**
+   * peer's instance id, only send the message to `toInstance`
+   * 
+   *  if `toInstance` is set, `needAllResponses` won't work any more
+   */
   toInstance?: string
+  /** specified another timeout number for this message  */
+  timeout?: number
+  /** method name */
   methodName: string
 }
 
@@ -45,7 +61,7 @@ export class StorageMessageHub extends AbstractHub {
     super._on(this.instanceID, handlerMap, handler)
   }
 
-  emit (methodName: string | IStorageMessageHubEmit, ...args: any[]) {
+  emit (methodName: string | IStorageMessageHubEmitConfig, ...args: any[]) {
     let newMethodName = methodName
     const isObj = methodName && typeof methodName === 'object'
     // if no specified toInstance, then should not have progress event
@@ -87,6 +103,7 @@ export class StorageMessageHub extends AbstractHub {
     const needAllResponses = reqMsg.needAllResponses
     const needWaitAllResponses = reqMsg.needAllResponses || (!reqMsg.toInstance && !reqMsg.needAllResponses)
     const msgs: IResponse[] = []
+    const timeout =  reqMsg.timeout ||  this._responseTimeout 
     let allMsgReceived = false
     let tid = 0
     /**
@@ -130,7 +147,7 @@ export class StorageMessageHub extends AbstractHub {
             resp = msgs[0]
           }
           this._runResponseCallback(resp)
-        }, this._responseTimeout)
+        }, timeout)
         return 2
       }
       reqMsg.progress && localStorage.removeItem(this._getMsgKey(Object.assign({}, msg, {type: 'progress'})))
@@ -144,7 +161,7 @@ export class StorageMessageHub extends AbstractHub {
       const resp = this._buildRespMessage({code: EErrorCode.TIMEOUT, message: 'timeout'}, reqMsg, false)
       this._runResponseCallback(resp)
       localStorage.removeItem(this._getMsgKey(reqMsg))
-    }, this._responseTimeout)
+    }, timeout)
   }
 
   protected _runResponseCallback (resp: IResponse) {

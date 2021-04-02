@@ -28,8 +28,10 @@
     - [postMessageHub.on](#postmessagehubon)
     - [postMessageHub.off](#postmessagehuboff)
     - [postMessageHub.createDedicatedMessageHub](#postmessagehubcreatededicatedmessagehub)
-    - [postMessageHub.createProxy(fromWin: Window | Worker, toWin: Window | Worker)](#postmessagehubcreateproxyfromwin-window--worker-towin-window--worker)
+    - [postMessageHub.createProxy](#postmessagehubcreateproxy)
   - [StorageMessageHub](#storagemessagehub)
+    - [storageMessageHub.emit](#storagemessagehubemit)
+    - [storageMessageHub.on](#storagemessagehubon)
   - [Error](#error)
 
 ## Features
@@ -177,7 +179,9 @@ const postMessageHub = new PostMessageHub()
 #### postMessageHub.emit
 Send a message to peer, invoking `methodName` registered on the peer via [`on`](#postmessagehubon) with all its arguments `args`:
 
-`postMessageHub.emit(peer: Window | Worker, methodName: string, ...args: any[])`
+```ts
+postMessageHub.emit(peer: Window | Worker, methodName: string, ...args: any[]) => Promise<unknown>
+```
 
 This api return a promise, you can get response or catch the exception via it.
 
@@ -265,12 +269,9 @@ Create a dedicated message-hub for specified peer, so that you won't need to pas
 * @param peer peer window to communicate with, or you can set it later via `setPeer`
 * @param silent when peer not exists, keep silent instead of throw an error when call emit, on, off
 */
-postMessageHub.createDedicatedMessageHub (peer?: IOwnPeer, silent?: boolean)
-```
+postMessageHub.createDedicatedMessageHub (peer?: IOwnPeer, silent?: boolean) => IDedicatedMessageHub
 
-It returns a new messageHub with following properties:
-```ts
-{
+interface IDedicatedMessageHub {
   /** if you didn't set a peer when invoking createDedicatedMessageHub, then you can use `setPeer` to set it when it's ready*/
   setPeer: (peer: Window | Worker) => void;
   emit: (methodName: string, ...args: any[]) => Promise<unknown>;
@@ -291,12 +292,24 @@ dedicatedMessageHub.on('a', () => {...})
 dedicatedMessageHub.setPeer(someWorker)
 
 dedicatedMessageHub.on('xx', () => {...})
-dedicatedMessageHub.emit('----', () => {...})
+dedicatedMessageHub.emit('some-method', 'xx', 'xxx').then(() => {...}).catch(() => {...})
 
 ```
 
-#### postMessageHub.createProxy(fromWin: Window | Worker, toWin: Window | Worker)
+#### postMessageHub.createProxy
 Forward all messages from `fromWin` to `toWin` then forward `toWin`'s response to the `fromWin`, instead of handle messages by self
+
+```ts
+postMessageHub.createProxy(fromWin: Window | Worker, toWin: Window | Worker) 
+```
+
+e.g.
+```ts
+// forward all messages from `someWorker` to `someIframeWin`
+postMessageHub.createProxy(someWorker, someIframeWin) 
+
+```
+
 
 There is a funny use case:  
 If you got two iframes in your page, you can make them communicate directly by following code
@@ -306,7 +319,7 @@ postMessageHub.createProxy(frame2Win, frame1Win) // forward message from frame2W
 ```
 
 ### StorageMessageHub
-`StorageMessageHub` works in browser and use `storage` event(trigger via changing localStorage) under the hood, it enable you to communicate between pages with the [same origin](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy), aka with the same `location.origin`(protocol/domain/port) in a simple way.
+`StorageMessageHub` works in browser and use `storage` event(trigger via changing localStorage) under the hood, it enable you to communicate between pages with the [same origin](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy), aka with the same `location.origin`(protocol + domain + port) in a simple way.
 
 When to use it:
 > 1. pages you want to share messages are with the same origin
@@ -316,10 +329,50 @@ When to use it:
 ```js
 import { StorageMessageHub } from "duplex-message"
 
-const storageMessageHub = new StorageMessageHub()
+const storageMessageHub = new StorageMessageHub(options?: IStorageMessageHubOptions)
+
+export interface IStorageMessageHubOptions {
+  /** timeout number(millisecond as unit) when no response is received, default: 1000 milliseconds */
+  timeout?: number
+  /** localStorage key prefix to store message, default: $$xiu */
+  keyPrefix?: string
+  /** a customable identity that can make your self identified by others, will be used by StorageMessageHub.getPeerIdentifies  */
+  identity?: any
+}
+```
+
+#### storageMessageHub.emit
+broadcast(or you can also send to specified peer) a message, invoking `methodName` registered on the peers via [`on`](#storageMessageHubbon) with all its arguments `args`, return a promise with result
+
+```ts
+// broadcast a message to all peers, promise resolve when `first success` response received, or you will catch an error
+storageMessageHub.emit(methodName: string, ...args: any[]) => Promise<unknown>
+
+
+storageMessageHub.emit(methodConfig: IStorageMessageHubEmit, ...args: any[]) => Promise<unknown>
+export interface IStorageMessageHubEmitConfig {
+  /**
+   * need all peers' responses
+   * 
+   *  if set true, the promise result will be an object, key is the peer's instance id, value is its response
+   */
+  needAllResponses?: boolean
+  /**
+   * peer's instance id, only send the message to `toInstance`
+   * 
+   *  if `toInstance` is set, `needAllResponses` won't work any more
+   */
+  toInstance?: string
+  /** specified another timeout number for this message  */
+  timeout?: number
+  /** method name */
+  methodName: string
+}
+
 ```
 
 
+#### storageMessageHub.on
 ### Error
 when you catch an error from `emit`, it conforms the following structure `IError`
 
