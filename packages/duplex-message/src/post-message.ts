@@ -17,30 +17,55 @@ export class PostMessageHub extends AbstractHub {
     this._WIN.addEventListener('message', this._onMessageReceived)
   }
 
-  on (target: Window | Worker | '*', handlerMap: Function | IHandlerMap): void
-  on (target: Window | Worker | '*', handlerMap: string, handler: Function): void
-  on (target: Window | Worker | '*', handlerMap: IHandlerMap | Function | string, handler?: Function): void {
+  /**
+   * listen all messages from `peer` with one handler;
+   *  or listen multi message via a handler map
+   * @param peer messages that sent from, * for any peer
+   * @param handlerMap handler or a map of handlers
+   */
+  on (peer: Window | Worker | '*', handlerMap: Function | IHandlerMap): void
+  /**
+   * listen `methodName` from `peer` with a handler
+   * @param peer messages that sent from, * for any peer
+   * @param methodName method name
+   * @param handler handler for the method name
+   */
+  on (peer: Window | Worker | '*', methodName: string, handler: Function): void
+  on (peer: Window | Worker | '*', handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     // @ts-ignore
-    super._on(target, handlerMap, handler)
-    this._addWorkerListener(target)
+    super._on(peer, handlerMap, handler)
+    this._addWorkerListener(peer)
   }
 
-  emit (target: Window | Worker, methodName: string, ...args: any[]) {
-    if (!this._isWorker && target instanceof Window && !target.parent) {
-      return Promise.reject({code: EErrorCode.TARGET_NOT_FOUND, message: 'target window is unloaded'})
+  /**
+   * call peer's `methodName` with arguments
+   * @peer peer that will receive the message
+   * @param methodName `methodName` to call
+   * @param args arguments for that method
+   * @returns Promise<unknown>
+   */
+  emit (peer: Window | Worker, methodName: string, ...args: any[]) {
+    if (!this._isWorker && peer instanceof Window && !peer.parent) {
+      return Promise.reject({code: EErrorCode.PEER_NOT_FOUND, message: 'peer window is unloaded'})
     }
-    this._addWorkerListener(target)
-    return this._emit(target, methodName, ...args)
+    this._addWorkerListener(peer)
+    return this._emit(peer, methodName, ...args)
   }
 
-  off (target: Window | Worker | '*', methodName?: string) {
-    super._off(target, methodName)
-    const evtMpIndx = this._eventHandlerMap.findIndex(m => m[0] === target)
-    if (evtMpIndx === -1 && target instanceof Worker) {
-      const idx = this._hostedWorkers.indexOf(target)
+  /**
+   * remove handler for `methodName` registered for `peer`
+   *  remove all handlers registered for `peer` if `methodName` absent 
+   * @param peer peer that own handlers
+   * @param methodName method name
+   */
+  off (peer: Window | Worker | '*', methodName?: string) {
+    super._off(peer, methodName)
+    const evtMpIndx = this._eventHandlerMap.findIndex(m => m[0] === peer)
+    if (evtMpIndx === -1 && peer instanceof Worker) {
+      const idx = this._hostedWorkers.indexOf(peer)
       if (idx > -1) {
         this._hostedWorkers.splice(idx, 1)
-        target.removeEventListener('message', this._onMessageReceived)
+        peer.removeEventListener('message', this._onMessageReceived)
       } 
     }
   }
@@ -81,7 +106,7 @@ export class PostMessageHub extends AbstractHub {
      * @param args 
      */
     const emit = (methodName: string, ...args: any[]) => {
-      if (!checkPeer()) return Promise.reject({code: EErrorCode.TARGET_NOT_FOUND, message: 'target not specified'})
+      if (!checkPeer()) return Promise.reject({code: EErrorCode.PEER_NOT_FOUND, message: 'peer not specified'})
       // @ts-ignore
       return this.emit(ownPeer, methodName, ...args)
     }
@@ -121,17 +146,17 @@ export class PostMessageHub extends AbstractHub {
     }
   }
 
-  protected _addWorkerListener (target: Window | Worker | '*') {
-    if (target instanceof Worker && !this._hostedWorkers.includes(target)) {
-      this._hostedWorkers.push(target)
-      target.addEventListener('message', this._onMessageReceived)
+  protected _addWorkerListener (peer: Window | Worker | '*') {
+    if (peer instanceof Worker && !this._hostedWorkers.includes(peer)) {
+      this._hostedWorkers.push(peer)
+      peer.addEventListener('message', this._onMessageReceived)
     }
   }
 
 
   protected _onMessageReceived (evt: MessageEvent) {
-    const target = evt.source || evt.currentTarget || this._WIN
-    this._onMessage(target, evt.data)
+    const peer = evt.source || evt.currentTarget || this._WIN
+    this._onMessage(peer, evt.data)
   }
 
   protected sendMessage (peer: Window | Worker, msg: IRequest | IResponse | IProgress) {

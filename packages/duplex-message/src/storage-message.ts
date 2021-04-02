@@ -53,20 +53,35 @@ export class StorageMessageHub extends AbstractHub {
     this._keyPrefix = options.keyPrefix!
     window.addEventListener('storage', this._onMessageReceived)
   }
-
+  
+  /**
+   * listen all messages with one handler; or listen multi message via a handler map
+   * @param handlerMap handler or a map of handlers
+   */
   on (handlerMap: Function | IHandlerMap): void
+  /**
+   * listen `methodName` with a handler
+   * @param methodName method name
+   * @param handler handler for the method name
+   */
   on (handlerMap: string, handler: Function): void
   on (handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     // @ts-ignore
     super._on(this.instanceID, handlerMap, handler)
   }
 
+  /**
+   * call peer's `methodName` with arguments
+   * @param methodName `methodName` to call
+   * @param args arguments for that method
+   * @returns Promise<unknown>
+   */
   emit (methodName: string | IStorageMessageHubEmitConfig, ...args: any[]) {
     let newMethodName = methodName
     const isObj = methodName && typeof methodName === 'object'
     // if no specified toInstance, then should not have progress event
     // @ts-ignore
-    const target = isObj && methodName.toInstance || '*'
+    const peer = isObj && methodName.toInstance || '*'
     // @ts-ignore
     if (isObj && methodName.toInstance && methodName.needAllResponses) {
       console.warn('[duplex-message] StorageMessageHub: toInstance and needAllResponses should not specified at the same time, use `toInstance` in priority')
@@ -74,13 +89,21 @@ export class StorageMessageHub extends AbstractHub {
       // @ts-ignore
       delete newMethodName.needAllResponses
     }
-    return super._emit(target, newMethodName, ...args)
+    return super._emit(peer, newMethodName, ...args)
   }
-
+  
+  /**
+   * remove handler for `methodName`; remove all handlers if `methodName` absent
+   * @param methodName method name
+   */
   off (methodName?: string) {
     super._off(this.instanceID, methodName)
   }
-
+  /**
+   * get all peers identifiers
+   * @returns promise of object, object's key is peer's instance id  
+   *    value is an object with struct {instanceID, identify?}
+   */
   getPeerIdentifies () {
     return this.emit({
       methodName: GET_PEERS_EVENT_NAME,
@@ -88,7 +111,7 @@ export class StorageMessageHub extends AbstractHub {
     }) as Promise<Record<string, IPeerIdentity>>
   }
 
-  protected sendMessage (target: string, msg: IRequest | IResponse) {
+  protected sendMessage (peer: string, msg: IRequest | IResponse) {
     const msgKey = this._getMsgKey(msg)
     try {
       localStorage.setItem(msgKey, JSON.stringify(msg))
@@ -98,7 +121,7 @@ export class StorageMessageHub extends AbstractHub {
     }
   }
 
-  protected _listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse | IProgress) => number) {
+  protected _listenResponse (peer: any, reqMsg: IRequest, callback: (resp: IResponse | IProgress) => number) {
     let hasResp = false
     const needAllResponses = reqMsg.needAllResponses
     const needWaitAllResponses = reqMsg.needAllResponses || (!reqMsg.toInstance && !reqMsg.needAllResponses)

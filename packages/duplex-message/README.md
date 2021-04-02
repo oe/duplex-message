@@ -37,7 +37,7 @@
 ## Features
 * **Simple API**: `on` `emit` `off` are all you need
 * **Responsible**: `emit` will return a promise with the response from the other side
-* **Progress-able**: get response with progress easily
+* **Progress feedback**: get response with progress feedback easily
 * **Multi-scenario**: using it via `postMessage` 、 `storage` event or  customEvent on varied situations
 * **Tinny**: less than 3kb gzipped(even smaller with tree-shaking), no external dependencies required
 * **Consistency**: same api every where 
@@ -252,6 +252,40 @@ Notice:
 4. if you want worker's messages handled by callbacks registered via peer `*` , **you must call `postMessageHub.on` with worker(e.g `postMessageHub.on(worker, {})`) to register worker due to worker's restrictions**
 
 
+### progress for PostMessageHub
+If you need progress feedback when peer handling you request, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
+
+e.g.
+```js
+// in normal window, send message to worker, get progress
+postMessageHub.emit(workerInstance, 'download', {
+ onprogress(p) {console.log('progress: ' + p.count)}
+}).then(e => {
+ console.log('success: ', e)
+}).catch(err => {
+  console.log('error: ' + err)
+})
+
+// in worker thread
+// listen download from main window
+workerMessageHub.on(self, {
+  // download with progress support
+  download: (msg) => {
+    return new Promise((resolve, reject) => {
+      let hiCount = 0
+      const tid = setInterval(() => {
+        if (hiCount >= 100) {
+          clearInterval(tid)
+          return resolve('done')
+        }
+        msg.onprogress({count: hiCount += 10})
+      }, 200)
+    })
+  }
+}
+
+```
+
 #### postMessageHub.off
 Remove message handlers. 
 
@@ -341,14 +375,18 @@ export interface IStorageMessageHubOptions {
 }
 ```
 
+Notice:  
+> Web pages in browser with same origin are weak connected, they just share one localStorage area. Sending a message via localStorage just like sending a broadcast, there maybe no listener, or more than one listeners. So, a `timeout` is necessary in case of there is no listener can respond your messages, or they don't respond in time.
+
 #### storageMessageHub.emit
-broadcast(or you can also send to specified peer) a message, invoking `methodName` registered on the peers via [`on`](#storageMessageHubbon) with all its arguments `args`, return a promise with result
+broadcast(or you can also send to specified peer) a message, invoking `methodName` registered on the peers via [`on`](#storageMessageHubbon) with all its arguments `args`, return a promise with result.
+
 
 ```ts
 // broadcast a message to all peers, promise resolve when `first success` response received, or you will catch an error
 storageMessageHub.emit(methodName: string, ...args: any[]) => Promise<unknown>
 
-
+// send message with more flexible config
 storageMessageHub.emit(methodConfig: IStorageMessageHubEmit, ...args: any[]) => Promise<unknown>
 export interface IStorageMessageHubEmitConfig {
   /**
@@ -359,6 +397,7 @@ export interface IStorageMessageHubEmitConfig {
   needAllResponses?: boolean
   /**
    * peer's instance id, only send the message to `toInstance`
+   *    instance id could get via storageMessageHub.getPeerIdentifies
    * 
    *  if `toInstance` is set, `needAllResponses` won't work any more
    */
@@ -368,8 +407,20 @@ export interface IStorageMessageHubEmitConfig {
   /** method name */
   methodName: string
 }
+```
+Notice:
+1. If you want to send message to specified peer, use to [storageMessageHub.getPeerIdentifies](#storageMessageHubgetPeerIdentifies) to get peer's instance id before sending.
+2. arguments must be stringify-able, due to localStorage's restrictions
+
+e.g.
+```js
+// broadcast that user has logout
+storageMessageHub.emit('user-logout')
+
+storageMessageHub.emit('get-')
 
 ```
+
 
 
 #### storageMessageHub.on

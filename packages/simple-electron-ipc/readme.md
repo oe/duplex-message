@@ -269,8 +269,6 @@ rendererMessageHub.emit('download', {
 })
 ```
 
-
-
 ### off
 Remove message handlers. 
 

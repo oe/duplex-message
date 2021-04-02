@@ -34,8 +34,8 @@ export enum EErrorCode {
   HANDLER_EXEC_ERROR = 1,
   /** no corresponding handler found */
   HANDLER_NOT_EXIST = 2,
-  /** target(peer) not found*/
-  TARGET_NOT_FOUND = 3,
+  /** peer not found*/
+  PEER_NOT_FOUND = 3,
   /** message not responded in time */
   TIMEOUT = 4,
   /** message has invalid content, can't be sent  */
@@ -86,40 +86,40 @@ export abstract class AbstractHub {
 
   /**
    * subclass' own off method, should use _off to implements it
-   * @param args args to off method, normally are target and methodName
+   * @param args args to off method, normally are peer and methodName
    */
   abstract off (...args: any[]): void
   
   /**
    * subclass' own on method, should use _on to implements it
-   * @param args args to listen method, normally are target, methodName and method
+   * @param args args to listen method, normally are peer, methodName and method
    */
   abstract on (...args: any[]): void
 
   /**
    * subclass' own emit method, should use _emit to implements it
-   * @param args args to emit message, normally are target, methodName and method's params
+   * @param args args to emit message, normally are peer, methodName and method's params
    */
   abstract emit (...args: any[]): void
 
   /**
-   * subclass' own send message method, should send msg to target
-   * @param target peer to receive message. if only one/no specified peer, target will be *
+   * subclass' own send message method, should send msg to peer
+   * @param peer peer to receive message. if only one/no specified peer, peer will be *
    * @param msg message send to peer
    */
-  protected abstract sendMessage (target: any, msg: IRequest | IProgress | IResponse): void
+  protected abstract sendMessage (peer: any, msg: IRequest | IProgress | IResponse): void
 
 
   protected _hasListeners () {
     return this._eventHandlerMap.length > 0
   }
   /**
-   * add listener for target
+   * add listener for peer
    */
-  protected _on (target: any, handlerMap: Function | IHandlerMap): void
-  protected _on (target: any, methodName: string, handler: Function): void
-  protected _on (target: any, handlerMap: IHandlerMap | Function | string, handler?: Function): void {
-    const pair = this._eventHandlerMap.find(pair => pair[0] === target)
+  protected _on (peer: any, handlerMap: Function | IHandlerMap): void
+  protected _on (peer: any, methodName: string, handler: Function): void
+  protected _on (peer: any, handlerMap: IHandlerMap | Function | string, handler?: Function): void {
+    const pair = this._eventHandlerMap.find(pair => pair[0] === peer)
     let handlerResult: Function | IHandlerMap
     if (typeof handlerMap === 'string') {      
       handlerResult = { [handlerMap]: handler! }
@@ -136,12 +136,12 @@ export abstract class AbstractHub {
 
       return
     }
-    this._eventHandlerMap[target === '*' ? 'unshift' : 'push']([target, handlerResult])
+    this._eventHandlerMap[peer === '*' ? 'unshift' : 'push']([peer, handlerResult])
   }
 
 
-  protected _off (target: any, methodName?: string) {
-    const index = this._eventHandlerMap.findIndex(pair => pair[0] === target)
+  protected _off (peer: any, methodName?: string) {
+    const index = this._eventHandlerMap.findIndex(pair => pair[0] === peer)
     if (index === -1) return
     if (!methodName) {
       this._eventHandlerMap.splice(index, 1)
@@ -157,7 +157,7 @@ export abstract class AbstractHub {
     }
   }
 
-  protected async _onMessage (target: any, msg: any) {
+  protected async _onMessage (peer: any, msg: any) {
     if (!msg) return
     if (!this._isRequest(msg)) {
       this._runResponseCallback(msg)
@@ -165,16 +165,16 @@ export abstract class AbstractHub {
     }
     if (msg.progress && msg.args[0]) {
       msg.args[0].onprogress = (data: any) => {
-        this.sendMessage(target, this._buildProgressMessage(data, msg))
+        this.sendMessage(peer, this._buildProgressMessage(data, msg))
       }
     }
     let response: IResponse
     try {
-      response = await this._runMsgHandler(target, msg)
+      response = await this._runMsgHandler(peer, msg)
     } catch (error) {
       response = error
     }
-    this.sendMessage(target, response)
+    this.sendMessage(peer, response)
   }
 
   protected _runResponseCallback (resp: IResponse) {
@@ -191,9 +191,9 @@ export abstract class AbstractHub {
     return false
   }
 
-  async _runMsgHandler (target: any, reqMsg: IRequest) {
+  async _runMsgHandler (peer: any, reqMsg: IRequest) {
     try {
-      const matchedMap = this._eventHandlerMap.find(wm => wm[0] === target) ||
+      const matchedMap = this._eventHandlerMap.find(wm => wm[0] === peer) ||
         // use * for default
         (this._eventHandlerMap[0] && this._eventHandlerMap[0][0] === '*' && this._eventHandlerMap[0])
       const { methodName, args } = reqMsg
@@ -210,7 +210,7 @@ export abstract class AbstractHub {
       }
       // tslint:disable-next-line
       if (typeof method !== 'function') {
-        console.warn(`[duplex-message] no corresponding handler found for ${methodName}, message from`, target)
+        console.warn(`[duplex-message] no corresponding handler found for ${methodName}, message from`, peer)
         const error = { code: EErrorCode.HANDLER_NOT_EXIST, message: `no corresponding handler found for ${methodName}`}
         return this._buildRespMessage(error, reqMsg, false)
       }
@@ -222,7 +222,7 @@ export abstract class AbstractHub {
     }
   }
 
-  protected _emit (target: any, methodName: string | IMethodNameConfig, ...args: any[]) {
+  protected _emit (peer: any, methodName: string | IMethodNameConfig, ...args: any[]) {
     const reqMsg = this._buildReqMessage(methodName, args)
     const result = new Promise((resolve, reject) => {
       // 0 for not match
@@ -243,10 +243,10 @@ export abstract class AbstractHub {
         response.isSuccess ? resolve(response.data) : reject(response.data)
         return 1
       }
-      this._listenResponse(target, reqMsg, callback)
+      this._listenResponse(peer, reqMsg, callback)
     })
     try {
-      this.sendMessage(target, this._normalizeRequest(target, reqMsg))
+      this.sendMessage(peer, this._normalizeRequest(peer, reqMsg))
     } catch (error) {
       console.warn('[duplex-message] unable to serialize message, message not sent', error)
       return Promise.reject({code: EErrorCode.INVALID_MESSAGE, message: 'unable to send message'})
@@ -254,16 +254,16 @@ export abstract class AbstractHub {
     return result
   }
   /**
-   * should get response from target and pass response to callback
+   * should get response from peer and pass response to callback
    */
-  protected _listenResponse (target: any, reqMsg: IRequest, callback: (resp: IResponse | IProgress) => number) {
+  protected _listenResponse (peer: any, reqMsg: IRequest, callback: (resp: IResponse | IProgress) => number) {
     this._responseCallbacks.push(callback)
   }
 
   // normalize progress callback on message
-  protected _normalizeRequest(target: any, msg: IRequest) {
-    // skip if target is * 
-    if (target === '*' || !msg.progress) {
+  protected _normalizeRequest(peer: any, msg: IRequest) {
+    // skip if peer is * 
+    if (peer === '*' || !msg.progress) {
       delete msg.progress
       return msg
     }
