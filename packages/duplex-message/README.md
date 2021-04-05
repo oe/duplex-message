@@ -16,7 +16,7 @@
 </div>
 
 
-<h5 align="center">A tinny(~2kb) utility that can simplify cross window(iframes, even workers) communications over `postMessage` and `addEventListener('message', xxx)`</h5>
+<h5 align="center">A tinny(~2kb) utility that can simplify cross window / iframes / workers communications, and even with progress feedback support.</h5>
 
 ## 📝 Table of Contents
 - [📝 Table of Contents](#-table-of-contents)
