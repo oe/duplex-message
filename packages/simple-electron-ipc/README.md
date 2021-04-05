@@ -15,7 +15,7 @@
 </div>
 
 
-an easy way to use electron ipc, get a response via promise, event support progress callback
+an easy way to use electron ipc, get a response via promise, even with progress feedback support
 
 ## 📝 Table of Contents
 - [Features](#features)
