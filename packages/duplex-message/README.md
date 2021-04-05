@@ -19,19 +19,29 @@
 <h5 align="center">A tinny(~2kb) utility that can simplify cross window(iframes, even workers) communications over `postMessage` and `addEventListener('message', xxx)`</h5>
 
 ## 📝 Table of Contents
+- [📝 Table of Contents](#-table-of-contents)
 - [Features](#features)
 - [Install](#install)
 - [Example](#example)
 - [Usage](#usage)
-  - [PostMessageHub](#postmessagehub)
+  - [PostMessageHub](#postmessagehub) for windows / iframes / workers messaging
     - [postMessageHub.emit](#postmessagehubemit)
     - [postMessageHub.on](#postmessagehubon)
+    - [progress for PostMessageHub](#progress-for-postmessagehub)
     - [postMessageHub.off](#postmessagehuboff)
     - [postMessageHub.createDedicatedMessageHub](#postmessagehubcreatededicatedmessagehub)
     - [postMessageHub.createProxy](#postmessagehubcreateproxy)
-  - [StorageMessageHub](#storagemessagehub)
+  - [StorageMessageHub](#storagemessagehub) for windows' with same origin's messaging
     - [storageMessageHub.emit](#storagemessagehubemit)
     - [storageMessageHub.on](#storagemessagehubon)
+    - [storageMessageHub.getPeerIdentifies](#storagemessagehubgetpeeridentifies)
+    - [progress for storageMessageHub](#progress-for-storagemessagehub)
+    - [storageMessageHub.off](#storagemessagehuboff)
+  - [PageScriptMessageHub](#pagescriptmessagehub) for script with isolated js context messaging in same window
+    - [pageScriptMessageHub.emit](#pagescriptmessagehubemit)
+    - [pageScriptMessageHub.on](#pagescriptmessagehubon)
+    - [progress for PageScriptMessageHub](#progress-for-pagescriptmessagehub)
+    - [pageScriptMessageHub.off](#pagescriptmessagehuboff)
   - [Error](#error)
 
 ## Features
@@ -42,6 +52,9 @@
 * **Tinny**: less than 3kb gzipped(even smaller with tree-shaking), no external dependencies required
 * **Consistency**: same api every where 
 * **Typescript support**: this utility is written in typescript, has type definition inborn
+
+It also has an electron version that can simplify IPC messaging, check [Simple-Electron-IPC
+](https://github.com/oe/duplex-message/tree/master/packages/simple-electron-ipc) for more details.
 
 ## Install
 using yarn
@@ -252,7 +265,7 @@ Notice:
 4. if you want worker's messages handled by callbacks registered via peer `*` , **you must call `postMessageHub.on` with worker(e.g `postMessageHub.on(worker, {})`) to register worker due to worker's restrictions**
 
 
-### progress for PostMessageHub
+#### progress for PostMessageHub
 If you need progress feedback when peer handling you request, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
 
 e.g.
@@ -287,13 +300,11 @@ workerMessageHub.on(self, {
 ```
 
 #### postMessageHub.off
-Remove message handlers. 
+Remove message handlers, if `methodName` presented, remove `methodName`'s listener, or remove the whole peer's listener
 
 ```ts
 postMessageHub.off(peer: Window | Worker | '*', methodName?: string)
 ```
-
-if `methodName` presented, remove `methodName`'s listener, or remove the whole peer's listener
 
 #### postMessageHub.createDedicatedMessageHub
 Create a dedicated message-hub for specified peer, so that you won't need to pass peer every time:   
@@ -379,16 +390,20 @@ Notice:
 > Web pages in browser with same origin are weak connected, they just share one localStorage area. Sending a message via localStorage just like sending a broadcast, there maybe no listener, or more than one listeners. So, a `timeout` is necessary in case of there is no listener can respond your messages, or they don't respond in time.
 
 #### storageMessageHub.emit
-broadcast(or you can also send to specified peer) a message, invoking `methodName` registered on the peers via [`on`](#storageMessageHubbon) with all its arguments `args`, return a promise with result.
+Broadcast(or you can also send to specified peer) a message, invoking `methodName` registered on the peers via [`on`](#storageMessageHubbon) with all its arguments `args`, return a promise with result.
 
 
 ```ts
-// broadcast a message to all peers, promise resolve when `first success` response received, or you will catch an error
+// broadcast a message to all peers
+//    promise resolve when `first success` response received(
+//      there may be more than one peers, they all will respond this message,
+//      you will get the first success response,  rest responses will be discarded)
+//    or you will catch an error
 storageMessageHub.emit(methodName: string, ...args: any[]) => Promise<unknown>
 
 // send message with more flexible config
 storageMessageHub.emit(methodConfig: IStorageMessageHubEmit, ...args: any[]) => Promise<unknown>
-export interface IStorageMessageHubEmitConfig {
+interface IStorageMessageHubEmitConfig {
   /**
    * need all peers' responses
    * 
@@ -402,7 +417,7 @@ export interface IStorageMessageHubEmitConfig {
    *  if `toInstance` is set, `needAllResponses` won't work any more
    */
   toInstance?: string
-  /** specified another timeout number for this message  */
+  /** specified another timeout(millisecond) for this message  */
   timeout?: number
   /** method name */
   methodName: string
@@ -410,20 +425,245 @@ export interface IStorageMessageHubEmitConfig {
 ```
 Notice:
 1. If you want to send message to specified peer, use to [storageMessageHub.getPeerIdentifies](#storageMessageHubgetPeerIdentifies) to get peer's instance id before sending.
-2. arguments must be stringify-able, due to localStorage's restrictions
+2. look into [Error](#error) when you catch an error
+3. arguments must be stringify-able, due to localStorage's restrictions
 
 e.g.
 ```js
 // broadcast that user has logout
 storageMessageHub.emit('user-logout')
 
-storageMessageHub.emit('get-')
+// send a message and get the first success response
+storageMessageHub.emit('get-some-info').then(res => {
+  console.log(res)
+}).catch(err => { console.error(err)})
 
+// get all response from all peers
+//   the response's struct is { [instanceID]: {isSuccess, data} }
+storageMessageHub.emit({
+  methodName: 'get-some-info',
+  needAllResponses: true,
+})
+.then(res => {
+  console.log(res)
+})
+// you will catch an timeout error only when there is no other page
+.catch(err => { console.error(err)})
 ```
 
 
 
 #### storageMessageHub.on
+Listen messages sent from peer, it has following forms:
+```ts
+// register(listen)) one handler for methodName when message received from main process
+storageMessageHub.on(methodName: string, handler: Function)
+// register(listen)) multi handlers
+storageMessageHub.on(handlerMap: Record<string, Function>)
+// register only one handler to deal with all messages from process
+storageMessageHub.on(singleHandler: Function)
+```
+e.g.
+```js
+storageMessageHub.on('async-add', async function (a, b) {
+  return new Promise((resolve, reject) => {
+    resolve(a + b)
+  })
+})
+
+storageMessageHub.on({
+  'method1': function () {...},
+  'method2': function (a, b, c) {...}
+})
+
+// listen all messages
+anotherStorageMessageHub.on((methodName, ...args) => {
+  ...
+})
+```
+
+#### storageMessageHub.getPeerIdentifies
+Get all peer's identify information. `instanceID` is used by the library when communicating, `identity` is customable when you creating instance, you may use `identity` to distinguish between instances.
+> Be aware of that, you may get same `identity` if you open same page twice, but the `instanceID`s are always different and unique.
+
+```ts
+storageMessageHub.getPeerIdentifies() => Promise<Array<IPeerIdentity>>
+
+interface IPeerIdentity {
+  /** instance id, unique, auto generated */
+  instanceID: string
+  /** can be custom when new StorageMessageHub */
+  identity?: any
+}
+```
+
+e.g.
+```js
+storageMessageHub.getPeerIdentifies()
+  .then(res => {
+    console.log(res)
+  })
+  // you will catch an timeout error only when there is no other page
+  .catch(err => console.error(err))
+```
+
+#### progress for storageMessageHub
+If you need progress feedback when peer handling you request, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
+
+e.g.
+```js
+// in normal window, send message to worker, get progress
+//  you must get peer's instanceID via `storageMessageHub.getPeerIdentifies` before using it
+storageMessageHub.emit({toInstance: 'kh9uxd11iyc-kh9uxd11iyc', methodName: 'download'}, {
+ onprogress(p) {console.log('progress: ' + p.count)}
+}).then(e => {
+ console.log('success: ', e)
+}).catch(err => {
+  console.log('error: ' + err)
+})
+
+// listen download from another window that has instance id 'kh9uxd11iyc-kh9uxd11iyc'
+anotherWindowStorageMessageHub.on({
+  // download with progress support
+  download: (msg) => {
+    return new Promise((resolve, reject) => {
+      let hiCount = 0
+      const tid = setInterval(() => {
+        if (hiCount >= 100) {
+          clearInterval(tid)
+          return resolve('done')
+        }
+        msg.onprogress({count: hiCount += 10})
+      }, 200)
+    })
+  }
+}
+```
+
+#### storageMessageHub.off
+Remove message handlers, if `methodName` presented, remove `methodName`'s listener, or remove the whole peer's listener
+
+```ts
+storageMessageHub.off(methodName?: string)
+```
+
+### PageScriptMessageHub
+`PageScriptMessageHub` works in browser and use `customEvent` under the hood, it enable you:
+1. communicate between isolated javascript environment in same window context
+2. listen and respond messages with the same code.
+
+
+When to use it:  
+> 1. when your javascript codes are isolated in same window context, e.g. chrome extension's content script with webpage's js code
+> 2. you need to communicate between them.
+
+`PageScriptMessageHub` is a class, `new` an instance in every peer before using it 
+```js
+import { PageScriptMessageHub } from "duplex-message"
+
+const pageScriptMessageHub = new PageScriptMessageHub(options?: IPageScriptMessageHubOptions)
+
+interface IPageScriptMessageHubOptions {
+  /** custom event name, default: message-hub */
+  customEventName?: string
+}
+```
+
+#### pageScriptMessageHub.emit
+Send a message to peer, invoking `methodName` registered on the peer via [`on`](#on) with all its arguments `args`:
+
+```ts
+// in renderer process
+pageScriptMessageHub.emit(method: string, ...args: any[]) => Promise<unknown>
+```
+
+e.g.
+```js
+// in renderer process
+pageScriptMessageHub
+  .emit('stop-download')
+  .then(res => console.log('success', res))
+  .catch(err => console.warn('error', err))
+```
+
+Notice:
+1. look into [Error](#error) when you catch an error
+2. omit args if no args are required, e.g `pageScriptMessageHub.emit('some-method')`
+
+#### pageScriptMessageHub.on
+Listen messages sent from peer, it has following forms:
+
+```ts
+// register(listen)) one handler for methodName when message received from main process
+pageScriptMessageHub.on(methodName: string, handler: Function)
+// register(listen)) multi handlers
+pageScriptMessageHub.on(handlerMap: Record<string, Function>)
+// register only one handler to deal with all messages from process
+pageScriptMessageHub.on(singleHandler: Function)
+```
+
+e.g.
+```js
+
+// in renderer process
+pageScriptMessageHub.on('async-add', async function (a, b) {
+  return new Promise((resolve, reject) => {
+    resolve(a + b)
+  })
+})
+
+pageScriptMessageHub.on({
+  'method1': function () {...},
+  'method2': function (a, b, c) {...}
+})
+
+// listen all messages from peer with one handler
+anotherPageScriptMessageHub.on((methodName, ...args) => {
+  ...
+})
+```
+
+
+#### progress for PageScriptMessageHub
+If you need progress feedback when peer handling you request, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
+
+e.g.
+```js
+// listen download from peer
+pageScriptMessageHub.on({
+  // download with progress support
+  download: (msg) => {
+    return new Promise((resolve, reject) => {
+      let hiCount = 0
+      const tid = setInterval(() => {
+        if (hiCount >= 100) {
+          clearInterval(tid)
+          return resolve('done')
+        }
+        msg.onprogress({count: hiCount += 10})
+      }, 200)
+    })
+  }
+}
+
+// in the peer's code
+peerPageScriptMessageHub.emit('download', {
+ onprogress(p) {console.log('progress: ' + p.count)}
+}).then(e => {
+ console.log('success: ', e)
+}).catch(err => {
+  console.log('error: ' + err)
+})
+```
+
+#### pageScriptMessageHub.off
+Remove message handlers, if `methodName` presented, remove `methodName`'s listener, or remove the whole peer's listener
+
+```ts
+// in renderer process
+pageScriptMessageHub.off(methodName?: string)
+```
+
 ### Error
 when you catch an error from `emit`, it conforms the following structure `IError`
 

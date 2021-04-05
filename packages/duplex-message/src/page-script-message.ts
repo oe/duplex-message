@@ -1,6 +1,7 @@
 import { AbstractHub, IResponse, IHandlerMap, IRequest } from './abstract'
 
 export interface IPageScriptMessageHubOptions {
+  /** custom event name, default: message-hub */
   customEventName?: string
 }
 

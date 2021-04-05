@@ -29,7 +29,9 @@ export interface IStorageMessageHubEmitConfig {
 }
 
 export interface IPeerIdentity {
+  /** instance id, unique, auto generated */
   instanceID: string
+  /** can be custom when new StorageMessageHub */
   identity?: any
 }
 
@@ -105,10 +107,17 @@ export class StorageMessageHub extends AbstractHub {
    *    value is an object with struct {instanceID, identify?}
    */
   getPeerIdentifies () {
+    //Promise<Record<string, IPeerIdentity>>
     return this.emit({
       methodName: GET_PEERS_EVENT_NAME,
       needAllResponses: true
-    }) as Promise<Record<string, IPeerIdentity>>
+    }).then((res: any) => {
+      return Object.keys(res).map((key: string) => {
+        const val = res[key]
+        if (!val.isSuccess) throw new Error(`[duplex-message] unable to get instance ${key}' identifier: ${JSON.stringify(val.data)}`)
+        return val.data
+      })
+    })
   }
 
   protected sendMessage (peer: string, msg: IRequest | IResponse) {
