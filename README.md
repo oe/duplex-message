@@ -9,7 +9,7 @@
 </div>
 
 
-<h3 align="center">A tinny(~2kb) utility that can makes one way message responsible <br> 
+<h3 align="center">A tinny(~3kb) utility that can makes one way message responsible <br> 
 enhance postMessage/storageEvent/electron IPC/chrome extension scripts</h3>
 
 ### For browser: check [Duplex-Message](https://github.com/oe/duplex-message/tree/master/packages/duplex-message)  
