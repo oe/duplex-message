@@ -15,7 +15,7 @@
 </div>
 
 
-an easy way to use electron ipc, get a response via promise, even with progress feedback support
+<h4 align="center">an easy way to use electron ipc, get a response via promise, even with progress feedback support</h4>
 
 ## 📝 Table of Contents
 - [Features](#features)
@@ -29,11 +29,10 @@ an easy way to use electron ipc, get a response via promise, even with progress 
   - [off](#off)
   - [Error](#error)
 ## Features
-* **Simple API**: `on` `emit` `off` are all you need
+* **Simple API**: `on` `emit` and `off` are all you need
 * **Responsible**: `emit` will return a promise with the response from the other side
 * **Progress-able**: get response with progress easily
-* **Multi-scenario**: using it via `postMessage` 、 `storage` event or  customEvent on varied situations
-* **Tinny**: less than 3kb gzipped(even smaller with tree-shaking), no external dependencies required
+* **Tinny**: less than 4kb gzipped(even smaller with tree-shaking), no external dependencies required
 * **Consistency**: same api every where 
 * **Typescript support**: this utility is written in typescript, has type definition inborn
 
@@ -53,7 +52,7 @@ npm install simple-electron-ipc -S
 
 ## Example
 
-The following example shows you how to use it to to communicate between main process and renderer process.
+The following example shows you how to use it to to communicate between electron app's main process and renderer process.
 
 in main process:
 ```js
@@ -103,7 +102,7 @@ rendererMessageHub.emit('download', {onprogress(p) {console.log('progress', p)}}
 
 ## Usage
 ### MainMessageHub & RendererMessageHub
-Before use this lib to communicate to each other,  you need to create client with `MainMessageHub` for main process & `RendererMessageHub` for renderer process
+Before use this lib to communicate to each other, you need to create instances with `MainMessageHub` for main process & `RendererMessageHub` for renderer process.
 
 
 ```ts
@@ -122,26 +121,25 @@ interface IElectronMessageHubOptions {
   /** ipc channel name used under the hood, default: message-hub */
   channelName?: string
 }
-
 ```
 
-If you change `channelName` when creating instances, main and renderer should use the same channel name.
+If you change `channelName` when creating instances, main and renderers should use the same channel name.
 
-You may need to change `webPreferences` when create BrowserWindow, so that you can use `simple-electron-ipc` in renderer process:
+You may need to change `webPreferences` when create BrowserWindow, so that you can import `simple-electron-ipc` in renderer process:
 ```js
 import { BrowserWindow } from "electron";
 const mainWindow = new BrowserWindow({
-    height: 600,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
       enableRemoteModule: true,
     },
-    width: 800,
+    // other configurations
+    ...
   });
 ```
 
-The usage of `MainMessageHub` and `RendererMessageHub` have subtle differences, because main process can send messages to multi renderer, but a renderer process can only send messages to main process.
+The usage of `MainMessageHub` and `RendererMessageHub` have subtle differences, due to the main process can send messages to multi renderers, but a renderer process can only send messages to the main process.
 
 
 ### emit
@@ -152,7 +150,7 @@ Send a message to peer, invoking `methodName` registered on the peer via [`on`](
 //    if you got a BrowserWindow instance, use browserWindow.webContents to get WebContents
 mainMessageHub.emit(peer: WebContents, method: string, ...args: any[]) => Promise<unknown>
 
-// in renderer process
+// in renderer process, no need to specify the peer, the peer is default to the main process
 rendererMessageHub.emit(method: string, ...args: any[]) => Promise<unknown>
 ```
 
@@ -174,7 +172,8 @@ rendererMessageHub
 
 Notice:
 1. look into [Error](#error) when you catch an error
-2. omit args if no args are required, e.g `rendererMessageHub.emit('some-method')`
+2. omit args if no arguments are required, e.g `rendererMessageHub.emit('some-method')`
+3. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
 
 ### on
 Listen messages sent from peer, it has following forms:
@@ -182,6 +181,7 @@ Listen messages sent from peer, it has following forms:
 ```ts
 // in main process
 // register(listen)) one handler for methodName when message received from renderer
+//  * means all renderers, same as below
 mainMessageHub.on(peer: WebContents | '*', methodName: string, handler: Function)
 // register(listen)) multi handlers
 mainMessageHub.on(peer: WebContents | '*', handlerMap: Record<string, Function>)
@@ -213,7 +213,7 @@ mainMessageHub.on(mainWindow.webContents, {
     ...
   }
 })
-// listen 'get-token' from all renderer
+// listen 'get-token' from all renderers
 mainMessageHub.on('*', 'get-token', () => Math.random().toString(36).slice(2) )
 
 
@@ -239,7 +239,7 @@ Notice:
 1. for `mainMessageHub`:  the specified callback will be called if you listen same `methodName` in specified peer and `*`
 
 ### progress
-If you need progress feedback when peer handling you request, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
+If you need progress feedback when peer handling you requests, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
 
 e.g.
 ```js
@@ -255,7 +255,8 @@ mainMessageHub.on('*', {
           clearInterval(tid)
           return resolve('done')
         }
-        msg.onprogress({count: hiCount += 10})
+        // send feedback by calling onprogress if it exists
+        msg && msg.onprogress && msg.onprogress({count: hiCount += 10})
       }, 200)
     })
   }
@@ -288,7 +289,7 @@ when you catch an error from `emit`, it conforms the following structure `IError
 
 ```ts
 /** error object could be caught via emit().catch(err) */
-export interface IError {
+interface IError {
   /** none-zero error code */
   code: EErrorCode
   /** error message */
@@ -298,7 +299,7 @@ export interface IError {
 }
 
 /** enum of error code */
-export enum EErrorCode {
+enum EErrorCode {
   /** handler on other side encounter an error  */
   HANDLER_EXEC_ERROR = 1,
   /** no corresponding handler found */

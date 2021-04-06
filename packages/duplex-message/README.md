@@ -16,10 +16,9 @@
 </div>
 
 
-<h5 align="center">A tinny(~2kb) utility that can simplify cross window / iframes / workers communications, and even with progress feedback support.</h5>
+<h4 align="center">A tinny(~3kb) utility that can simplify cross window / iframes / workers communications, even with progress feedback support.</h4>
 
 ## 📝 Table of Contents
-- [📝 Table of Contents](#-table-of-contents)
 - [Features](#features)
 - [Install](#install)
 - [Example](#example)
@@ -45,10 +44,10 @@
   - [Error](#error)
 
 ## Features
-* **Simple API**: `on` `emit` `off` are all you need
+* **Simple API**: `on` `emit` and `off` are all you need
 * **Responsible**: `emit` will return a promise with the response from the other side
 * **Progress feedback**: get response with progress feedback easily
-* **Multi-scenario**: using it via `postMessage` 、 `storage` event or  customEvent on varied situations
+* **Multi-scenario**: builtin [`PostMessageHub`](#postmessagehub) [`StorageMessageHub`](#storagemessagehub) and [`PageScriptMessageHub`](#pagescriptmessagehub) for different scenarios
 * **Tinny**: less than 3kb gzipped(even smaller with tree-shaking), no external dependencies required
 * **Consistency**: same api every where 
 * **Typescript support**: this utility is written in typescript, has type definition inborn
@@ -77,17 +76,17 @@ import { PostMessageHub } from "duplex-message"
 
 const postMessageHub = new PostMessageHub()
 
-// get child iframe's window, peerWin could be `self.parent` or `new Worker('./worker.js')`
-const iframeWin = document.getElementById('child-iframe-1').contentWindow
+// get child iframe's window, peerWin could be `self.parent` or `new Worker('./worker.js')` in other situation
+const peerWin = document.getElementById('child-iframe-1').contentWindow
 
 // ----- listen messages from peer ----
 
-// listen the message pageTitle from iframeWin, and respond it
-postMessageHub.on(iframeWin, 'pageTitle', () => {
+// listen the message pageTitle from peerWin, and respond it
+postMessageHub.on(peerWin, 'pageTitle', () => {
   return document.title
 })
-//  respond to message getHead from iframeWin2
-postMessageHub.on(iframeWin, 'add', async (a, b) => {
+//  respond to message getHead from peerWin
+postMessageHub.on(peerWin, 'add', async (a, b) => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       resolve(a + b)
@@ -96,7 +95,7 @@ postMessageHub.on(iframeWin, 'add', async (a, b) => {
 })
 
 // listen multi messages by passing a handler map
-postMessageHub.on(iframeWin, {
+postMessageHub.on(peerWin, {
   // mock a download
   download (msg) {
     return new Promise((resolve, reject) => {
@@ -115,13 +114,13 @@ postMessageHub.on(iframeWin, {
 })
 
 // ---- send message to peer ---
-// send a message to iframeWin1, and get the response by `.then`
-postMessageHub.emit(iframeWin1, "fib", 10).then(resp => {
+// send a message to peerWin, and get the response by `.then`
+postMessageHub.emit(peerWin, "fib", 10).then(resp => {
   console.log("fibonacci of 10 is", resp)
 })
 
 // sending a message not handled by the peer will catch an error
-postMessageHub.emit(iframeWin1, "some-not-existing-method").then(resp => {
+postMessageHub.emit(peerWin, "some-not-existing-method").then(resp => {
   console.log('response', resp) // this won't run
 }).catch(err => {
   console.warn('error', err) // bang!
@@ -138,9 +137,11 @@ const peerWin = window.parent
 
 
 // send a message to the parent and get its response
-postMessageHub.emit(peerWin, "pageTitle").then(title => {
-  console.log("page title of main thread", title)
-})
+postMessageHub.emit(peerWin, "pageTitle")
+  .then(title => {
+    console.log("page title of main thread", title)
+  })
+  .catch(err => console.error(err))
 
 // create a dedicated message hub, so you won't need to pass `peerWin` every time
 const dedicatedMessageHub = postMessageHub.createDedicatedMessageHub(peerWin)
@@ -181,13 +182,12 @@ When to use it:
 > 1. you have iframes / workers / windows opened by another window
 > 2. you need to communicate between them.
 
-`PostMessageHub` is a class, `new` an instance in every peer before using it 
+`PostMessageHub` is a class, `new` an instance before using it 
 ```js
 import { PostMessageHub } from "duplex-message"
 
 const postMessageHub = new PostMessageHub()
 ```
-
 
 #### postMessageHub.emit
 Send a message to peer, invoking `methodName` registered on the peer via [`on`](#postmessagehubon) with all its arguments `args`:
@@ -196,7 +196,7 @@ Send a message to peer, invoking `methodName` registered on the peer via [`on`](
 postMessageHub.emit(peer: Window | Worker, methodName: string, ...args: any[]) => Promise<unknown>
 ```
 
-This api return a promise, you can get response or catch the exception via it.
+This api return a promise, you can get the response or catch an exception via it.
 
 e.g.
 ```js
@@ -210,12 +210,14 @@ Notice:
 1. look into [Error](#error) when you catch an error
 2. set `peer` to `self` if you want to send message from worker to outside
 3. omit args if no args are required, e.g `postMessageHub.emit(peerWindow, 'some-method')`
+4. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
 
 
 #### postMessageHub.on
 Listen messages sent from peer, it has following forms:
 ```ts
 // register(listen)) one handler for methodName when message received from peer
+//  * means all peers, same as below
 postMessageHub.on(peer: Window | Worker | '*', methodName: string, handler: Function)
 // register(listen)) multi handlers
 postMessageHub.on(peer: Window | Worker | '*', handlerMap: Record<string, Function>)
@@ -266,7 +268,7 @@ Notice:
 
 
 #### progress for PostMessageHub
-If you need progress feedback when peer handling you request, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
+If you need progress feedback when peer handling you requests, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
 
 e.g.
 ```js
@@ -291,7 +293,8 @@ workerMessageHub.on(self, {
           clearInterval(tid)
           return resolve('done')
         }
-        msg.onprogress({count: hiCount += 10})
+        // call onprogress if exists 
+        msg && msg.onprogress && msg.onprogress({count: hiCount += 10})
       }, 200)
     })
   }
@@ -314,7 +317,7 @@ Create a dedicated message-hub for specified peer, so that you won't need to pas
 * @param peer peer window to communicate with, or you can set it later via `setPeer`
 * @param silent when peer not exists, keep silent instead of throw an error when call emit, on, off
 */
-postMessageHub.createDedicatedMessageHub (peer?: IOwnPeer, silent?: boolean) => IDedicatedMessageHub
+postMessageHub.createDedicatedMessageHub (peer?: Window | Worker, silent?: boolean) => IDedicatedMessageHub
 
 interface IDedicatedMessageHub {
   /** if you didn't set a peer when invoking createDedicatedMessageHub, then you can use `setPeer` to set it when it's ready*/
@@ -355,7 +358,6 @@ postMessageHub.createProxy(someWorker, someIframeWin)
 
 ```
 
-
 There is a funny use case:  
 If you got two iframes in your page, you can make them communicate directly by following code
 ```ts
@@ -364,7 +366,7 @@ postMessageHub.createProxy(frame2Win, frame1Win) // forward message from frame2W
 ```
 
 ### StorageMessageHub
-`StorageMessageHub` works in browser and use `storage` event(trigger via changing localStorage) under the hood, it enable you to communicate between pages with the [same origin](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy), aka with the same `location.origin`(protocol + domain + port) in a simple way.
+`StorageMessageHub` works in browser and use `storage` event(trigger via changing localStorage) under the hood, it enable you communicating between pages with the [same origin](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy)(aka with the same `location.origin`(protocol + domain + port)) in a simple way.
 
 When to use it:
 > 1. pages you want to share messages are with the same origin
@@ -376,7 +378,7 @@ import { StorageMessageHub } from "duplex-message"
 
 const storageMessageHub = new StorageMessageHub(options?: IStorageMessageHubOptions)
 
-export interface IStorageMessageHubOptions {
+interface IStorageMessageHubOptions {
   /** timeout number(millisecond as unit) when no response is received, default: 1000 milliseconds */
   timeout?: number
   /** localStorage key prefix to store message, default: $$xiu */
@@ -387,7 +389,7 @@ export interface IStorageMessageHubOptions {
 ```
 
 Notice:  
-> Web pages in browser with same origin are weak connected, they just share one localStorage area. Sending a message via localStorage just like sending a broadcast, there maybe no listener, or more than one listeners. So, a `timeout` is necessary in case of there is no listener can respond your messages, or they don't respond in time.
+> Web pages in browser with same origin are weak connected, they just share one same localStorage area. Sending a message via localStorage just like sending a broadcast, there maybe no listener, or more than one listeners. So, a `timeout` is necessary in case of there is no listener can respond your messages, or they don't respond in time.
 
 #### storageMessageHub.emit
 Broadcast(or you can also send to specified peer) a message, invoking `methodName` registered on the peers via [`on`](#storageMessageHubbon) with all its arguments `args`, return a promise with result.
@@ -427,6 +429,8 @@ Notice:
 1. If you want to send message to specified peer, use to [storageMessageHub.getPeerIdentifies](#storageMessageHubgetPeerIdentifies) to get peer's instance id before sending.
 2. look into [Error](#error) when you catch an error
 3. arguments must be stringify-able, due to localStorage's restrictions
+4. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
+
 
 e.g.
 ```js
@@ -508,7 +512,7 @@ storageMessageHub.getPeerIdentifies()
 ```
 
 #### progress for storageMessageHub
-If you need progress feedback when peer handling you request, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
+If you need progress feedback when peer handling you requests, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
 
 e.g.
 ```js
@@ -570,11 +574,11 @@ interface IPageScriptMessageHubOptions {
 ```
 
 #### pageScriptMessageHub.emit
-Send a message to peer, invoking `methodName` registered on the peer via [`on`](#on) with all its arguments `args`:
+Send a message to peer, invoking `methodName` registered on the peer via [`on`](#pagescriptmessagehubon) with all its arguments `args`:
 
 ```ts
 // in renderer process
-pageScriptMessageHub.emit(method: string, ...args: any[]) => Promise<unknown>
+pageScriptMessageHub.emit(methodName: string, ...args: any[]) => Promise<unknown>
 ```
 
 e.g.
@@ -589,6 +593,8 @@ pageScriptMessageHub
 Notice:
 1. look into [Error](#error) when you catch an error
 2. omit args if no args are required, e.g `pageScriptMessageHub.emit('some-method')`
+3. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
+
 
 #### pageScriptMessageHub.on
 Listen messages sent from peer, it has following forms:
@@ -640,7 +646,8 @@ pageScriptMessageHub.on({
           clearInterval(tid)
           return resolve('done')
         }
-        msg.onprogress({count: hiCount += 10})
+        // send feedback by calling onprogress if it exists
+        msg && msg.onprogress && msg.onprogress({count: hiCount += 10})
       }, 200)
     })
   }
@@ -669,7 +676,7 @@ when you catch an error from `emit`, it conforms the following structure `IError
 
 ```ts
 /** error object could be caught via emit().catch(err) */
-export interface IError {
+interface IError {
   /** none-zero error code */
   code: EErrorCode
   /** error message */
@@ -679,7 +686,7 @@ export interface IError {
 }
 
 /** enum of error code */
-export enum EErrorCode {
+enum EErrorCode {
   /** handler on other side encounter an error  */
   HANDLER_EXEC_ERROR = 1,
   /** no corresponding handler found */

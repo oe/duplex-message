@@ -15,7 +15,7 @@ export default [
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: 'es',
-      file: `dist/duplex-message.es.js`
+      file: `dist/index.es.js`
     },
     plugins: [
       typescript({
@@ -36,7 +36,7 @@ export default [
  * Copyright© ${new Date().getFullYear()} Saiya ${pkg.homepage}
  */`,
       format: 'umd',
-      file: `dist/duplex-message.umd.js`
+      file: `dist/index.umd.js`
     },
     plugins: [
       typescript({

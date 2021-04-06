@@ -5,6 +5,7 @@
   "scripts": {
     "postinstall": "lerna bootstrap",
     "build": "lerna run build",
+    "prepublish": "yarn build",
     "publish": "lerna publish",
     "lint": "tslint --project ./tsconfig.json --config tslint.json"
   },
