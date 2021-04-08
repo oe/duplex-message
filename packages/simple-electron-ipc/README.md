@@ -78,10 +78,10 @@ mainMessageHub.on('*', {
     })
   }
 }
-// mainWindow should be the instance of BrowserWindow
-mainMessageHub.on(mainWindow, 'some-method', () => {...})
+// mainWindow should be an instance of BrowserWindow, use mainWindow.webContents to get WebContents object
+mainMessageHub.on(mainWindow.webContents, 'some-method', () => {...})
 
-mainMessageHub.emit(mainWindow, 'generate-watermark', 'arg1', 'arg2')
+mainMessageHub.emit(mainWindow.webContents, 'generate-watermark', 'arg1', 'arg2')
   .then(base64OfPng => {...})
   .catch(e => console.log(e))
 ```
@@ -96,7 +96,11 @@ rendererMessageHub.on('generate-watermark', async (arg1, arg2) => {
   ...
 })
 
-rendererMessageHub.emit('download', {onprogress(p) {console.log('progress', p)}}).then(res => console.log(res))
+rendererMessageHub.emit('download', {
+  onprogress(p) {
+    console.log('progress', p)
+  }
+}).then(res => console.log(res))
 
 ```
 

@@ -32,7 +32,7 @@
   "repository": "https://oe@github.com/oe/duplex-message.git",
   "author": "Saiya",
   "license": "MIT",
-  "homepage": "https://github.com/oe/duplex-message",
+  "homepage": "https://github.com/oe/duplex-message/tree/master/packages/duplex-message",
   "devDependencies": {
     "@babel/core": "^7.13.10"
   }
