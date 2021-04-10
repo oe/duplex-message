@@ -143,7 +143,7 @@ const mainWindow = new BrowserWindow({
   });
 ```
 
-The usage of `MainMessageHub` and `RendererMessageHub` have subtle differences, due to the main process can send messages to multi renderers, but a renderer process can only send messages to the main process.
+The usage of `MainMessageHub` and `RendererMessageHub` have subtle differences, because the main process can send messages to multi renderers, but a renderer process can only send messages to the main process.
 
 
 ### emit
