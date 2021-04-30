@@ -82,6 +82,7 @@ export abstract class AbstractHub {
     this._eventHandlerMap = []
     this._responseCallbacks = []
     this._messageID = 0
+    // console.warn('create duplex-message instance', this.instanceID)
   }
 
   /**
@@ -210,7 +211,7 @@ export abstract class AbstractHub {
       }
       // tslint:disable-next-line
       if (typeof method !== 'function') {
-        console.warn(`[duplex-message] no corresponding handler found for ${methodName}, message from`, peer)
+        // console.warn(`[duplex-message] no corresponding handler found for ${methodName}, message from`, peer)
         const error = { code: EErrorCode.HANDLER_NOT_EXIST, message: `no corresponding handler found for ${methodName}`}
         return this._buildRespMessage(error, reqMsg, false)
       }
