@@ -130,7 +130,11 @@ export class StorageMessageHub extends AbstractHub {
     }
   }
 
-  protected _listenResponse (peer: any, reqMsg: IRequest, callback: (resp: IResponse | IProgress) => number) {
+  protected _listenResponse (
+    peer: any,
+    reqMsg: IRequest,
+    callback: (resp: IResponse | IProgress) => number,
+    withoutLs = false) {
     let hasResp = false
     const needAllResponses = reqMsg.needAllResponses
     const needWaitAllResponses = reqMsg.needAllResponses || (!reqMsg.toInstance && !reqMsg.needAllResponses)
@@ -153,7 +157,7 @@ export class StorageMessageHub extends AbstractHub {
       }
       if (!this._isResponse(reqMsg, msg)) return 0
       hasResp = true
-      localStorage.removeItem(this._getMsgKey(msg))
+      withoutLs || localStorage.removeItem(this._getMsgKey(msg));
       if (needWaitAllResponses && !allMsgReceived) {
         // waiting for others to respond
         clearTimeout(tid)
@@ -182,7 +186,10 @@ export class StorageMessageHub extends AbstractHub {
         }, timeout)
         return 2
       }
-      reqMsg.progress && localStorage.removeItem(this._getMsgKey(Object.assign({}, msg, {type: 'progress'})))
+      withoutLs || (reqMsg.progress &&
+        localStorage.removeItem(
+          this._getMsgKey(Object.assign({}, msg, { type: "progress" }))
+        ))
       return callback(msg)
     }
     this._responseCallbacks.push(evtCallback)
@@ -192,7 +199,7 @@ export class StorageMessageHub extends AbstractHub {
       if (hasResp) return
       const resp = this._buildRespMessage({code: EErrorCode.TIMEOUT, message: 'timeout'}, reqMsg, false)
       this._runResponseCallback(resp)
-      localStorage.removeItem(this._getMsgKey(reqMsg))
+      withoutLs || localStorage.removeItem(this._getMsgKey(reqMsg));
     }, timeout)
   }
 
