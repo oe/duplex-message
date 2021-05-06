@@ -7,7 +7,11 @@ const $ = (id: string) => {
 }
 
 $('#test-1').addEventListener('click', () => {
-  messageHub.emit('page-title', ($('input-1') as HTMLInputElement).value).then((res) => {
+  messageHub.emit('page-title', {
+    // onprogress: (p) => {
+    //   $("#result-1").innerText = `progress: ${p}`
+    // }
+  }, ($('input-1') as HTMLInputElement).value).then((res) => {
     $('#result-1').innerText = res
   })
 })

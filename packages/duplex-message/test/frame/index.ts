@@ -13,19 +13,19 @@ const $ = (id: string) => {
   return document.getElementById(id.replace(/^\#/, ''))
 }
 
-postMessageHub.on(frameWin, 'page-title', (arg) => {
+postMessageHub.on('*', "page-title", (arg) => {
   return new Promise((resolve, reject) => {
-    let count = 0
-    if (!arg || !arg.onprogress) return resolve(document.title)
+    let count = 0;
+    if (!arg || !arg.onprogress) return resolve(document.title);
     const tid = setInterval(() => {
-      arg.onprogress(count += 10)
+      arg.onprogress((count += 10));
       if (count >= 100) {
-        clearInterval(tid)
-        resolve(document.title + ( arg.echo ? ', echo  --- ' + arg.echo : ''))
+        clearInterval(tid);
+        resolve(document.title + (arg.echo ? ", echo  --- " + arg.echo : ""));
       }
-    }, 100)
-  })
-})
+    }, 100);
+  });
+});
 
 // listen message from frameWin
 messageHub.on({

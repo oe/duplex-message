@@ -152,10 +152,8 @@ export class PostMessageHub extends AbstractHub {
   }
 
   proxyMessage(destWin: Window | Worker) {
-    return (...args: any[]) => {
-      // @ts-ignore
-      this.emit(destWin, ...args)
-    }
+    // @ts-ignore
+    return (...args: any[]) => this.emit(destWin, ...args)
   }
 
   protected _addWorkerListener(peer: Window | Worker | '*') {

@@ -275,25 +275,31 @@ export abstract class AbstractHub {
     }
   }
 
-  _getMsgHandler(peer: any, reqMsg: IRequest): [Function, boolean] | false {
-    const matchedMap = this._eventHandlerMap.find((wm) => wm[0] === peer)
-      // use * for default
-      || (this._eventHandlerMap[0]
+  protected _getMsgHandler(peer: any, reqMsg: IRequest): [Function, boolean] | false {
+    const getHandler = (
+      methodName: string,
+      handlerTuple?: [any, Function | IHandlerMap] | false,
+    ): [Function, boolean] | false => {
+      if (!handlerTuple) return false
+      const handlerMap = handlerTuple[1]
+      if (!handlerMap) return false
+      if (typeof handlerMap === 'function') {
+        return [handlerMap, true]
+      }
+      if (typeof handlerMap[methodName] === 'function') {
+        return [handlerMap[methodName], false]
+      }
+      return false
+    }
+    const { methodName } = reqMsg
+    const result = getHandler(
+      methodName, this._eventHandlerMap.find((wm) => wm[0] === peer),
+    )
+    if (result) return result
+    return getHandler(methodName,
+      this._eventHandlerMap[0]
         && this._eventHandlerMap[0][0] === '*'
         && this._eventHandlerMap[0])
-    const { methodName } = reqMsg
-    const handlerMap = matchedMap && matchedMap[1]
-    // handler map could be a function
-    let method: Function
-    let isGeneral = false
-    if (typeof handlerMap === 'function') {
-      method = handlerMap
-      isGeneral = true
-    } else {
-      // @ts-ignore
-      method = handlerMap && handlerMap[methodName]
-    }
-    return typeof method === 'function' ? [method, isGeneral] : false
   }
 
   protected _emit(

@@ -17,6 +17,6 @@ setTimeout(async (param) => {
   const title = await postMessageHub.emit(peer, 'page-title', {
     onprogress(e) { console.log('progress from worker thread', e)}
   })
-  console.log('page title', title)
+  console.log('page title received in worker', title)
   return `# ${param} (${title})`
 }, 1000)
