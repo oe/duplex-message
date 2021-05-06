@@ -1,4 +1,5 @@
-import { StorageMessageHub, IPeerIdentity } from 'duplex-message'
+import { StorageMessageHub, setConfig } from 'duplex-message'
+setConfig({ debug: true })
 const query = new URLSearchParams(location.search)
 const storageMessageHub = new StorageMessageHub({identity: query.get('name') })
 // @ts-ignore
@@ -26,6 +27,7 @@ storageMessageHub.on({
       let count = 0
       let tid = setInterval(() => {
         msg.onprogress(++count)
+        console.log('progress', storageMessageHub.instanceID, count)
         if (count === 10) {
           clearInterval(tid)
           resolve('done')
@@ -46,7 +48,7 @@ $('btn').addEventListener('click', () => {
 })
 
 $('get-all-response').addEventListener('click', () => {
-  storageMessageHub.emit({methodName: 'tik-tok', needAllResponses: true}, { what: 'xxx', count: ++count, time: Date.now() }).then(result => {
+  storageMessageHub.emit('tik-tok', { what: 'xxx', count: ++count, time: Date.now() }).then(result => {
     $('get-all-response-content').innerHTML = (typeof result === 'object' ? '<pre>' + JSON.stringify(result, null, 2) + '</pre>' : result) as string
   }).catch(err => {
     $('get-all-response-content').innerHTML = 'error: ' + JSON.stringify(err)
@@ -55,14 +57,8 @@ $('get-all-response').addEventListener('click', () => {
 
 $('test-progress').addEventListener('click', async () => {
   try {
-    let peers: any = await storageMessageHub.getPeerIdentifies()
-    peers = Object.values(peers)
-    $('peers').innerHTML = `success: <pre>${JSON.stringify(peers)}</pre>`
-    const getPeerByName = (name: string) => peers.find(p => p.identity === name)?.instanceID
-    const response = await storageMessageHub.emit({
-      methodName: 'mockDownload',
-      toInstance: getPeerByName('xiu')
-    }, {
+    const response = await storageMessageHub.emit('mockDownload',
+    {
       onprogress: (p) => $('progress-response').innerHTML = `progress ${p}`
     })
   

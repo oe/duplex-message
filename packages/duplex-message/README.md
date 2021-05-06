@@ -485,40 +485,16 @@ anotherStorageMessageHub.on((methodName, ...args) => {
   ...
 })
 ```
-
-#### storageMessageHub.getPeerIdentifies
-Get all peer's identify information. `instanceID` is used by the library when communicating, `identity` is customable when you creating instance, you may use `identity` to distinguish between instances.
-> Be aware of that, you may get same `identity` if you open same page twice, but the `instanceID`s are always different and unique.
-
-```ts
-storageMessageHub.getPeerIdentifies() => Promise<Array<IPeerIdentity>>
-
-interface IPeerIdentity {
-  /** instance id, unique, auto generated */
-  instanceID: string
-  /** can be custom when new StorageMessageHub */
-  identity?: any
-}
-```
-
-e.g.
-```js
-storageMessageHub.getPeerIdentifies()
-  .then(res => {
-    console.log(res)
-  })
-  // you will catch an timeout error only when there is no other page
-  .catch(err => console.error(err))
-```
-
 #### progress for storageMessageHub
 If you need progress feedback when peer handling you requests, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
+
+Notice: if there are multi webpages listening to the same progress-able message, you'll only get the first one who respond, others will be ignored.
 
 e.g.
 ```js
 // in normal window, send message to worker, get progress
 //  you must get peer's instanceID via `storageMessageHub.getPeerIdentifies` before using it
-storageMessageHub.emit({toInstance: 'kh9uxd11iyc-kh9uxd11iyc', methodName: 'download'}, {
+storageMessageHub.emit('download', {
  onprogress(p) {console.log('progress: ' + p.count)}
 }).then(e => {
  console.log('success: ', e)
@@ -560,6 +536,7 @@ storageMessageHub.off(methodName?: string)
 When to use it:  
 > 1. when your javascript codes are isolated in same window context, e.g. chrome extension's content script with webpage's js code
 > 2. you need to communicate between them.
+> **3. you may also use it as an event-bus. The difference is that, it create a new client every time when `new`**
 
 `PageScriptMessageHub` is a class, `new` an instance in every peer before using it 
 ```js

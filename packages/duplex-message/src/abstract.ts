@@ -357,14 +357,32 @@ export abstract class AbstractHub {
     peer: any,
     reqMsg: IRequest,
     callback: (resp: IResponse | IProgress) => number,
+    withoutWrapper = false,
   ) {
-    const wrappedCallback = (resp: IResponse | IProgress) => {
-      const designedPeerID = this._designedResponse[reqMsg.messageID]
+    const wrappedCallback = withoutWrapper
+      ? callback : AbstractHub._wrapCallback(this, reqMsg, callback)
+
+    this._responseCallbacks.push(wrappedCallback)
+    // timeout when no response, callback get a failure
+    setTimeout(() => {
+      if (this._designedResponse[reqMsg.messageID]) return
+      const resp = this._buildRespMessage(
+        { code: EErrorCode.TIMEOUT, message: 'timeout or no handler found' },
+        reqMsg,
+        false,
+      )
+      this._runResponseCallback(resp)
+    }, WAIT_TIMEOUT)
+  }
+
+  protected static _wrapCallback(instance: AbstractHub, reqMsg: IRequest, callback: Function) {
+    return (resp: IResponse | IProgress) => {
+      const designedPeerID = instance._designedResponse[reqMsg.messageID]
       // ignore not designed resp
       if (designedPeerID && resp && resp.fromInstance !== designedPeerID) {
         if (
           libConfig.debug
-          && this._isProgress(reqMsg, resp)
+          && instance._isProgress(reqMsg, resp)
           && resp.data === CONTINUE_INDICATOR
         ) {
           console.warn(
@@ -378,30 +396,16 @@ export abstract class AbstractHub {
         return 0
       }
 
-      if (
-        this._isProgress(reqMsg, resp)
-        && resp.data === CONTINUE_INDICATOR
-      ) {
+      if (instance._isProgress(reqMsg, resp) && resp.data === CONTINUE_INDICATOR) {
         if (!designedPeerID) {
-          this._designedResponse[reqMsg.messageID] = resp.fromInstance
+          // eslint-disable-next-line no-param-reassign
+          instance._designedResponse[reqMsg.messageID] = resp.fromInstance
         }
         /** continue */
         return 2
       }
       return callback(resp)
     }
-
-    this._responseCallbacks.push(wrappedCallback)
-    // timeout when no response, callback get a failure
-    setTimeout(() => {
-      if (this._designedResponse[reqMsg.messageID]) return
-      const resp = this._buildRespMessage(
-        { code: EErrorCode.TIMEOUT, message: 'timeout or no handler found' },
-        reqMsg,
-        false,
-      )
-      this._runResponseCallback(resp)
-    }, WAIT_TIMEOUT)
   }
 
   // normalize progress callback on message
