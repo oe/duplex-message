@@ -7,6 +7,7 @@
   "typings": "dist/index.d.ts",
   "scripts": {
     "prebuild": "rimraf dist/*",
+    "clean": "rimraf dist/* && rimraf .cache && rimraf test/cache",
     "dev": "parcel test/worker/index.html test/frame/index.html test/page/index.html test/frame/frame.html test/storage/index.html --out-dir test/cache",
     "build": "tsc && rimraf dist/*.js && rollup -c rollup.config.ts"
   },

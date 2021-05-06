@@ -1,4 +1,5 @@
-import { PageScriptMessageHub } from 'duplex-message'
+import { PageScriptMessageHub, setConfig } from "duplex-message";
+setConfig({ debug: true })
 
 const port2 = new PageScriptMessageHub()
 const port3 = new PageScriptMessageHub()

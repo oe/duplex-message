@@ -306,15 +306,13 @@ interface IError {
 enum EErrorCode {
   /** handler on other side encounter an error  */
   HANDLER_EXEC_ERROR = 1,
-  /** no corresponding handler found */
-  HANDLER_NOT_EXIST = 2,
-  /** target(peer) not found*/
-  TARGET_NOT_FOUND = 3,
+  /** peer not found */
+  PEER_NOT_FOUND = 2,
   /** message not responded in time */
-  TIMEOUT = 4,
+  TIMEOUT = 3,
   /** message has invalid content, can't be sent  */
-  INVALID_MESSAGE = 5,
+  INVALID_MESSAGE = 4,
   /** other unspecified error */
-  UNKNOWN = 6,
+  UNKNOWN = 5,
 }
 ```

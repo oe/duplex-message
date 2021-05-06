@@ -4,6 +4,7 @@
   "description": "makes one way message responsive, enhance postMessage/storageEvent/electron IPC/chrome extension scripts",
   "scripts": {
     "postinstall": "lerna bootstrap",
+    "clean": "lerna run clean",
     "build": "lerna run build",
     "prepublish": "yarn build",
     "publish": "lerna publish",

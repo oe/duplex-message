@@ -32,16 +32,14 @@ export interface IProgress {
 export enum EErrorCode {
   /** handler on other side encounter an error  */
   HANDLER_EXEC_ERROR = 1,
-  /** no corresponding handler found */
-  HANDLER_NOT_EXIST = 2,
   /** peer not found */
-  PEER_NOT_FOUND = 3,
+  PEER_NOT_FOUND = 2,
   /** message not responded in time */
-  TIMEOUT = 4,
+  TIMEOUT = 3,
   /** message has invalid content, can't be sent  */
-  INVALID_MESSAGE = 5,
+  INVALID_MESSAGE = 4,
   /** other unspecified error */
-  UNKNOWN = 6,
+  UNKNOWN = 5,
 }
 
 /** error object could be caught via emit().catch(err) */
@@ -64,7 +62,7 @@ export interface ILibConfig {
 }
 
 const libConfig: ILibConfig = {
-  debug: true,
+  debug: false,
 }
 
 export function setConfig(options: Partial<ILibConfig>) {
@@ -107,6 +105,9 @@ export abstract class AbstractHub {
     this._responseCallbacks = []
     this._messageID = 0
     this._designedResponse = {}
+    if (libConfig.debug) {
+      console.warn(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
+    }
   }
 
   /**
@@ -395,7 +396,7 @@ export abstract class AbstractHub {
     setTimeout(() => {
       if (this._designedResponse[reqMsg.messageID]) return
       const resp = this._buildRespMessage(
-        { code: EErrorCode.TIMEOUT, message: 'timeout' },
+        { code: EErrorCode.TIMEOUT, message: 'timeout or no handler found' },
         reqMsg,
         false,
       )
