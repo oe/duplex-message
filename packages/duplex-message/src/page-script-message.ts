@@ -1,5 +1,9 @@
-import { AbstractHub, IResponse, IHandlerMap, IRequest } from './abstract'
-import { StorageMessageHub } from './storage-message'
+import {
+  AbstractHub,
+  IResponse,
+  IHandlerMap,
+  IRequest,
+} from "./abstract";
 export interface IPageScriptMessageHubOptions {
   /** custom event name, default: message-hub */
   customEventName?: string
@@ -54,12 +58,6 @@ export class PageScriptMessageHub extends AbstractHub {
    */
   off(methodName?: string) {
     super._off(this.instanceID, methodName);
-  }
-
-  _listenResponse(...args: any[]) {
-    args.push(true)
-    // @ts-ignore
-    StorageMessageHub.prototype._listenResponse.apply(this, args)
   }
 
   protected _onMessageReceived(evt: CustomEvent) {

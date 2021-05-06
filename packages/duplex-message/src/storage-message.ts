@@ -36,6 +36,7 @@ export interface IPeerIdentity {
 }
 
 const GET_PEERS_EVENT_NAME = '--get-all-peers-to-xiu--'
+const WAIT_TIMEOUT = 200
 
 export class StorageMessageHub extends AbstractHub {
   protected readonly _keyPrefix: string
@@ -130,12 +131,8 @@ export class StorageMessageHub extends AbstractHub {
     }
   }
 
-  protected _listenResponse (
-    peer: any,
-    reqMsg: IRequest,
-    callback: (resp: IResponse | IProgress) => number,
-    withoutLs = false) {
-    let hasResp = false
+  protected _listenResponse (peer: any, reqMsg: IRequest, callback: (resp: IResponse | IProgress) => number) {
+
     const needAllResponses = reqMsg.needAllResponses
     const needWaitAllResponses = reqMsg.needAllResponses || (!reqMsg.toInstance && !reqMsg.needAllResponses)
     const msgs: IResponse[] = []
@@ -152,12 +149,10 @@ export class StorageMessageHub extends AbstractHub {
      */
     const evtCallback = (msg: IResponse | IProgress) => {
       if (this._isProgress(reqMsg, msg)) {
-        hasResp = true
         return callback(msg)
       }
       if (!this._isResponse(reqMsg, msg)) return 0
-      hasResp = true
-      withoutLs || localStorage.removeItem(this._getMsgKey(msg));
+      localStorage.removeItem(this._getMsgKey(msg));
       if (needWaitAllResponses && !allMsgReceived) {
         // waiting for others to respond
         clearTimeout(tid)
@@ -168,39 +163,34 @@ export class StorageMessageHub extends AbstractHub {
 
         // @ts-ignore
         tid = setTimeout(() => {
-          allMsgReceived = true
-          let resp: IResponse
+          allMsgReceived = true;
+          let resp: IResponse;
           if (needAllResponses) {
             const finalData = msgs.reduce((acc, msg) => {
               acc[msg.fromInstance] = {
                 isSuccess: msg.isSuccess,
-                data: msg.data
-              }
-              return acc
-            }, {} as Record<string, any>)
-            resp = this._buildRespMessage(finalData, reqMsg, true)
+                data: msg.data,
+              };
+              return acc;
+            }, {} as Record<string, any>);
+            resp = this._buildRespMessage(finalData, reqMsg, true);
           } else {
-            resp = msgs[0]
+            resp = msgs[0];
           }
-          this._runResponseCallback(resp)
-        }, timeout)
+          this._runResponseCallback(resp);
+        }, timeout);
         return 2
       }
-      withoutLs || (reqMsg.progress &&
-        localStorage.removeItem(
-          this._getMsgKey(Object.assign({}, msg, { type: "progress" }))
-        ))
+      reqMsg.progress && localStorage.removeItem(this._getMsgKey(Object.assign({}, msg, { type: "progress" })))
       return callback(msg)
     }
-    this._responseCallbacks.push(evtCallback)
+    super._listenResponse(peer, reqMsg, evtCallback)
     
-    // timeout when no response, callback get a failure
+    // timeout then clear localStorage
     setTimeout(() => {
-      if (hasResp) return
-      const resp = this._buildRespMessage({code: EErrorCode.TIMEOUT, message: 'timeout'}, reqMsg, false)
-      this._runResponseCallback(resp)
-      withoutLs || localStorage.removeItem(this._getMsgKey(reqMsg));
-    }, timeout)
+      if (this._designedResponse[reqMsg.messageID]) return;
+      localStorage.removeItem(this._getMsgKey(reqMsg));
+    }, WAIT_TIMEOUT);
   }
 
   protected _runResponseCallback (resp: IResponse) {

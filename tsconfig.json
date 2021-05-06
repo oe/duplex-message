@@ -16,9 +16,6 @@
     "allowJs": false,
     "baseUrl": "./",
     "lib": ["dom", "es7"],
-    "paths": {
-      "src/*": ["src/"]
-    }
   },
-  "include": ["./src/**/*.ts"]
+  "include": ["./packages/**/*.ts"]
 }
