@@ -5,6 +5,17 @@ module.exports = {
   // extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   extends: ["airbnb-typescript"],
   parserOptions: {
-    project: './tsconfig.json',
- }
+    project: "./tsconfig.json",
+  },
+  rules: {
+    "no-underscore-dangle": ["off"],
+    "no-nested-ternary": ["off"],
+    "no-console": ["off"],
+    "import/prefer-default-export": ["off"],
+    "prefer-promise-reject-errors": ["off"],
+    "@typescript-eslint/no-throw-literal": ["off"],
+    "@typescript-eslint/no-unused-expressions": ["off"],
+    semi: "off",
+    "@typescript-eslint/semi": ["error", "never"],
+  },
 };

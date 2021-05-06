@@ -9,7 +9,11 @@
     "publish": "lerna publish",
     "lint": "eslint . --ext .ts"
   },
-
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn lint"
+    }
+  },
   "repository": "https://oe@github.com/oe/duplex-message.git",
   "author": "Saiya",
   "license": "MIT",

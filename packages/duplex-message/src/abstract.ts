@@ -34,7 +34,7 @@ export enum EErrorCode {
   HANDLER_EXEC_ERROR = 1,
   /** no corresponding handler found */
   HANDLER_NOT_EXIST = 2,
-  /** peer not found*/
+  /** peer not found */
   PEER_NOT_FOUND = 3,
   /** message not responded in time */
   TIMEOUT = 4,
@@ -50,7 +50,7 @@ export interface IError {
   code: EErrorCode
   /** error message */
   message: string
-  /** error object if it could pass through via the message channel underground*/
+  /** error object if it could pass through via the message channel underground */
   error?: Error
 }
 
@@ -64,26 +64,27 @@ export interface ILibConfig {
 }
 
 const libConfig: ILibConfig = {
-  debug: true
+  debug: true,
 }
 
-export function setConfig (options: Partial<ILibConfig>) {
+export function setConfig(options: Partial<ILibConfig>) {
   Object.assign(libConfig, options)
 }
 
 const CONTINUE_INDICATOR = '--message-hub-to-be-continued--'
 
-const WAIT_TIMEOUT = 200;
+const WAIT_TIMEOUT = 200
 
 export abstract class AbstractHub {
   /**
    * hub instance
    */
-  readonly instanceID: string;
+  readonly instanceID: string
 
   protected readonly _responseCallbacks: ((...args: any[]) => number)[]
 
-  protected _messageID: number;
+  protected _messageID: number
+
   /**
    * message handler map
    *  array item struct: eventTarget, {eventName: eventHandler } | handler4AllEvents
@@ -96,13 +97,14 @@ export abstract class AbstractHub {
    *  value: instanceID which will respond
    */
   protected _designedResponse: Record<string, string>
+
   /**
    * init Hub, subclass should implement its own constructor
    */
   constructor() {
-    this.instanceID = AbstractHub.generateInstanceID();
-    this._eventHandlerMap = [];
-    this._responseCallbacks = [];
+    this.instanceID = AbstractHub.generateInstanceID()
+    this._eventHandlerMap = []
+    this._responseCallbacks = []
     this._messageID = 0
     this._designedResponse = {}
   }
@@ -111,19 +113,19 @@ export abstract class AbstractHub {
    * subclass' own off method, should use _off to implements it
    * @param args args to off method, normally are peer and methodName
    */
-  abstract off(...args: any[]): void;
+  abstract off(...args: any[]): void
 
   /**
    * subclass' own on method, should use _on to implements it
    * @param args args to listen method, normally are peer, methodName and method
    */
-  abstract on(...args: any[]): void;
+  abstract on(...args: any[]): void
 
   /**
    * subclass' own emit method, should use _emit to implements it
    * @param args args to emit message, normally are peer, methodName and method's params
    */
-  abstract emit(...args: any[]): void;
+  abstract emit(...args: any[]): void
 
   /**
    * subclass' own send message method, should send msg to peer
@@ -133,11 +135,12 @@ export abstract class AbstractHub {
   protected abstract sendMessage(
     peer: any,
     msg: IRequest | IProgress | IResponse
-  ): void;
+  ): void
 
   protected _hasListeners() {
-    return this._eventHandlerMap.length > 0;
+    return this._eventHandlerMap.length > 0
   }
+
   /**
    * add listener for peer
    */
@@ -146,56 +149,55 @@ export abstract class AbstractHub {
   protected _on(
     peer: any,
     handlerMap: IHandlerMap | Function | string,
-    handler?: Function
+    handler?: Function,
   ): void {
-    const pair = this._eventHandlerMap.find((pair) => pair[0] === peer);
-    let handlerResult: Function | IHandlerMap;
-    if (typeof handlerMap === "string") {
-      handlerResult = { [handlerMap]: handler! };
+    const pair = this._eventHandlerMap.find((item) => item[0] === peer)
+    let handlerResult: Function | IHandlerMap
+    if (typeof handlerMap === 'string') {
+      handlerResult = { [handlerMap]: handler! }
     } else {
-      handlerResult = handlerMap;
+      handlerResult = handlerMap
     }
     if (pair) {
-      const existingMap = pair[1];
+      const existingMap = pair[1]
       // merge existing handler map
       // @ts-ignore
-      pair[1] =
-        typeof existingMap === "function"
+      pair[1] = typeof existingMap === 'function'
+        ? handlerResult
+        : typeof handlerResult === 'function'
           ? handlerResult
-          : typeof handlerResult === "function"
-          ? handlerResult
-          : Object.assign({}, existingMap, handlerResult);
+          : ({ ...existingMap, ...handlerResult })
 
-      return;
+      return
     }
-    this._eventHandlerMap[peer === "*" ? "unshift" : "push"]([
+    this._eventHandlerMap[peer === '*' ? 'unshift' : 'push']([
       peer,
       handlerResult,
-    ]);
+    ])
   }
 
   protected _off(peer: any, methodName?: string) {
-    const index = this._eventHandlerMap.findIndex((pair) => pair[0] === peer);
-    if (index === -1) return;
+    const index = this._eventHandlerMap.findIndex((pair) => pair[0] === peer)
+    if (index === -1) return
     if (!methodName) {
-      this._eventHandlerMap.splice(index, 1);
-      return;
+      this._eventHandlerMap.splice(index, 1)
+      return
     }
-    const handlerMap = this._eventHandlerMap[index][1];
-    if (typeof handlerMap === "object") {
-      delete handlerMap[methodName];
+    const handlerMap = this._eventHandlerMap[index][1]
+    if (typeof handlerMap === 'object') {
+      delete handlerMap[methodName]
       // nothing left
       if (!Object.keys(handlerMap).length) {
-        this._eventHandlerMap.splice(index, 1);
+        this._eventHandlerMap.splice(index, 1)
       }
     }
   }
 
   protected async _onMessage(peer: any, msg: any) {
-    if (!msg || msg.fromInstance === this.instanceID) return;
+    if (!msg || msg.fromInstance === this.instanceID) return
     if (!this._isRequest(msg)) {
-      this._runResponseCallback(msg);
-      return;
+      this._runResponseCallback(msg)
+      return
     }
 
     if (!this._getMsgHandler(peer, msg)) {
@@ -204,26 +206,26 @@ export abstract class AbstractHub {
 
     this.sendMessage(
       peer,
-      this._buildProgressMessage(CONTINUE_INDICATOR, msg)
-    );
+      this._buildProgressMessage(CONTINUE_INDICATOR, msg),
+    )
 
-    let response: IResponse | false;
+    let response: IResponse | false
     try {
-      response = await this._runMsgHandler(peer, msg);
+      response = await this._runMsgHandler(peer, msg)
       if (response === false) return
     } catch (error) {
-      response = error;
+      response = error
     }
     // @ts-ignore
-    this.sendMessage(peer, response);
+    this.sendMessage(peer, response)
   }
 
   protected _runResponseCallback(resp: IResponse) {
-    let ret = 0;
+    let ret = 0
     const idx = this._responseCallbacks.findIndex((fn) => {
-      ret = fn(resp);
-      return Boolean(ret);
-    });
+      ret = fn(resp)
+      return Boolean(ret)
+    })
     if (idx >= 0) {
       // need to be continued
       if (ret > 1) return true
@@ -231,7 +233,7 @@ export abstract class AbstractHub {
       // timeout, in case of any delays
       setTimeout(() => {
         delete this._designedResponse[resp.messageID]
-      }, 100);
+      }, 100)
       return true
     }
     return false
@@ -239,58 +241,58 @@ export abstract class AbstractHub {
 
   async _runMsgHandler(peer: any, reqMsg: IRequest) {
     try {
-      const msgInfo = this._getMsgHandler(peer, reqMsg);
-      const { methodName, args } = reqMsg;
+      const msgInfo = this._getMsgHandler(peer, reqMsg)
+      const { methodName, args } = reqMsg
       if (!msgInfo) {
         return false
       }
 
-      const newArgs = args.slice(0);
+      const newArgs = args.slice(0)
       if (reqMsg.progress && newArgs[0]) {
-        const newArg = Object.assign({}, newArgs[0])
+        const newArg = { ...newArgs[0] }
         newArg.onprogress = (data: any) => {
-          this.sendMessage(peer, this._buildProgressMessage(data, reqMsg));
-        };
-        newArgs[0] = newArg;
+          this.sendMessage(peer, this._buildProgressMessage(data, reqMsg))
+        }
+        newArgs[0] = newArg
       }
 
-      const [method, isGeneral] = msgInfo;
+      const [method, isGeneral] = msgInfo
       // add methodName as the first argument if handlerMap is a function
       if (isGeneral) {
-        newArgs.unshift(methodName);
+        newArgs.unshift(methodName)
       }
-      const data = await method.apply(null, newArgs);
-      return this._buildRespMessage(data, reqMsg, true);
+      // eslint-disable-next-line prefer-spread
+      const data = await method.apply(null, newArgs)
+      return this._buildRespMessage(data, reqMsg, true)
     } catch (error) {
       const data = {
         code: EErrorCode.HANDLER_EXEC_ERROR,
         message: error.message || error.stack,
         error,
-      };
-      throw this._buildRespMessage(data, reqMsg, false);
+      }
+      throw this._buildRespMessage(data, reqMsg, false)
     }
   }
 
   _getMsgHandler(peer: any, reqMsg: IRequest): [Function, boolean] | false {
-    const matchedMap =
-      this._eventHandlerMap.find((wm) => wm[0] === peer) ||
+    const matchedMap = this._eventHandlerMap.find((wm) => wm[0] === peer)
       // use * for default
-      (this._eventHandlerMap[0] &&
-        this._eventHandlerMap[0][0] === "*" &&
-        this._eventHandlerMap[0]);
-    const { methodName } = reqMsg;
-    const handlerMap = matchedMap && matchedMap[1];
+      || (this._eventHandlerMap[0]
+        && this._eventHandlerMap[0][0] === '*'
+        && this._eventHandlerMap[0])
+    const { methodName } = reqMsg
+    const handlerMap = matchedMap && matchedMap[1]
     // handler map could be a function
-    let method: Function;
-    let isGeneral = false;
-    if (typeof handlerMap === "function") {
-      method = handlerMap;
-      isGeneral = true;
+    let method: Function
+    let isGeneral = false
+    if (typeof handlerMap === 'function') {
+      method = handlerMap
+      isGeneral = true
     } else {
       // @ts-ignore
-      method = handlerMap && handlerMap[methodName];
+      method = handlerMap && handlerMap[methodName]
     }
-    return typeof method === "function" ? [method, isGeneral] : false;
+    return typeof method === 'function' ? [method, isGeneral] : false
   }
 
   protected _emit(
@@ -298,48 +300,49 @@ export abstract class AbstractHub {
     methodName: string | IMethodNameConfig,
     ...args: any[]
   ) {
-    const reqMsg = this._buildReqMessage(methodName, args);
+    const reqMsg = this._buildReqMessage(methodName, args)
     const result = new Promise((resolve, reject) => {
       // 0 for not match
       // 1 for done
       // 2 for need to be continue
       const callback = (response: IResponse | IProgress) => {
         if (!this._isResponse(reqMsg, response)) {
-          if (!this._isProgress(reqMsg, response)) return 0;
+          if (!this._isProgress(reqMsg, response)) return 0
           if (reqMsg.progress && reqMsg.args[0]) {
             try {
-              reqMsg.args[0].onprogress(response.data);
+              reqMsg.args[0].onprogress(response.data)
             } catch (error) {
               console.warn(
-                "[duplex-message] progress callback for",
+                '[duplex-message] progress callback for',
                 reqMsg,
-                "response",
+                'response',
                 response,
-                ", error:",
-                error
-              );
+                ', error:',
+                error,
+              )
             }
           }
-          return 2;
+          return 2
         }
-        response.isSuccess ? resolve(response.data) : reject(response.data);
-        return 1;
-      };
-      this._listenResponse(peer, reqMsg, callback);
-    });
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        response.isSuccess ? resolve(response.data) : reject(response.data)
+        return 1
+      }
+      this._listenResponse(peer, reqMsg, callback)
+    })
     try {
-      this.sendMessage(peer, this._normalizeRequest(peer, reqMsg));
+      this.sendMessage(peer, AbstractHub._normalizeRequest(peer, reqMsg))
     } catch (error) {
       console.warn(
-        "[duplex-message] unable to serialize message, message not sent",
-        error
-      );
+        '[duplex-message] unable to serialize message, message not sent',
+        error,
+      )
       return Promise.reject({
         code: EErrorCode.INVALID_MESSAGE,
-        message: "unable to send message",
-      });
+        message: 'unable to send message',
+      })
     }
-    return result;
+    return result
   }
 
   /**
@@ -352,104 +355,105 @@ export abstract class AbstractHub {
   protected _listenResponse(
     peer: any,
     reqMsg: IRequest,
-    callback: (resp: IResponse | IProgress) => number
+    callback: (resp: IResponse | IProgress) => number,
   ) {
     const wrappedCallback = (resp: IResponse | IProgress) => {
-      const designedPeerID = this._designedResponse[reqMsg.messageID];
+      const designedPeerID = this._designedResponse[reqMsg.messageID]
       // ignore not designed resp
       if (designedPeerID && resp && resp.fromInstance !== designedPeerID) {
         if (
-          libConfig.debug &&
-          this._isProgress(reqMsg, resp) &&
-          resp.data === CONTINUE_INDICATOR
+          libConfig.debug
+          && this._isProgress(reqMsg, resp)
+          && resp.data === CONTINUE_INDICATOR
         ) {
           console.warn(
-            `[duplex-message] message`,
+            '[duplex-message] message',
             reqMsg.methodName,
-            `already processing, but handled by another peer`,
-            resp.fromInstance
-          );
+            'already processing, but handled by another peer',
+            resp.fromInstance,
+          )
         }
         /** ignore */
-        return 0;
+        return 0
       }
 
       if (
-        this._isProgress(reqMsg, resp) &&
-        resp.data === CONTINUE_INDICATOR
+        this._isProgress(reqMsg, resp)
+        && resp.data === CONTINUE_INDICATOR
       ) {
         if (!designedPeerID) {
-          this._designedResponse[reqMsg.messageID] = resp.fromInstance;
+          this._designedResponse[reqMsg.messageID] = resp.fromInstance
         }
         /** continue */
-        return 2;
+        return 2
       }
-      return callback(resp);
-    };
+      return callback(resp)
+    }
 
-    this._responseCallbacks.push(wrappedCallback);
+    this._responseCallbacks.push(wrappedCallback)
     // timeout when no response, callback get a failure
     setTimeout(() => {
-      if (this._designedResponse[reqMsg.messageID]) return;
+      if (this._designedResponse[reqMsg.messageID]) return
       const resp = this._buildRespMessage(
-        { code: EErrorCode.TIMEOUT, message: "timeout" },
+        { code: EErrorCode.TIMEOUT, message: 'timeout' },
         reqMsg,
-        false
-      );
-      this._runResponseCallback(resp);
-    }, WAIT_TIMEOUT);
+        false,
+      )
+      this._runResponseCallback(resp)
+    }, WAIT_TIMEOUT)
   }
 
   // normalize progress callback on message
-  protected _normalizeRequest(peer: any, msg: IRequest) {
+  protected static _normalizeRequest(peer: any, msg: IRequest) {
     // skip if peer is *
-    if (peer === "*" || !msg.progress) {
-      delete msg.progress;
-      return msg;
+    if (peer === '*' || !msg.progress) {
+      // eslint-disable-next-line no-param-reassign
+      delete msg.progress
+      return msg
     }
-    const options = msg.args[0];
-    const newMsg = Object.assign({}, msg);
-    newMsg.args = newMsg.args.slice();
-    const copied = Object.assign({}, options);
-    delete copied.onprogress;
-    newMsg.args[0] = copied;
-    return newMsg;
+    const options = msg.args[0]
+    const newMsg = { ...msg }
+    newMsg.args = newMsg.args.slice()
+    const copied = { ...options }
+    delete copied.onprogress
+    newMsg.args[0] = copied
+    return newMsg
   }
 
   protected _buildReqMessage(
     methodName: string | IMethodNameConfig,
-    args: any[]
+    args: any[],
   ): IRequest {
-    const basicCfg =
-      typeof methodName === "string" ? { methodName } : methodName;
-    const options = args[0];
+    const basicCfg = typeof methodName === 'string' ? { methodName } : methodName
+    const options = args[0]
     const progress = Boolean(
-      options && typeof options.onprogress === "function"
-    );
+      options && typeof options.onprogress === 'function',
+    )
     // @ts-ignore
     return Object.assign(basicCfg, {
       fromInstance: this.instanceID,
       // toInstance,
+      // eslint-disable-next-line no-plusplus
       messageID: ++this._messageID,
-      type: "request",
+      type: 'request',
       args,
       progress,
-    });
+    })
   }
 
   protected _buildRespMessage(
     data: any,
     reqMsg: IRequest,
-    isSuccess: boolean
+    isSuccess: boolean,
   ): IResponse {
     return {
       fromInstance: this.instanceID,
       toInstance: reqMsg.fromInstance,
       messageID: reqMsg.messageID,
-      type: "response",
+      type: 'response',
       isSuccess,
       data,
-    };
+    }
   }
 
   protected _buildProgressMessage(data: any, reqMsg: IRequest): IProgress {
@@ -457,48 +461,47 @@ export abstract class AbstractHub {
       fromInstance: this.instanceID,
       toInstance: reqMsg.fromInstance,
       messageID: reqMsg.messageID,
-      type: "progress",
+      type: 'progress',
       data,
-    };
+    }
   }
 
   protected _isRequest(reqMsg: any): reqMsg is IRequest {
     return Boolean(
-      reqMsg &&
-        reqMsg.fromInstance &&
-        reqMsg.fromInstance !== this.instanceID &&
-        (!reqMsg.toInstance || reqMsg.toInstance === this.instanceID) &&
-        reqMsg.messageID &&
-        reqMsg.type === "request"
-    );
+      reqMsg
+        && reqMsg.fromInstance
+        && reqMsg.fromInstance !== this.instanceID
+        && (!reqMsg.toInstance || reqMsg.toInstance === this.instanceID)
+        && reqMsg.messageID
+        && reqMsg.type === 'request',
+    )
   }
 
   protected _isResponse(reqMsg: IRequest, respMsg: any): respMsg is IResponse {
     return (
-      reqMsg &&
-      respMsg &&
-      respMsg.toInstance === this.instanceID &&
-      respMsg.toInstance === reqMsg.fromInstance &&
-      respMsg.messageID === reqMsg.messageID &&
-      respMsg.type === "response"
-    );
+      reqMsg
+      && respMsg
+      && respMsg.toInstance === this.instanceID
+      && respMsg.toInstance === reqMsg.fromInstance
+      && respMsg.messageID === reqMsg.messageID
+      && respMsg.type === 'response'
+    )
   }
 
   protected _isProgress(reqMsg: IRequest, respMsg: any): respMsg is IProgress {
     return (
-      reqMsg &&
-      respMsg &&
-      // reqMsg.progress &&
-      respMsg.toInstance === this.instanceID &&
-      respMsg.toInstance === reqMsg.fromInstance &&
-      respMsg.messageID === reqMsg.messageID &&
-      respMsg.type === "progress"
-    );
+      reqMsg
+      && respMsg
+      && respMsg.toInstance === this.instanceID
+      && respMsg.toInstance === reqMsg.fromInstance
+      && respMsg.messageID === reqMsg.messageID
+      && respMsg.type === 'progress'
+    )
   }
 
   static generateInstanceID() {
     return Array(3)
-      .join(Math.random().toString(36).slice(2) + "-")
-      .slice(0, -1);
+      .join(`${Math.random().toString(36).slice(2)}-`)
+      .slice(0, -1)
   }
 }

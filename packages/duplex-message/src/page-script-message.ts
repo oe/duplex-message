@@ -3,29 +3,33 @@ import {
   IResponse,
   IHandlerMap,
   IRequest,
-} from "./abstract";
+} from './abstract'
+
 export interface IPageScriptMessageHubOptions {
   /** custom event name, default: message-hub */
   customEventName?: string
 }
 
 export class PageScriptMessageHub extends AbstractHub {
-  protected readonly _customEventName: string;
+  protected readonly _customEventName: string
+
   constructor(options?: IPageScriptMessageHubOptions) {
     // tslint:disable-next-line
-    if (typeof window === "undefined" || typeof localStorage === "undefined") {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
       throw new Error(
-        "PageScriptMessageHub only available in normal browser context, nodejs/worker are not supported"
-      );
+        'PageScriptMessageHub only available in normal browser context, nodejs/worker are not supported',
+      )
     }
-    options = Object.assign({ customEventName: "message-hub" }, options);
+    // eslint-disable-next-line no-param-reassign
+    options = { customEventName: 'message-hub', ...options }
 
-    super();
-    this._customEventName = options.customEventName!;
-    this._onMessageReceived = this._onMessageReceived.bind(this);
+    super()
+    this._customEventName = options.customEventName!
+    this._onMessageReceived = this._onMessageReceived.bind(this)
     // @ts-ignore
-    window.addEventListener(this._customEventName, this._onMessageReceived);
+    window.addEventListener(this._customEventName, this._onMessageReceived)
   }
+
   /**
    * listen all messages with one handler; or listen multi message via a handler map
    * @param handlerMap handler or a map of handlers
@@ -39,7 +43,7 @@ export class PageScriptMessageHub extends AbstractHub {
   on(methodName: string, handler: Function): void;
   on(handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     // @ts-ignore
-    super._on(this.instanceID, handlerMap, handler);
+    super._on(this.instanceID, handlerMap, handler)
   }
 
   /**
@@ -49,7 +53,7 @@ export class PageScriptMessageHub extends AbstractHub {
    * @returns Promise<unknown>
    */
   emit(methodName: string, ...args: any[]) {
-    return super._emit(this.instanceID, methodName, ...args);
+    return super._emit(this.instanceID, methodName, ...args)
   }
 
   /**
@@ -57,15 +61,15 @@ export class PageScriptMessageHub extends AbstractHub {
    * @param methodName method name
    */
   off(methodName?: string) {
-    super._off(this.instanceID, methodName);
+    super._off(this.instanceID, methodName)
   }
 
   protected _onMessageReceived(evt: CustomEvent) {
-    this._onMessage(this.instanceID, evt.detail);
+    this._onMessage(this.instanceID, evt.detail)
   }
 
   protected sendMessage(peer: string, msg: IRequest | IResponse) {
-    const evt = new CustomEvent(this._customEventName, { detail: msg });
-    window.dispatchEvent(evt);
+    const evt = new CustomEvent(this._customEventName, { detail: msg })
+    window.dispatchEvent(evt)
   }
 }
