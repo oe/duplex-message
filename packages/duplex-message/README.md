@@ -30,13 +30,12 @@
     - [postMessageHub.off](#postmessagehuboff)
     - [postMessageHub.createDedicatedMessageHub](#postmessagehubcreatededicatedmessagehub)
     - [postMessageHub.createProxy](#postmessagehubcreateproxy)
-  - [StorageMessageHub](#storagemessagehub) for windows' with same origin's messaging
+  - [StorageMessageHub](#storagemessagehub)
     - [storageMessageHub.emit](#storagemessagehubemit)
     - [storageMessageHub.on](#storagemessagehubon)
-    - [storageMessageHub.getPeerIdentifies](#storagemessagehubgetpeeridentifies)
     - [progress for storageMessageHub](#progress-for-storagemessagehub)
     - [storageMessageHub.off](#storagemessagehuboff)
-  - [PageScriptMessageHub](#pagescriptmessagehub) for script with isolated js context messaging in same window
+  - [PageScriptMessageHub](#pagescriptmessagehub)
     - [pageScriptMessageHub.emit](#pagescriptmessagehubemit)
     - [pageScriptMessageHub.on](#pagescriptmessagehubon)
     - [progress for PageScriptMessageHub](#progress-for-pagescriptmessagehub)
@@ -207,10 +206,11 @@ postMessageHub
 ```
 
 Notice:
-1. look into [Error](#error) when you catch an error
-2. set `peer` to `self` if you want to send message from worker to outside
-3. omit args if no args are required, e.g `postMessageHub.emit(peerWindow, 'some-method')`
-4. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
+1. If there are multi peers listening to the same message, you'll only get the first one who respond, others will be ignored.
+2. look into [Error](#error) when you catch an error
+3. set `peer` to `self` if you want to send message from worker to outside
+4. omit args if no args are required, e.g `postMessageHub.emit(peerWindow, 'some-method')`
+5. you may need to handle the promise returned by `emit` if some linters warning unhandled promise(or floating promise)
 
 
 #### postMessageHub.on
@@ -358,7 +358,7 @@ postMessageHub.createProxy(someWorker, someIframeWin)
 
 ```
 
-There is a funny use case:  
+There is a funny use case(transparent proxy):  
 If you got two iframes in your page, you can make them communicate directly by following code
 ```ts
 postMessageHub.createProxy(frame1Win, frame2Win) // forward message from frame1Win to frame2Win
@@ -403,33 +403,12 @@ Broadcast(or you can also send to specified peer) a message, invoking `methodNam
 //    or you will catch an error
 storageMessageHub.emit(methodName: string, ...args: any[]) => Promise<unknown>
 
-// send message with more flexible config
-storageMessageHub.emit(methodConfig: IStorageMessageHubEmit, ...args: any[]) => Promise<unknown>
-interface IStorageMessageHubEmitConfig {
-  /**
-   * need all peers' responses
-   * 
-   *  if set true, the promise result will be an object, key is the peer's instance id, value is its response
-   */
-  needAllResponses?: boolean
-  /**
-   * peer's instance id, only send the message to `toInstance`
-   *    instance id could get via storageMessageHub.getPeerIdentifies
-   * 
-   *  if `toInstance` is set, `needAllResponses` won't work any more
-   */
-  toInstance?: string
-  /** specified another timeout(millisecond) for this message  */
-  timeout?: number
-  /** method name */
-  methodName: string
-}
 ```
 Notice:
-1. If you want to send message to specified peer, use to [storageMessageHub.getPeerIdentifies](#storageMessageHubgetPeerIdentifies) to get peer's instance id before sending.
+1. If there are multi webpages listening to the same message, you'll only get the first one who respond, others will be ignored.
 2. look into [Error](#error) when you catch an error
 3. arguments must be stringify-able, due to localStorage's restrictions
-4. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
+4. you may need to handle the promise returned by `emit` if some linters warning unhandled promise(or floating promise)
 
 
 e.g.
@@ -442,17 +421,6 @@ storageMessageHub.emit('get-some-info').then(res => {
   console.log(res)
 }).catch(err => { console.error(err)})
 
-// get all response from all peers
-//   the response's struct is { [instanceID]: {isSuccess, data} }
-storageMessageHub.emit({
-  methodName: 'get-some-info',
-  needAllResponses: true,
-})
-.then(res => {
-  console.log(res)
-})
-// you will catch an timeout error only when there is no other page
-.catch(err => { console.error(err)})
 ```
 
 
@@ -487,8 +455,6 @@ anotherStorageMessageHub.on((methodName, ...args) => {
 ```
 #### progress for storageMessageHub
 If you need progress feedback when peer handling you requests, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
-
-Notice: if there are multi webpages listening to the same progress-able message, you'll only get the first one who respond, others will be ignored.
 
 e.g.
 ```js
@@ -568,9 +534,10 @@ pageScriptMessageHub
 ```
 
 Notice:
-1. look into [Error](#error) when you catch an error
-2. omit args if no args are required, e.g `pageScriptMessageHub.emit('some-method')`
-3. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
+1. If there are multi instances listening to the same message, you'll only get the first one who respond, others will be ignored.
+2. look into [Error](#error) when you catch an error
+3. omit args if no args are required, e.g `pageScriptMessageHub.emit('some-method')`
+4. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
 
 
 #### pageScriptMessageHub.on
