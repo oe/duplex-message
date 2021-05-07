@@ -28,6 +28,7 @@
   - [progress](#progress)
   - [off](#off)
   - [Error](#error)
+  - [Debug](#debug)
 ## Features
 * **Simple API**: `on` `emit` and `off` are all you need
 * **Responsible**: `emit` will return a promise with the response from the other side
@@ -322,4 +323,12 @@ enum EErrorCode {
   /** other unspecified error */
   UNKNOWN = 5,
 }
+```
+
+### Debug
+if you has some issues when using this lib, you can enable debug mode to see debug logs in console:
+
+```ts
+import { setConfig } from 'duplex-message'
+setConfig({ debug: true })
 ```

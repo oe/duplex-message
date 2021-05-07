@@ -41,6 +41,7 @@
     - [progress for PageScriptMessageHub](#progress-for-pagescriptmessagehub)
     - [pageScriptMessageHub.off](#pagescriptmessagehuboff)
   - [Error](#error)
+  - [Debug](#debug)
 
 ## Features
 * **Simple API**: `on` `emit` and `off` are all you need
@@ -661,3 +662,12 @@ enum EErrorCode {
   UNKNOWN = 5,
 }
 ```
+
+### Debug
+if you has some issues when using this lib, you can enable debug mode to see debug logs in console:
+
+```ts
+import { setConfig } from 'duplex-message'
+setConfig({ debug: true })
+```
+
