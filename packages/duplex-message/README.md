@@ -188,6 +188,12 @@ import { PostMessageHub } from "duplex-message"
 const postMessageHub = new PostMessageHub()
 ```
 
+Tips:
+> in most cases, you only need one instance in a window/worker context, you can use  
+>>   `PostMessageHub.shared` instead of new an instance.   
+>   e.g.:   
+>     `PostMessageHub.shared.on(peerWin, 'xxx', () => {...})`
+
 #### postMessageHub.emit
 Send a message to peer, invoking `methodName` registered on the peer via [`on`](#postmessagehubon) with all its arguments `args`:
 
@@ -203,6 +209,7 @@ postMessageHub
   .emit(peerWindow, 'some-method', 'arg1', 'arg2', 'otherArgs')
   .then(res => console.log('success', res))
   .catch(err => console.warn('error', err))
+
 ```
 
 Notice:

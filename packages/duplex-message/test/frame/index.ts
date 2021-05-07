@@ -1,5 +1,5 @@
 import { PostMessageHub } from 'duplex-message'
-const postMessageHub = new PostMessageHub
+const postMessageHub = PostMessageHub.shared
 
 // @ts-ignore
 window.pm = postMessageHub
@@ -16,7 +16,9 @@ const $ = (id: string) => {
 postMessageHub.on('*', "page-title", (arg) => {
   return new Promise((resolve, reject) => {
     let count = 0;
-    if (!arg || !arg.onprogress) return resolve(document.title);
+    if (!arg || !arg.onprogress) return resolve(
+      document.title + (arg.echo ? ", echo  --- " + arg.echo : "")
+    );
     const tid = setInterval(() => {
       arg.onprogress((count += 10));
       if (count >= 100) {

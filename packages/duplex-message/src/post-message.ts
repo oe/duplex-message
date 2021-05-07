@@ -3,6 +3,9 @@ import {
 } from './abstract'
 
 type IOwnPeer = Window | Worker | undefined
+
+let sharedPostMessage: PostMessageHub
+
 export class PostMessageHub extends AbstractHub {
   protected _hostedWorkers: Worker[]
 
@@ -29,15 +32,19 @@ export class PostMessageHub extends AbstractHub {
    * @param peer messages that sent from, * for any peer
    * @param handlerMap handler or a map of handlers
    */
-  on(peer: Window | Worker | '*', handlerMap: Function | IHandlerMap): void
+  on(peer: Window | Worker | '*', handlerMap: Function | IHandlerMap): void;
   /**
    * listen `methodName` from `peer` with a handler
    * @param peer messages that sent from, * for any peer
    * @param methodName method name
    * @param handler handler for the method name
    */
-  on(peer: Window | Worker | '*', methodName: string, handler: Function): void
-  on(peer: Window | Worker | '*', handlerMap: IHandlerMap | Function | string, handler?: Function): void {
+  on(peer: Window | Worker | '*', methodName: string, handler: Function): void;
+  on(
+    peer: Window | Worker | '*',
+    handlerMap: IHandlerMap | Function | string,
+    handler?: Function,
+  ): void {
     // @ts-ignore
     super._on(peer, handlerMap, handler)
     this._addWorkerListener(peer)
@@ -52,7 +59,10 @@ export class PostMessageHub extends AbstractHub {
    */
   emit(peer: Window | Worker, methodName: string, ...args: any[]) {
     if (!this._isWorker && peer instanceof Window && !peer.parent) {
-      return Promise.reject({ code: EErrorCode.PEER_NOT_FOUND, message: 'peer window is unloaded' })
+      return Promise.reject({
+        code: EErrorCode.PEER_NOT_FOUND,
+        message: 'peer window is unloaded',
+      })
     }
     this._addWorkerListener(peer)
     return this._emit(peer, methodName, ...args)
@@ -86,7 +96,9 @@ export class PostMessageHub extends AbstractHub {
     const checkPeer = () => {
       if (!ownPeer) {
         if (silent) return false
-        throw new Error('[PostMessageHub] peer is not set in dedicated postMessageHub')
+        throw new Error(
+          '[PostMessageHub] peer is not set in dedicated postMessageHub',
+        )
       }
       return true
     }
@@ -94,7 +106,9 @@ export class PostMessageHub extends AbstractHub {
      * set peer that this dedicated message-hub want communicate with
      * @param peer if using in Worker thread, set peer to `self`
      */
-    const setPeer = (p: IOwnPeer) => { ownPeer = p }
+    const setPeer = (p: IOwnPeer) => {
+      ownPeer = p
+    }
     /**
      * listen method invoking from peer
      * @param methodName method name or handler map
@@ -112,7 +126,12 @@ export class PostMessageHub extends AbstractHub {
      * @param args
      */
     const emit = (methodName: string, ...args: any[]) => {
-      if (!checkPeer()) return Promise.reject({ code: EErrorCode.PEER_NOT_FOUND, message: 'peer not specified' })
+      if (!checkPeer()) {
+        return Promise.reject({
+          code: EErrorCode.PEER_NOT_FOUND,
+          message: 'peer not specified',
+        })
+      }
       // @ts-ignore
       return this.emit(ownPeer, methodName, ...args)
     }
@@ -134,7 +153,10 @@ export class PostMessageHub extends AbstractHub {
       }
     }
     return {
-      setPeer, emit, on, off,
+      setPeer,
+      emit,
+      on,
+      off,
     }
   }
 
@@ -144,7 +166,11 @@ export class PostMessageHub extends AbstractHub {
    * @param toWin message target win
    */
   createProxy(fromWin: Window | Worker, toWin: Window | Worker) {
-    if (this._isWorker) throw new Error('[PostMessageHub] createProxy can only be used in a normal window context')
+    if (this._isWorker) {
+      throw new Error(
+        '[PostMessageHub] createProxy can only be used in a normal window context',
+      )
+    }
     if (this._WIN === fromWin || this._WIN === toWin || fromWin === toWin) {
       throw new Error('[PostMessageHub] can not forward message to own')
     }
@@ -168,12 +194,23 @@ export class PostMessageHub extends AbstractHub {
     this._onMessage(peer, evt.data)
   }
 
-  protected sendMessage(peer: Window | Worker, msg: IRequest | IResponse | IProgress) {
+  protected sendMessage(
+    peer: Window | Worker,
+    msg: IRequest | IResponse | IProgress,
+  ) {
     const args: any[] = [msg]
     if (!this._isWorker && peer instanceof Window) {
       args.push('*')
     }
     // @ts-ignore
     peer.postMessage(...args)
+  }
+
+  /** shared postMessageHub instance */
+  public static get shared() {
+    if (!sharedPostMessage) {
+      sharedPostMessage = new PostMessageHub()
+    }
+    return sharedPostMessage
   }
 }
