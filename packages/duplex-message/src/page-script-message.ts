@@ -5,6 +5,8 @@ import {
   IRequest,
 } from './abstract'
 
+let sharedPageMessageHub: PageScriptMessageHub
+
 export interface IPageScriptMessageHubOptions {
   /** custom event name, default: message-hub */
   customEventName?: string
@@ -71,5 +73,13 @@ export class PageScriptMessageHub extends AbstractHub {
   protected sendMessage(peer: string, msg: IRequest | IResponse) {
     const evt = new CustomEvent(this._customEventName, { detail: msg })
     window.dispatchEvent(evt)
+  }
+
+  /** shared PageScriptMessageHub instance */
+  public static get shared() {
+    if (!sharedPageMessageHub) {
+      sharedPageMessageHub = new PageScriptMessageHub()
+    }
+    return sharedPageMessageHub
   }
 }

@@ -127,6 +127,13 @@ interface IElectronMessageHubOptions {
 }
 ```
 
+Tips:
+> in most cases, you only need one instance in main process, you can use  
+>>   `MainMessageHub.shared`/`RendererMessageHub.shared` instead of new an instance.   
+>   e.g.:   
+>     `MainMessageHub.shared.on(webContent, 'xxx', () => {...})`   
+>     `RendererMessageHub.shared.emit('xxx').then((res) => {...})`   
+
 If you change `channelName` when creating instances, main and renderers should use the same channel name.
 
 You may need to change `webPreferences` when create BrowserWindow, so that you can import `simple-electron-ipc` in renderer process:

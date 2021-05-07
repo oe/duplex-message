@@ -4,7 +4,7 @@ import {
 
 type IOwnPeer = Window | Worker | undefined
 
-let sharedPostMessage: PostMessageHub
+let sharedPostMessageHub: PostMessageHub
 
 export class PostMessageHub extends AbstractHub {
   protected _hostedWorkers: Worker[]
@@ -206,11 +206,11 @@ export class PostMessageHub extends AbstractHub {
     peer.postMessage(...args)
   }
 
-  /** shared postMessageHub instance */
+  /** shared PostMessageHub instance */
   public static get shared() {
-    if (!sharedPostMessage) {
-      sharedPostMessage = new PostMessageHub()
+    if (!sharedPostMessageHub) {
+      sharedPostMessageHub = new PostMessageHub()
     }
-    return sharedPostMessage
+    return sharedPostMessageHub
   }
 }

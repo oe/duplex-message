@@ -395,6 +395,12 @@ interface IStorageMessageHubOptions {
 }
 ```
 
+Tips:
+> in most cases, you only need one instance in one page, you can use  
+>>   `StorageMessageHub.shared` instead of new an instance.   
+>   e.g.:   
+>     `StorageMessageHub.shared.on('xxx', () => {...})`
+
 Notice:  
 > Web pages in browser with same origin are weak connected, they just share one same localStorage area. Sending a message via localStorage just like sending a broadcast, there maybe no listener, or more than one listeners. So, a `timeout` is necessary in case of there is no listener can respond your messages, or they don't respond in time.
 
@@ -429,8 +435,6 @@ storageMessageHub.emit('get-some-info').then(res => {
 }).catch(err => { console.error(err)})
 
 ```
-
-
 
 #### storageMessageHub.on
 Listen messages sent from peer, it has following forms:
@@ -522,6 +526,13 @@ interface IPageScriptMessageHubOptions {
   customEventName?: string
 }
 ```
+
+Tips:
+> in most cases, you only need one instance in one javascript context, you can use  
+>>   `StorageMessageHub.shared` instead of new an instance.   
+>   e.g.:   
+>     `StorageMessageHub.shared.on('xxx', () => {...})`  
+> if you want to use it as an event-bus, you should use `new StorageMessageHub()` to create clients
 
 #### pageScriptMessageHub.emit
 Send a message to peer, invoking `methodName` registered on the peer via [`on`](#pagescriptmessagehubon) with all its arguments `args`:

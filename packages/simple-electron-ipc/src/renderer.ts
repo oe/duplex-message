@@ -2,11 +2,16 @@ import electron, { IpcRenderer } from 'electron'
 import { IHandlerMap } from 'duplex-message'
 import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 
+let rendererMessageHub: RendererMessageHub
 export class RendererMessageHub extends ElectronMessageHub {
   protected readonly _ipc: IpcRenderer
 
   constructor(options?: IElectronMessageHubOptions) {
-    if (process.type !== 'renderer') throw new TypeError('RendererMessageHub only available in main renderer process')
+    if (process.type !== 'renderer') {
+      throw new TypeError(
+        'RendererMessageHub only available in main renderer process',
+      )
+    }
     super(options)
     this._ipc = electron.ipcRenderer
     this._ipc.on(this._channelName, this._onMessageReceived)
@@ -16,8 +21,8 @@ export class RendererMessageHub extends ElectronMessageHub {
     return super._emit(this._ipc, method, ...args)
   }
 
-  on(handlerMap: Function | IHandlerMap): void
-  on(methodName: string, handler: Function): void
+  on(handlerMap: Function | IHandlerMap): void;
+  on(methodName: string, handler: Function): void;
   on(handlerMap: IHandlerMap | Function | string, handler?: Function): void {
     // @ts-ignore
     this._on(this._ipc, handlerMap, handler)
@@ -25,5 +30,13 @@ export class RendererMessageHub extends ElectronMessageHub {
 
   off(methodName?: string) {
     this._off(this._ipc, methodName)
+  }
+
+  /** shared MainMessageHub instance */
+  public static get shared() {
+    if (!rendererMessageHub) {
+      rendererMessageHub = new RendererMessageHub()
+    }
+    return rendererMessageHub
   }
 }
