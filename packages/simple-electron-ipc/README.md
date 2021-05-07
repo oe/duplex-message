@@ -329,6 +329,6 @@ enum EErrorCode {
 if you has some issues when using this lib, you can enable debug mode to see debug logs in console:
 
 ```ts
-import { setConfig } from 'duplex-message'
+import { setConfig } from 'simple-electron-ipc'
 setConfig({ debug: true })
 ```

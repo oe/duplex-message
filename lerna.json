@@ -6,7 +6,7 @@
   "command": {
     "publish": {
       "access": "public",
-      "ignoreChanges": ["*.md", "scripts/**/*.js"],
+      "ignoreChanges": ["scripts/**/*.js"],
       "message": "chore(release): publish"
     }
   },
