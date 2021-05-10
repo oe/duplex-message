@@ -530,10 +530,10 @@ interface IPageScriptMessageHubOptions {
 
 Tips:
 > in most cases, you only need one instance in one javascript context, you can use  
->>   `StorageMessageHub.shared` instead of new an instance.   
+>>   `PageScriptMessageHub.shared` instead of new an instance.   
 >   e.g.:   
->     `StorageMessageHub.shared.on('xxx', () => {...})`  
-> if you want to use it as an event-bus, you should use `new StorageMessageHub()` to create clients
+>     `PageScriptMessageHub.shared.on('xxx', () => {...})`  
+> if you want to use it as an event-bus, you should use `new PageScriptMessageHub()` to create clients
 
 #### pageScriptMessageHub.emit
 Send a message to peer, invoking `methodName` registered on the peer via [`on`](#pagescriptmessagehubon) with all its arguments `args`:
