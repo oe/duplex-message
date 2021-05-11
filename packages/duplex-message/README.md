@@ -269,10 +269,11 @@ postMessageHub.on(peerWindow2, async function (methodName, ...args) {
 ```
 
 Notice:
-1. set `peer` to `self` if you want to listen messages in worker
-2. set `peer` to a `Worker` instance(e.g `new Worker('./xxxx.js')`) if you want to listen its messages in a normal window context
-3. the specified callback will be called if you listen same `methodName` in specified peer and `*`
-4. if you want worker's messages handled by callbacks registered via peer `*` , **you must call `postMessageHub.on` with worker(e.g `postMessageHub.on(worker, {})`) to register worker due to worker's restrictions**
+1. you should only listen a message once, it will override existing listener when do it again
+2. set `peer` to `self` if you want to listen messages in worker
+3. set `peer` to a `Worker` instance(e.g `new Worker('./xxxx.js')`) if you want to listen its messages in a normal window context
+4. the specified callback will be called if you listen same `methodName` in specified peer and `*`
+5. if you want worker's messages handled by callbacks registered via peer `*` , **you must call `postMessageHub.on` with worker(e.g `postMessageHub.on(worker, {})`) to register worker due to worker's restrictions**
 
 
 #### progress for PostMessageHub
@@ -419,10 +420,11 @@ storageMessageHub.emit(methodName: string, ...args: any[]) => Promise<unknown>
 
 ```
 Notice:
-1. If there are multi webpages listening to the same message, you'll only get the first one who respond, others will be ignored.
-2. look into [Error](#error) when you catch an error
-3. arguments must be stringify-able, due to localStorage's restrictions
-4. you may need to handle the promise returned by `emit` if some linters warning unhandled promise(or floating promise)
+1. you should only listen a message once, it will override existing listener when do it again
+2. If there are multi webpages listening to the same message, you'll only get the first one who respond, others will be ignored.
+3. look into [Error](#error) when you catch an error
+4. arguments must be stringify-able, due to localStorage's restrictions
+5. you may need to handle the promise returned by `emit` if some linters warning unhandled promise(or floating promise)
 
 
 e.g.
@@ -553,10 +555,11 @@ pageScriptMessageHub
 ```
 
 Notice:
-1. If there are multi instances listening to the same message, you'll only get the first one who respond, others will be ignored.
-2. look into [Error](#error) when you catch an error
-3. omit args if no args are required, e.g `pageScriptMessageHub.emit('some-method')`
-4. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
+1. you should only listen a message once, it will override existing listener when do it again
+2. If there are multi instances listening to the same message, you'll only get the first one who respond, others will be ignored.
+3. look into [Error](#error) when you catch an error
+4. omit args if no args are required, e.g `pageScriptMessageHub.emit('some-method')`
+5. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
 
 
 #### pageScriptMessageHub.on

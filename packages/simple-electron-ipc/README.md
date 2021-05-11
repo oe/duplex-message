@@ -248,7 +248,8 @@ anotherWindowRendererMessageHub.on((methodName, ...args) => {
 ```
 
 Notice:
-1. for `mainMessageHub`:  the specified callback will be called if you listen same `methodName` in specified peer and `*`
+1. you should only listen a message once, it will override existing listener when do it again
+2. for `mainMessageHub`:  the specified callback will be called if you listen same `methodName` in specified peer and `*`
 
 ### progress
 If you need progress feedback when peer handling you requests, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.

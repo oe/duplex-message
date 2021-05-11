@@ -36,6 +36,12 @@ port1.on({
   }
 })
 
+port1.on({
+  getTitle(a: string, b: string) {
+    return document.title + ' ' + a + ' ' + b + ' from port 1 xxxxx'
+  }
+})
+
 port3.on({
   getTitle: () => {
     return document.title + "  from port3";

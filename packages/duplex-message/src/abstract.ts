@@ -161,6 +161,22 @@ export abstract class AbstractHub {
     }
     if (pair) {
       const existingMap = pair[1]
+      if (libConfig.debug) {
+        const msg = `[duplex-message]${this.constructor.name}`
+        if (typeof existingMap === 'function') {
+          console.warn(`${msg} general handler for`, peer, 'will be overridden by', handlerResult)
+        } else if (typeof handlerResult === 'function') {
+          console.warn(`${msg} existing handlers`, existingMap, 'for peer(', peer, ') will be overridden by general function', handlerResult)
+        // @ts-ignore
+        } else if (existingMap) {
+          const newKeys = Object.keys(handlerResult)
+          const oldKeys = Object.keys(existingMap)
+          const overrideKeys = newKeys.filter((k) => oldKeys.indexOf(k) > -1)
+          if (overrideKeys.length) {
+            console.warn(`${msg} existing handlers of `, overrideKeys.join(','), 'for peer(', peer, ') will be overridden by handler', handlerResult)
+          }
+        }
+      }
       // merge existing handler map
       // @ts-ignore
       pair[1] = typeof existingMap === 'function'
