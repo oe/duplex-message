@@ -1,5 +1,7 @@
-import { PostMessageHub } from 'duplex-message'
+import { PostMessageHub, setConfig } from 'duplex-message'
 const postMessageHub = new PostMessageHub
+
+setConfig({debug: true})
 
 const peer = new Worker('./worker.ts')
 
@@ -19,7 +21,7 @@ $('#test-1').addEventListener('click', () => {
     },
     echo: ($('input-1') as HTMLInputElement).value
   }).then((res) => {
-    $('#result-1').innerText = res
+    $('#result-1').innerText = res as string
   })
 })
 

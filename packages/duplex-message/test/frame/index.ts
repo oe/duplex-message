@@ -1,4 +1,6 @@
-import { PostMessageHub } from 'duplex-message'
+import { PostMessageHub, setConfig } from 'duplex-message'
+
+setConfig({debug: true})
 const postMessageHub = PostMessageHub.shared
 
 // @ts-ignore

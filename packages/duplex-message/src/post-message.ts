@@ -6,12 +6,22 @@ type IOwnPeer = Window | Worker | undefined
 
 let sharedPostMessageHub: PostMessageHub
 
+const isInWorker = typeof document === 'undefined'
+
+function isWorker(peer: any): peer is Worker {
+  return !isInWorker && typeof Worker !== 'undefined' && peer instanceof Worker
+}
+
+function isWindow(peer:any): peer is Window {
+  return !isInWorker && typeof window !== 'undefined' && peer instanceof Window
+}
+
 export class PostMessageHub extends AbstractHub {
   protected _hostedWorkers: Worker[]
 
   protected readonly _WIN: Window | Worker
 
-  protected readonly _isWorker: boolean
+  protected readonly _isInWorker: boolean
 
   constructor() {
     super()
@@ -20,7 +30,7 @@ export class PostMessageHub extends AbstractHub {
     // eslint-disable-next-line no-restricted-globals
     this._WIN = self
     // tslint:disable-next-line
-    this._isWorker = typeof document === 'undefined'
+    this._isInWorker = isInWorker
     this._onMessageReceived = this._onMessageReceived.bind(this)
     this.proxyMessage = this.proxyMessage.bind(this)
     this._WIN.addEventListener('message', this._onMessageReceived)
@@ -58,7 +68,7 @@ export class PostMessageHub extends AbstractHub {
    * @returns Promise<unknown>
    */
   emit(peer: Window | Worker, methodName: string, ...args: any[]) {
-    if (!this._isWorker && peer instanceof Window && !peer.parent) {
+    if (isWindow(peer) && !peer.parent) {
       return Promise.reject({
         code: EErrorCode.PEER_NOT_FOUND,
         message: 'peer window is unloaded',
@@ -77,7 +87,7 @@ export class PostMessageHub extends AbstractHub {
   off(peer: Window | Worker | '*', methodName?: string) {
     super._off(peer, methodName)
     const evtMpIndx = this._eventHandlerMap.findIndex((m) => m[0] === peer)
-    if (evtMpIndx === -1 && peer instanceof Worker) {
+    if (evtMpIndx === -1 && isWorker(peer)) {
       const idx = this._hostedWorkers.indexOf(peer)
       if (idx > -1) {
         this._hostedWorkers.splice(idx, 1)
@@ -166,7 +176,7 @@ export class PostMessageHub extends AbstractHub {
    * @param toWin message target win
    */
   createProxy(fromWin: Window | Worker, toWin: Window | Worker) {
-    if (this._isWorker) {
+    if (this._isInWorker) {
       throw new Error(
         '[PostMessageHub] createProxy can only be used in a normal window context',
       )
@@ -183,7 +193,7 @@ export class PostMessageHub extends AbstractHub {
   }
 
   protected _addWorkerListener(peer: Window | Worker | '*') {
-    if (peer instanceof Worker && !this._hostedWorkers.includes(peer)) {
+    if (isWorker(peer) && !this._hostedWorkers.includes(peer)) {
       this._hostedWorkers.push(peer)
       peer.addEventListener('message', this._onMessageReceived)
     }
@@ -199,9 +209,12 @@ export class PostMessageHub extends AbstractHub {
     msg: IRequest | IResponse | IProgress,
   ) {
     const args: any[] = [msg]
-    if (!this._isWorker && peer instanceof Window) {
+    if (!this._isInWorker && isWindow(peer)) {
       args.push('*')
     }
+    // if (msg && msg.data) {
+    //   args.push([msg.data])
+    // }
     // @ts-ignore
     peer.postMessage(...args)
   }

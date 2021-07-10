@@ -41,10 +41,12 @@ testCase2.input.addEventListener('keyup', (e) => {
   testCase2.result.innerText = 'calculating...'
   const startTime = Date.now()
   postMessageHub.emit(peer, 'fib', +testCase2.input.value).then((resp) => {
+    console.warn('fib response', resp)
     const period = Date.now() - startTime
     testCase2.result.innerHTML = resp + `<br> It takes ${period}ms to figure out`
   }, (err) => {
-    testCase2.result.innerHTML = `<span style="color:red;">${err}</span>`
+    console.warn('fib error response', err)
+    testCase2.result.innerHTML = `<span style="color:red;">${err && err.message || err}</span>`
   })
 })
 

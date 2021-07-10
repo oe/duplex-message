@@ -257,35 +257,37 @@ export abstract class AbstractHub {
   }
 
   async _runMsgHandler(peer: any, reqMsg: IRequest) {
+    const msgInfo = this._getMsgHandler(peer, reqMsg)
+    const { methodName, args } = reqMsg
+    if (!msgInfo) {
+      return false
+    }
+
+    const newArgs = args.slice(0)
+    if (reqMsg.progress && newArgs[0]) {
+      const newArg = { ...newArgs[0] }
+      newArg.onprogress = (data: any) => {
+        this.sendMessage(peer, this._buildProgressMessage(data, reqMsg))
+      }
+      newArgs[0] = newArg
+    }
+
+    const [method, isGeneral] = msgInfo
+    // add methodName as the first argument if handlerMap is a function
+    if (isGeneral) {
+      newArgs.unshift(methodName)
+    }
     try {
-      const msgInfo = this._getMsgHandler(peer, reqMsg)
-      const { methodName, args } = reqMsg
-      if (!msgInfo) {
-        return false
-      }
-
-      const newArgs = args.slice(0)
-      if (reqMsg.progress && newArgs[0]) {
-        const newArg = { ...newArgs[0] }
-        newArg.onprogress = (data: any) => {
-          this.sendMessage(peer, this._buildProgressMessage(data, reqMsg))
-        }
-        newArgs[0] = newArg
-      }
-
-      const [method, isGeneral] = msgInfo
-      // add methodName as the first argument if handlerMap is a function
-      if (isGeneral) {
-        newArgs.unshift(methodName)
-      }
       // eslint-disable-next-line prefer-spread
       const data = await method.apply(null, newArgs)
       return this._buildRespMessage(data, reqMsg, true)
     } catch (error) {
+      if (libConfig.debug) {
+        console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs)
+      }
       const data = {
         code: EErrorCode.HANDLER_EXEC_ERROR,
         message: error.message || error.stack,
-        error,
       }
       throw this._buildRespMessage(data, reqMsg, false)
     }
