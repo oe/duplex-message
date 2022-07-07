@@ -71,8 +71,6 @@ export function setConfig(options: Partial<ILibConfig>) {
 
 const CONTINUE_INDICATOR = '--message-hub-to-be-continued--'
 
-const WAIT_TIMEOUT = 200
-
 export abstract class AbstractHub {
   /**
    * hub instance
@@ -95,6 +93,12 @@ export abstract class AbstractHub {
    *  value: instanceID which will respond
    */
   protected _designedResponse: Record<string, string>
+
+  /**
+   * How long to wait for response before erroring out with TIMEOUT.
+   * @protected
+   */
+  public waitTimeout = 200
 
   /**
    * init Hub, subclass should implement its own constructor
@@ -396,7 +400,7 @@ export abstract class AbstractHub {
         false,
       )
       this._runResponseCallback(resp)
-    }, WAIT_TIMEOUT)
+    }, this.waitTimeout)
   }
 
   protected static _wrapCallback(instance: AbstractHub, reqMsg: IRequest, callback: Function) {
