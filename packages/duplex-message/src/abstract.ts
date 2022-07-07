@@ -71,6 +71,11 @@ export function setConfig(options: Partial<ILibConfig>) {
 
 const CONTINUE_INDICATOR = '--message-hub-to-be-continued--'
 
+export interface IAbstractHubOptions {
+  /** how long to wait for response before erroring out with TIMEOUT. */
+  waitTimeout?: number;
+}
+
 export abstract class AbstractHub {
   /**
    * hub instance
@@ -96,14 +101,16 @@ export abstract class AbstractHub {
 
   /**
    * How long to wait for response before erroring out with TIMEOUT.
-   * @protected
    */
-  public waitTimeout = 200
+  private _waitTimeout: number
 
   /**
    * init Hub, subclass should implement its own constructor
    */
-  constructor() {
+  constructor(options?: IAbstractHubOptions) {
+    // eslint-disable-next-line no-param-reassign
+    options = { ...options, waitTimeout: 200 }
+    this._waitTimeout = options.waitTimeout!
     this.instanceID = AbstractHub.generateInstanceID()
     this._eventHandlerMap = []
     this._responseCallbacks = []
@@ -400,7 +407,7 @@ export abstract class AbstractHub {
         false,
       )
       this._runResponseCallback(resp)
-    }, this.waitTimeout)
+    }, this._waitTimeout)
   }
 
   protected static _wrapCallback(instance: AbstractHub, reqMsg: IRequest, callback: Function) {

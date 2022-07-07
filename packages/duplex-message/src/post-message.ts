@@ -1,5 +1,5 @@
 import {
-  AbstractHub, IResponse, IRequest, IProgress, IHandlerMap, EErrorCode,
+  AbstractHub, IResponse, IRequest, IProgress, IHandlerMap, EErrorCode, IAbstractHubOptions,
 } from './abstract'
 
 type IOwnPeer = Window | Worker | undefined
@@ -16,6 +16,8 @@ function isWindow(peer:any): peer is Window {
   return !isInWorker && typeof window !== 'undefined' && peer instanceof Window
 }
 
+export interface IPostMessageHubOptions extends IAbstractHubOptions {}
+
 export class PostMessageHub extends AbstractHub {
   protected _hostedWorkers: Worker[]
 
@@ -23,8 +25,8 @@ export class PostMessageHub extends AbstractHub {
 
   protected readonly _isInWorker: boolean
 
-  constructor() {
-    super()
+  constructor(options?: IPostMessageHubOptions) {
+    super(options)
     this._hostedWorkers = []
     // save current window it's self
     // eslint-disable-next-line no-restricted-globals
