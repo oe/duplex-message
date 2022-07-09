@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <button id="tik-tok">send message via broadcastChannel</button>
+
+  <div>
+    tik-tok method received
+    <p id="tik-tok-req"></p>
+  </div>
+  <div> tik-tok method responded
+    <div id="tik-tok-resp"></div>
+  </div>
+  <hr>
+  <div>
+    test progress, please click
+    <button id="test-progress">test progress</button>
+    <div>
+      response
+      <div id="progress-response"></div>
+    </div>
+  </div>
+  <hr>
+  <div>
+    test error
+    <button id="test-error">test error</button>
+    <div>
+      response
+      <div id="error-response"></div>
+    </div>
+  </div>
+
+  <div>
+    <a href="?name=xiu" target="_blank">open test page(xiu)</a>
+    <a href="?name=saiya" target="_blank">open test page(saiya)</a>
+  </div>
+  <script src="./index.ts"></script>
+</body>
+</html>

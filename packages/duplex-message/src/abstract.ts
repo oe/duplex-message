@@ -35,7 +35,7 @@ export enum EErrorCode {
   /** peer not found */
   PEER_NOT_FOUND = 2,
   /** message not responded in time */
-  TIMEOUT = 3,
+  HANDLER_NOT_FOUND = 3,
   /** message has invalid content, can't be sent  */
   INVALID_MESSAGE = 4,
   /** other unspecified error */
@@ -63,6 +63,10 @@ export interface ILibConfig {
 
 const libConfig: ILibConfig = {
   debug: false,
+}
+
+export function debugLog(...args: any[]): void {
+  libConfig.debug && console.warn(...args)
 }
 
 export function setConfig(options: Partial<ILibConfig>) {
@@ -105,9 +109,7 @@ export abstract class AbstractHub {
     this._responseCallbacks = []
     this._messageID = 0
     this._designedResponse = {}
-    if (libConfig.debug) {
-      console.warn(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
-    }
+    debugLog(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
   }
 
   /**
@@ -164,16 +166,16 @@ export abstract class AbstractHub {
       if (libConfig.debug) {
         const msg = `[duplex-message]${this.constructor.name}`
         if (typeof existingMap === 'function') {
-          console.warn(`${msg} general handler for`, peer, 'will be overridden by', handlerResult)
+          debugLog(`${msg} general handler for`, peer, 'will be overridden by', handlerResult)
         } else if (typeof handlerResult === 'function') {
-          console.warn(`${msg} existing handlers`, existingMap, 'for peer(', peer, ') will be overridden by general function', handlerResult)
+          debugLog(`${msg} existing handlers`, existingMap, 'for peer(', peer, ') will be overridden by general function', handlerResult)
         // @ts-ignore
         } else if (existingMap) {
           const newKeys = Object.keys(handlerResult)
           const oldKeys = Object.keys(existingMap)
           const overrideKeys = newKeys.filter((k) => oldKeys.indexOf(k) > -1)
           if (overrideKeys.length) {
-            console.warn(`${msg} existing handlers of `, overrideKeys.join(','), 'for peer(', peer, ') will be overridden by handler', handlerResult)
+            debugLog(`${msg} existing handlers of `, overrideKeys.join(','), 'for peer(', peer, ') will be overridden by handler', handlerResult)
           }
         }
       }
@@ -230,7 +232,7 @@ export abstract class AbstractHub {
     try {
       response = await this._runMsgHandler(peer, msg)
       if (response === false) return
-    } catch (error) {
+    } catch (error: any) {
       response = error
     }
     // @ts-ignore
@@ -281,10 +283,8 @@ export abstract class AbstractHub {
       // eslint-disable-next-line prefer-spread
       const data = await method.apply(null, newArgs)
       return this._buildRespMessage(data, reqMsg, true)
-    } catch (error) {
-      if (libConfig.debug) {
-        console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs)
-      }
+    } catch (error: any) {
+      debugLog('[duplex-message] run handler error', method, 'with arguments', newArgs)
       const data = {
         code: EErrorCode.HANDLER_EXEC_ERROR,
         message: error.message || error.stack,
@@ -337,7 +337,7 @@ export abstract class AbstractHub {
             try {
               reqMsg.args[0].onprogress(response.data)
             } catch (error) {
-              console.warn(
+              debugLog(
                 '[duplex-message] progress callback for',
                 reqMsg,
                 'response',
@@ -358,7 +358,7 @@ export abstract class AbstractHub {
     try {
       this.sendMessage(peer, AbstractHub._normalizeRequest(peer, reqMsg))
     } catch (error) {
-      console.warn(
+      debugLog(
         '[duplex-message] unable to serialize message, message not sent',
         error,
       )
@@ -391,7 +391,7 @@ export abstract class AbstractHub {
     setTimeout(() => {
       if (this._designedResponse[reqMsg.messageID]) return
       const resp = this._buildRespMessage(
-        { code: EErrorCode.TIMEOUT, message: 'timeout or no handler found' },
+        { code: EErrorCode.HANDLER_NOT_FOUND, message: 'no corresponding handler found' },
         reqMsg,
         false,
       )
@@ -409,10 +409,10 @@ export abstract class AbstractHub {
           && instance._isProgress(reqMsg, resp)
           && resp.data === CONTINUE_INDICATOR
         ) {
-          console.warn(
+          debugLog(
             '[duplex-message] message',
             reqMsg.methodName,
-            'already processing, but handled by another peer',
+            'already been processing, but handled by another peer',
             resp.fromInstance,
           )
         }
@@ -528,7 +528,7 @@ export abstract class AbstractHub {
     )
   }
 
-  static generateInstanceID() {
+  protected static generateInstanceID() {
     return Array(3)
       .join(`${Math.random().toString(36).slice(2)}-`)
       .slice(0, -1)

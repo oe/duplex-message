@@ -1,5 +1,9 @@
+/**
+ * cross window/tabs/frames in same origin communicate via localStorage's
+ *  change event(aka `storage` on window)
+ */
 import {
-  AbstractHub, IResponse, IHandlerMap, IRequest, IProgress,
+  AbstractHub, IResponse, IHandlerMap, IRequest, IProgress, debugLog,
 } from './abstract'
 
 export interface IStorageMessageHubOptions {
@@ -74,7 +78,7 @@ export class StorageMessageHub extends AbstractHub {
     try {
       localStorage.setItem(msgKey, JSON.stringify(msg))
     } catch (e) {
-      console.warn(
+      debugLog(
         '[duplex-message] unable to stringify message, message not sent',
         e,
       )
