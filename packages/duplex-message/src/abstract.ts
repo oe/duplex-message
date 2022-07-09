@@ -223,7 +223,7 @@ export abstract class AbstractHub {
     if (!this._getMsgHandler(peer, msg)) {
       return
     }
-
+    // tell the peer that i'm on it
     this.sendMessage(
       peer,
       this._buildProgressMessage(CONTINUE_INDICATOR, msg),
@@ -410,10 +410,8 @@ export abstract class AbstractHub {
           && resp.data === CONTINUE_INDICATOR
         ) {
           debugLog(
-            '[duplex-message] message',
-            reqMsg.methodName,
-            'already been processing, but handled by another peer',
-            resp.fromInstance,
+            `[duplex-message] message \`${reqMsg.methodName}\``,
+            `been processing by ${designedPeerID}, response from ${resp.fromInstance} will be ignored`,
           )
         }
         /** ignore */

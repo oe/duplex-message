@@ -1,4 +1,4 @@
-import { StorageMessageHub, setConfig } from 'duplex-message'
+import { StorageMessageHub, setConfig } from '../../src/'
 setConfig({ debug: true })
 const query = new URLSearchParams(location.search)
 const storageMessageHub = new StorageMessageHub({identity: query.get('name') })
@@ -6,7 +6,7 @@ const storageMessageHub = new StorageMessageHub({identity: query.get('name') })
 window.sm = storageMessageHub
 
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, ''))
+  return document.getElementById(id.replace(/^\#/, ''))!
 }
 
 
@@ -47,13 +47,6 @@ $('btn').addEventListener('click', () => {
   })
 })
 
-$('get-all-response').addEventListener('click', () => {
-  storageMessageHub.emit('tik-tok', { what: 'xxx', count: ++count, time: Date.now() }).then(result => {
-    $('get-all-response-content').innerHTML = (typeof result === 'object' ? '<pre>' + JSON.stringify(result, null, 2) + '</pre>' : result) as string
-  }).catch(err => {
-    $('get-all-response-content').innerHTML = 'error: ' + JSON.stringify(err)
-  })
-})
 
 $('test-progress').addEventListener('click', async () => {
   try {
