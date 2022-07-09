@@ -95,6 +95,7 @@ export abstract class AbstractHub {
 
   /**
    * designed response map
+   * store the first one's instanceID who respond most fast
    *  key: messageID
    *  value: instanceID which will respond
    */
@@ -245,17 +246,15 @@ export abstract class AbstractHub {
       ret = fn(resp)
       return Boolean(ret)
     })
-    if (idx >= 0) {
-      // need to be continued
-      if (ret > 1) return true
-      this._responseCallbacks.splice(idx, 1)
-      // timeout, in case of any delays
-      setTimeout(() => {
-        delete this._designedResponse[resp.messageID]
-      }, 100)
-      return true
-    }
-    return false
+    if (idx === -1) return false
+    // need to be continued
+    if (ret > 1) return true
+    this._responseCallbacks.splice(idx, 1)
+    // timeout, in case of any delays
+    setTimeout(() => {
+      delete this._designedResponse[resp.messageID]
+    }, 100)
+    return true
   }
 
   async _runMsgHandler(peer: any, reqMsg: IRequest) {
@@ -389,6 +388,7 @@ export abstract class AbstractHub {
     this._responseCallbacks.push(wrappedCallback)
     // timeout when no response, callback get a failure
     setTimeout(() => {
+      // some one has responded
       if (this._designedResponse[reqMsg.messageID]) return
       const resp = this._buildRespMessage(
         { code: EErrorCode.HANDLER_NOT_FOUND, message: 'no corresponding handler found' },
