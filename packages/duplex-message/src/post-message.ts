@@ -1,5 +1,12 @@
 import {
-  AbstractHub, IResponse, IRequest, IProgress, IHandlerMap, EErrorCode,
+  AbstractHub,
+  IResponse,
+  IRequest,
+  IProgress,
+  IHandlerMap,
+  EErrorCode,
+  IAbstractHubOptions,
+  IMethodNameConfig,
 } from './abstract'
 
 type IOwnPeer = Window | Worker | undefined
@@ -23,8 +30,8 @@ export class PostMessageHub extends AbstractHub {
 
   protected readonly _isInWorker: boolean
 
-  constructor() {
-    super()
+  constructor(options?: IAbstractHubOptions) {
+    super(options)
     this._hostedWorkers = []
     // save current window it's self
     // eslint-disable-next-line no-restricted-globals
@@ -67,7 +74,7 @@ export class PostMessageHub extends AbstractHub {
    * @param args arguments for that method
    * @returns Promise<unknown>
    */
-  emit(peer: Window | Worker, methodName: string, ...args: any[]) {
+  emit(peer: Window | Worker, methodName: string | IMethodNameConfig, ...args: any[]) {
     if (isWindow(peer) && !peer.parent) {
       return Promise.reject({
         code: EErrorCode.PEER_NOT_FOUND,

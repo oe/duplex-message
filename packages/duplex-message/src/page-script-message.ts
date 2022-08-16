@@ -3,11 +3,13 @@ import {
   IResponse,
   IHandlerMap,
   IRequest,
+  IAbstractHubOptions,
+  IMethodNameConfig,
 } from './abstract'
 
 let sharedPageMessageHub: PageScriptMessageHub
 
-export interface IPageScriptMessageHubOptions {
+export interface IPageScriptMessageHubOptions extends IAbstractHubOptions {
   /** custom event name, default: message-hub */
   customEventName?: string
 }
@@ -25,7 +27,7 @@ export class PageScriptMessageHub extends AbstractHub {
     // eslint-disable-next-line no-param-reassign
     options = { customEventName: 'message-hub', ...options }
 
-    super()
+    super(options)
     this._customEventName = options.customEventName!
     this._onMessageReceived = this._onMessageReceived.bind(this)
     // @ts-ignore
@@ -54,7 +56,7 @@ export class PageScriptMessageHub extends AbstractHub {
    * @param args arguments for that method
    * @returns Promise<unknown>
    */
-  emit(methodName: string, ...args: any[]) {
+  emit(methodName: string | IMethodNameConfig, ...args: any[]) {
     return super._emit(this.instanceID, methodName, ...args)
   }
 
