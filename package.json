@@ -1,6 +1,6 @@
 {
   "name": "duplex-message-monorepo",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0",
   "description": "makes one way message responsive, enhance postMessage/storageEvent/electron IPC/chrome extension scripts",
   "scripts": {
     "postinstall": "lerna bootstrap",
