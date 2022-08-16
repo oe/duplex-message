@@ -54,6 +54,8 @@ export interface IError {
 
 export interface IMethodNameConfig {
   methodName: string
+  /** peer instance id */
+  toInstance?: string
   [k: string]: any
 }
 
@@ -72,6 +74,10 @@ export function setConfig(options: Partial<ILibConfig>) {
 const CONTINUE_INDICATOR = '--message-hub-to-be-continued--'
 
 const WAIT_TIMEOUT = 200
+
+export interface IAbstractHubOptions {
+  instanceID?: string
+}
 
 export abstract class AbstractHub {
   /**
@@ -99,8 +105,8 @@ export abstract class AbstractHub {
   /**
    * init Hub, subclass should implement its own constructor
    */
-  constructor() {
-    this.instanceID = AbstractHub.generateInstanceID()
+  constructor(options?: IAbstractHubOptions) {
+    this.instanceID = (options && options.instanceID) || AbstractHub.generateInstanceID()
     this._eventHandlerMap = []
     this._responseCallbacks = []
     this._messageID = 0
@@ -226,12 +232,12 @@ export abstract class AbstractHub {
       this._buildProgressMessage(CONTINUE_INDICATOR, msg),
     )
 
-    let response: IResponse | false
+    let response: IResponse | Error | false
     try {
       response = await this._runMsgHandler(peer, msg)
       if (response === false) return
     } catch (error) {
-      response = error
+      response = error as Error
     }
     // @ts-ignore
     this.sendMessage(peer, response)
@@ -281,7 +287,7 @@ export abstract class AbstractHub {
       // eslint-disable-next-line prefer-spread
       const data = await method.apply(null, newArgs)
       return this._buildRespMessage(data, reqMsg, true)
-    } catch (error) {
+    } catch (error: any) {
       if (libConfig.debug) {
         console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs)
       }

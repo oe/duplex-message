@@ -388,6 +388,8 @@ import { StorageMessageHub } from "duplex-message"
 const storageMessageHub = new StorageMessageHub(options?: IStorageMessageHubOptions)
 
 interface IStorageMessageHubOptions {
+  /** custom instance id for communicating in emit  */
+  instanceID?: string
   /** timeout number(millisecond as unit) when no response is received, default: 1000 milliseconds */
   timeout?: number
   /** localStorage key prefix to store message, default: $$xiu */
@@ -411,13 +413,19 @@ Broadcast(or you can also send to specified peer) a message, invoking `methodNam
 
 
 ```ts
-// broadcast a message to all peers
-//    promise resolve when `first success` response received(
+// send a message and get response
+// 
+// if no toInstance specified, promise resolve when `first success` response received(
 //      there may be more than one peers, they all will respond this message,
 //      you will get the first success response,  rest responses will be discarded)
-//    or you will catch an error
-storageMessageHub.emit(methodName: string, ...args: any[]) => Promise<unknown>
+// or the specified instance will respond your call
+storageMessageHub.emit(methodName: string | IMethodNameConfig, ...args: any[]) => Promise<unknown>
 
+interface IMethodNameConfig {
+  methodName: string
+  /** peer's instance id */
+  toInstance?: string
+}
 ```
 Notice:
 1. you should only listen a message once, it will override existing listener when do it again
@@ -527,6 +535,8 @@ const pageScriptMessageHub = new PageScriptMessageHub(options?: IPageScriptMessa
 interface IPageScriptMessageHubOptions {
   /** custom event name, default: message-hub */
   customEventName?: string
+  /** custom instance id for communicating in emit  */
+  instanceID?: string
 }
 ```
 
@@ -542,7 +552,13 @@ Send a message to peer, invoking `methodName` registered on the peer via [`on`](
 
 ```ts
 // in renderer process
-pageScriptMessageHub.emit(methodName: string, ...args: any[]) => Promise<unknown>
+pageScriptMessageHub.emit(methodName: string | IMethodNameConfig, ...args: any[]) => Promise<unknown>
+
+interface IMethodNameConfig {
+  methodName: string
+  /** peer's instance id */
+  toInstance?: string
+}
 ```
 
 e.g.

@@ -1,8 +1,14 @@
 import {
-  AbstractHub, IResponse, IHandlerMap, IRequest, IProgress,
+  AbstractHub,
+  IResponse,
+  IHandlerMap,
+  IRequest,
+  IProgress,
+  IAbstractHubOptions,
+  IMethodNameConfig,
 } from './abstract'
 
-export interface IStorageMessageHubOptions {
+export interface IStorageMessageHubOptions extends IAbstractHubOptions {
   /** localStorage key prefix to store message, default: $$xiu */
   keyPrefix?: string
   /**
@@ -26,7 +32,7 @@ export class StorageMessageHub extends AbstractHub {
         'StorageMessageHub only available in normal browser context, nodejs/worker are not supported',
       )
     }
-    super()
+    super(options)
     // eslint-disable-next-line no-param-reassign
     options = { keyPrefix: '$$xiu', ...options }
     this._onMessageReceived = this._onMessageReceived.bind(this)
@@ -57,7 +63,7 @@ export class StorageMessageHub extends AbstractHub {
    * @param args arguments for that method
    * @returns Promise<unknown>
    */
-  emit(methodName: string, ...args: any[]) {
+  emit(methodName: string | IMethodNameConfig, ...args: any[]) {
     return super._emit(this.instanceID, methodName, ...args)
   }
 
