@@ -110,7 +110,7 @@ export class PostMessageHub extends AbstractHub {
     this._WIN.removeEventListener('message', this._onMessageReceived)
     // @ts-ignore
     this._WIN = null
-    this._hostedWorkers.forEach(peer => {
+    this._hostedWorkers.forEach((peer) => {
       peer.removeEventListener('message', this._onMessageReceived)
     })
     this._hostedWorkers.splice(0)

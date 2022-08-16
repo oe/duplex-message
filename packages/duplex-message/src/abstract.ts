@@ -107,7 +107,7 @@ export abstract class AbstractHub {
    */
   protected _isDestroyed: boolean
 
-  /** whether instance is destroyed*/
+  /** whether instance is destroyed */
   get isDestroyed() {
     return this._isDestroyed
   }
