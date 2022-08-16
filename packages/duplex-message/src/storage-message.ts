@@ -75,6 +75,12 @@ export class StorageMessageHub extends AbstractHub {
     super._off(this.instanceID, methodName)
   }
 
+  destroy() {
+    if (this._isDestroyed) return
+    super.destroy()
+    window.removeEventListener('storage', this._onMessageReceived)
+  }
+
   protected sendMessage(peer: string, msg: IRequest | IResponse) {
     const msgKey = this._getMsgKey(msg)
     try {

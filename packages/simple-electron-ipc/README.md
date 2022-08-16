@@ -297,6 +297,19 @@ mainMessageHub.off(peer: WebContents | '*', methodName?: string)
 rendererMessageHub.off(methodName?: string)
 ```
 
+#### destroy
+Destroy instance: remove all message handlers and references of objects.
+Any invoking of destroyed instance's methods will throw an exception
+
+```ts
+// in main process
+mainMessageHub.destroy()
+
+
+// in renderer process
+rendererMessageHub.destroy()
+```
+
 ### Error
 when you catch an error from `emit`, it conforms the following structure `IError`
 

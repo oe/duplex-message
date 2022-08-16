@@ -32,6 +32,14 @@ export class RendererMessageHub extends ElectronMessageHub {
     this._off(this._ipc, methodName)
   }
 
+  destroy() {
+    if (this._isDestroyed) return
+    super.destroy()
+    this._ipc.off(this._channelName, this._onMessageReceived)
+    // @ts-ignore
+    this._ipc = null
+  }
+
   /** shared MainMessageHub instance */
   public static get shared() {
     if (!rendererMessageHub) {

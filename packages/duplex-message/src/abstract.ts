@@ -103,6 +103,16 @@ export abstract class AbstractHub {
   protected _designedResponse: Record<string, string>
 
   /**
+   * inner props to store whether instance is destroyed
+   */
+  protected _isDestroyed: boolean
+
+  /** whether instance is destroyed*/
+  get isDestroyed() {
+    return this._isDestroyed
+  }
+
+  /**
    * init Hub, subclass should implement its own constructor
    */
   constructor(options?: IAbstractHubOptions) {
@@ -111,6 +121,7 @@ export abstract class AbstractHub {
     this._responseCallbacks = []
     this._messageID = 0
     this._designedResponse = {}
+    this._isDestroyed = false
     if (libConfig.debug) {
       console.warn(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
     }
@@ -158,6 +169,7 @@ export abstract class AbstractHub {
     handlerMap: IHandlerMap | Function | string,
     handler?: Function,
   ): void {
+    if (this._isDestroyed) throw new Error('instance has been destroyed')
     const pair = this._eventHandlerMap.find((item) => item[0] === peer)
     let handlerResult: Function | IHandlerMap
     if (typeof handlerMap === 'string') {
@@ -200,6 +212,7 @@ export abstract class AbstractHub {
   }
 
   protected _off(peer: any, methodName?: string) {
+    if (this._isDestroyed) throw new Error('instance has been destroyed')
     const index = this._eventHandlerMap.findIndex((pair) => pair[0] === peer)
     if (index === -1) return
     if (!methodName) {
@@ -216,7 +229,16 @@ export abstract class AbstractHub {
     }
   }
 
+  /** destroy instance  */
+  destroy() {
+    this._eventHandlerMap.splice(0)
+    this._responseCallbacks.splice(0)
+    this._designedResponse = {}
+    this._isDestroyed = true
+  }
+
   protected async _onMessage(peer: any, msg: any) {
+    if (this._isDestroyed) throw new Error('instance has been destroyed')
     if (!msg || msg.fromInstance === this.instanceID) return
     if (!this._isRequest(msg)) {
       this._runResponseCallback(msg)
@@ -331,6 +353,7 @@ export abstract class AbstractHub {
     methodName: string | IMethodNameConfig,
     ...args: any[]
   ) {
+    if (this._isDestroyed) throw new Error('instance has been destroyed')
     const reqMsg = this._buildReqMessage(methodName, args)
     const result = new Promise((resolve, reject) => {
       // 0 for not match
@@ -397,7 +420,7 @@ export abstract class AbstractHub {
     setTimeout(() => {
       if (this._designedResponse[reqMsg.messageID]) return
       const resp = this._buildRespMessage(
-        { code: EErrorCode.TIMEOUT, message: 'timeout or no handler found' },
+        { code: EErrorCode.TIMEOUT, message: `no corresponding handler found for method ${reqMsg.methodName}` },
         reqMsg,
         false,
       )

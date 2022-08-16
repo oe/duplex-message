@@ -318,6 +318,14 @@ Remove message handlers, if `methodName` presented, remove `methodName`'s listen
 postMessageHub.off(peer: Window | Worker | '*', methodName?: string)
 ```
 
+#### postMessageHub.destroy
+Destroy instance: remove all message handlers and references of objects.
+Any invoking of destroyed instance's methods will throw an exception
+
+```ts
+postMessageHub.destroy()
+```
+
 #### postMessageHub.createDedicatedMessageHub
 Create a dedicated message-hub for specified peer, so that you won't need to pass peer every time:   
 
@@ -515,6 +523,14 @@ Remove message handlers, if `methodName` presented, remove `methodName`'s listen
 storageMessageHub.off(methodName?: string)
 ```
 
+#### storageMessageHub.destroy
+Destroy instance: remove all message handlers and references of objects.
+Any invoking of destroyed instance's methods will throw an exception
+
+```ts
+storageMessageHub.destroy()
+```
+
 ### PageScriptMessageHub
 `PageScriptMessageHub` works in browser and use `customEvent` under the hood, it enable you:
 1. communicate between isolated javascript environment in same window context
@@ -651,6 +667,14 @@ Remove message handlers, if `methodName` presented, remove `methodName`'s listen
 ```ts
 // in renderer process
 pageScriptMessageHub.off(methodName?: string)
+```
+
+#### pageScriptMessageHub.destroy
+Destroy instance: remove all message handlers and references of objects.
+Any invoking of destroyed instance's methods will throw an exception
+
+```ts
+pageScriptMessageHub.destroy()
 ```
 
 ### Error

@@ -103,6 +103,19 @@ export class PostMessageHub extends AbstractHub {
     }
   }
 
+  destroy() {
+    if (this._isDestroyed) return
+    super.destroy()
+    // @ts-ignore
+    this._WIN.removeEventListener('message', this._onMessageReceived)
+    // @ts-ignore
+    this._WIN = null
+    this._hostedWorkers.forEach(peer => {
+      peer.removeEventListener('message', this._onMessageReceived)
+    })
+    this._hostedWorkers.splice(0)
+  }
+
   /**
    * create a dedicated MessageHub that focus on communicate with the specified peer
    * @param peer peer window to communicate with, or you can set it later via `setPeer`
