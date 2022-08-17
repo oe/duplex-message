@@ -1,6 +1,6 @@
 {
   "name": "simple-electron-ipc",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "an easy way to use electron ipc, get a response via promise, event support progress feedback",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -24,7 +24,7 @@
     "promise"
   ],
   "dependencies": {
-    "duplex-message": "^1.1.3"
+    "duplex-message": "^1.1.4"
   },
   "peerDependencies": {
     "electron": "*"
