@@ -1,4 +1,4 @@
-import { StorageMessageHub, setConfig } from 'duplex-message'
+import { StorageMessageHub, setConfig } from '../../src'
 setConfig({ debug: true })
 const query = new URLSearchParams(location.search)
 const storageMessageHub = new StorageMessageHub({identity: query.get('name') })
@@ -6,7 +6,7 @@ const storageMessageHub = new StorageMessageHub({identity: query.get('name') })
 window.sm = storageMessageHub
 
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, ''))
+  return document.getElementById(id.replace(/^\#/, '')) as HTMLElement
 }
 
 

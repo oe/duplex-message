@@ -1,4 +1,4 @@
-import { PostMessageHub } from 'duplex-message'
+import { PostMessageHub } from '../../src'
 const postMessageHub = new PostMessageHub
 const peer = self
 

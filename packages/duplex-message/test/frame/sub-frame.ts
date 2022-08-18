@@ -1,9 +1,9 @@
-import { PostMessageHub } from 'duplex-message'
+import { PostMessageHub } from '../../src'
 const postMessageHub = new PostMessageHub
 
 const messageHub = postMessageHub.createDedicatedMessageHub(parent)
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, ''))
+  return document.getElementById(id.replace(/^\#/, '')) as HTMLElement
 }
 
 $('#test-1').addEventListener('click', () => {
@@ -14,13 +14,13 @@ $('#test-1').addEventListener('click', () => {
       //   $("#result-1").innerText = `progress: ${p}`
       // }
     })
-    .then((res) => {
+    .then((res: any) => {
       $("#result-1").innerText = res;
     });
 })
 
 $('#test-2').addEventListener('click', () => {
-  messageHub.emit('page-title-222').then((res) => {
+  messageHub.emit('page-title-222').then((res: any) => {
     $('#result-2').innerText = res
   }).catch(err => {
     $("#result-2").innerText = 'error: ' + JSON.stringify(err)

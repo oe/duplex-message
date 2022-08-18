@@ -239,7 +239,7 @@ export abstract class AbstractHub {
 
   protected async _onMessage(peer: any, msg: any) {
     if (this._isDestroyed) throw new Error('instance has been destroyed')
-    if (!msg || msg.fromInstance === this.instanceID) return
+    if (!this._isMessage(msg)) return
     if (!this._isRequest(msg)) {
       this._runResponseCallback(msg)
       return
@@ -278,7 +278,7 @@ export abstract class AbstractHub {
       // timeout, in case of any delays
       setTimeout(() => {
         delete this._designedResponse[resp.messageID]
-      }, 100)
+      }, WAIT_TIMEOUT + 50)
       return true
     }
     return false
@@ -522,6 +522,14 @@ export abstract class AbstractHub {
       type: 'progress',
       data,
     }
+  }
+
+  protected _isMessage(msg: any) {
+    return msg
+      && msg.messageID
+      && msg.fromInstance
+      && msg.type
+      && msg.fromInstance !== this.instanceID
   }
 
   protected _isRequest(reqMsg: any): reqMsg is IRequest {

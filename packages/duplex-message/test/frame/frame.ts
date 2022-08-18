@@ -1,4 +1,4 @@
-import { PostMessageHub, setConfig } from 'duplex-message'
+import { PostMessageHub, setConfig } from '../../src'
 const postMessageHub = new PostMessageHub
 
 setConfig({debug: true})
@@ -7,11 +7,11 @@ const peer = new Worker('./worker.ts')
 
 const messageHub = postMessageHub.createDedicatedMessageHub(parent)
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, ''))
+  return document.getElementById(id.replace(/^\#/, '')) as HTMLElement
 }
 
 const subFrameWin = (document.getElementById('sub-iframe') as HTMLFrameElement).contentWindow
-postMessageHub.createProxy(subFrameWin, parent)
+postMessageHub.createProxy(subFrameWin!, parent)
 postMessageHub.createProxy(peer, parent)
 
 $('#test-1').addEventListener('click', () => {

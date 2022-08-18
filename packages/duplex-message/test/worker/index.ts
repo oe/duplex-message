@@ -1,4 +1,4 @@
-import { PostMessageHub } from 'duplex-message'
+import { PostMessageHub } from '../../src'
 const postMessageHub = new PostMessageHub
 
 const peer = new Worker('./worker.ts')
@@ -14,13 +14,13 @@ postMessageHub.on(peer, {
 // recive one way message, no need to reply it
 postMessageHub.on(peer, {
   'tik-tok': msg => {
-    document.getElementById('tik-tok').innerHTML = msg
+    document.getElementById('tik-tok')!.innerHTML = msg
   }
 })
 
 function getShowDom (id: string) {
   const input = document.getElementById(id) as HTMLInputElement
-  const result = input.parentElement.nextElementSibling as HTMLParagraphElement
+  const result = input.parentElement!.nextElementSibling as HTMLParagraphElement
   return { input, result }
 }
 
@@ -50,7 +50,7 @@ testCase2.input.addEventListener('keyup', (e) => {
   })
 })
 
-document.getElementById('hi-btn').addEventListener('click', (e) => {
+document.getElementById('hi-btn')!.addEventListener('click', (e) => {
   // send worker a message without message data, no care about the response
   postMessageHub.emit(peer, 'hi', {
     onprogress(e) { console.log('progress', e) }
