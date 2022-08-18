@@ -330,8 +330,8 @@ enum EErrorCode {
   HANDLER_EXEC_ERROR = 1,
   /** peer not found */
   PEER_NOT_FOUND = 2,
-  /** message not responded in time */
-  TIMEOUT = 3,
+  /** method not found in peer */
+  METHOD_NOT_FOUND = 3,
   /** message has invalid content, can't be sent  */
   INVALID_MESSAGE = 4,
   /** other unspecified error */
