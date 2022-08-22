@@ -160,10 +160,10 @@ Send a message to peer, invoking `methodName` registered on the peer via [`on`](
 ```ts
 // in main process
 //    if you got a BrowserWindow instance, use browserWindow.webContents to get WebContents
-mainMessageHub.emit(peer: WebContents, method: string, ...args: any[]) => Promise<unknown>
+mainMessageHub.emit<ResponseType = unknown>(peer: WebContents, method: string, ...args: any[]) => Promise<ResponseType>
 
 // in renderer process, no need to specify the peer, the peer is default to the main process
-rendererMessageHub.emit(method: string, ...args: any[]) => Promise<unknown>
+rendererMessageHub.emit<ResponseType = unknown>(method: string, ...args: any[]) => Promise<ResponseType>
 ```
 
 e.g.

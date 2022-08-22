@@ -143,7 +143,7 @@ export abstract class AbstractHub {
    * subclass' own emit method, should use _emit to implements it
    * @param args args to emit message, normally are peer, methodName and method's params
    */
-  abstract emit(...args: any[]): void
+  abstract emit(...args: any[]): Promise<any>
 
   /**
    * subclass' own send message method, should send msg to peer
@@ -348,14 +348,14 @@ export abstract class AbstractHub {
         && this._eventHandlerMap[0])
   }
 
-  protected _emit(
+  protected _emit<ResponseType>(
     peer: any,
     methodName: string | IMethodNameConfig,
     ...args: any[]
   ) {
     if (this._isDestroyed) throw new Error('instance has been destroyed')
     const reqMsg = this._buildReqMessage(methodName, args)
-    const result = new Promise((resolve, reject) => {
+    const result = new Promise<ResponseType>((resolve, reject) => {
       // 0 for not match
       // 1 for done
       // 2 for need to be continue

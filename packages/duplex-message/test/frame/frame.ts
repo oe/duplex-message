@@ -15,13 +15,13 @@ postMessageHub.createProxy(subFrameWin!, parent)
 postMessageHub.createProxy(peer, parent)
 
 $('#test-1').addEventListener('click', () => {
-  messageHub.emit('page-title', {
+  messageHub.emit<string>('page-title', {
     onprogress(e) { 
       $('#result-1').innerText = 'progress ' + e
     },
     echo: ($('input-1') as HTMLInputElement).value
   }).then((res) => {
-    $('#result-1').innerText = res as string
+    $('#result-1').innerText = res
   })
 })
 

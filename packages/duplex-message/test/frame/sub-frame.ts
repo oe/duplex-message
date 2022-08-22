@@ -8,13 +8,13 @@ const $ = (id: string) => {
 
 $('#test-1').addEventListener('click', () => {
   messageHub
-    .emit("page-title", {
+    .emit<string>("page-title", {
       echo: ($("input-1") as HTMLInputElement).value,
       // onprogress: (p) => {
       //   $("#result-1").innerText = `progress: ${p}`
       // }
     })
-    .then((res: any) => {
+    .then((res) => {
       $("#result-1").innerText = res;
     });
 })

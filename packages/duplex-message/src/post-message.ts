@@ -74,7 +74,8 @@ export class PostMessageHub extends AbstractHub {
    * @param args arguments for that method
    * @returns Promise<unknown>
    */
-  emit(peer: Window | Worker, methodName: string | IMethodNameConfig, ...args: any[]) {
+  emit<ResponseType = unknown>(peer: Window | Worker,
+    methodName: string | IMethodNameConfig, ...args: any[]) {
     if (isWindow(peer) && !peer.parent) {
       return Promise.reject({
         code: EErrorCode.PEER_NOT_FOUND,
@@ -82,7 +83,7 @@ export class PostMessageHub extends AbstractHub {
       })
     }
     this._addWorkerListener(peer)
-    return this._emit(peer, methodName, ...args)
+    return this._emit<ResponseType>(peer, methodName, ...args)
   }
 
   /**
@@ -155,7 +156,7 @@ export class PostMessageHub extends AbstractHub {
      * @param methodName
      * @param args
      */
-    const emit = (methodName: string, ...args: any[]) => {
+    const emit = <ResponseType = unknown>(methodName: string, ...args: any[]) => {
       if (!checkPeer()) {
         return Promise.reject({
           code: EErrorCode.PEER_NOT_FOUND,
@@ -163,7 +164,7 @@ export class PostMessageHub extends AbstractHub {
         })
       }
       // @ts-ignore
-      return this.emit(ownPeer, methodName, ...args)
+      return this.emit<ResponseType>(ownPeer, methodName, ...args)
     }
     /**
      * remove method from messageHub. remove all listeners if methodName not presented

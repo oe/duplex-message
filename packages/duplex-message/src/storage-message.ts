@@ -63,8 +63,8 @@ export class StorageMessageHub extends AbstractHub {
    * @param args arguments for that method
    * @returns Promise<unknown>
    */
-  emit(methodName: string | IMethodNameConfig, ...args: any[]) {
-    return super._emit(this.instanceID, methodName, ...args)
+  emit<ResponseType = unknown>(methodName: string | IMethodNameConfig, ...args: any[]) {
+    return super._emit<ResponseType>(this.instanceID, methodName, ...args)
   }
 
   /**

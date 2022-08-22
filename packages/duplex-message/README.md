@@ -199,18 +199,27 @@ Tips:
 Send a message to peer, invoking `methodName` registered on the peer via [`on`](#postmessagehubon) with all its arguments `args`:
 
 ```ts
-postMessageHub.emit(peer: Window | Worker, methodName: string, ...args: any[]) => Promise<unknown>
+// in typescript, use ResponseType to specify response type
+postMessageHub.emit<ResponseType = unknown>(peer: Window | Worker, methodName: string, ...args: any[]) => Promise<ResponseType>
 ```
 
 This api return a promise, you can get the response or catch an exception via it.
 
 e.g.
 ```js
+// for ts 
 postMessageHub
-  .emit(peerWindow, 'some-method', 'arg1', 'arg2', 'otherArgs')
+  .emit<string>(peerWindow, 'some-method', 'arg1', 'arg2', 'otherArgs')
+  // res will be inferred as a string
   .then(res => console.log('success', res))
   .catch(err => console.warn('error', err))
 
+// for js
+postMessageHub
+  .emit(peerWindow, 'some-method', 'arg1', 'arg2', 'otherArgs')
+  // res will be inferred as a string
+  .then(res => console.log('success', res))
+  .catch(err => console.warn('error', err))
 ```
 
 Notice:
@@ -339,7 +348,8 @@ postMessageHub.createDedicatedMessageHub (peer?: Window | Worker, silent?: boole
 interface IDedicatedMessageHub {
   /** if you didn't set a peer when invoking createDedicatedMessageHub, then you can use `setPeer` to set it when it's ready*/
   setPeer: (peer: Window | Worker) => void;
-  emit: (methodName: string, ...args: any[]) => Promise<unknown>;
+  // in typescript, use ResponseType to specify response type
+  emit: <ResponseType = unknown>(methodName: string, ...args: any[]) => Promise<ResponseType>;
   on: (methodName: string, handler: Function) => void;
   on: (handlerMap: Record<string, Function>) => void;
   off: (methodName?: string) => any;
@@ -357,8 +367,15 @@ dedicatedMessageHub.on('a', () => {...})
 dedicatedMessageHub.setPeer(someWorker)
 
 dedicatedMessageHub.on('xx', () => {...})
-dedicatedMessageHub.emit('some-method', 'xx', 'xxx').then(() => {...}).catch(() => {...})
+// in ts, specify response type
+dedicatedMessageHub.emit<{title: string}>('some-method', 'xx', 'xxx').then((res) => {
+  console.log(res.title)
+}).catch(() => {...})
 
+// in js
+dedicatedMessageHub.emit<{title: string}>('some-method', 'xx', 'xxx').then((res) => {
+  console.log(res.title)
+}).catch(() => {...})
 ```
 
 #### postMessageHub.createProxy
@@ -427,7 +444,9 @@ Broadcast(or you can also send to specified peer) a message, invoking `methodNam
 //      there may be more than one peers, they all will respond this message,
 //      you will get the first success response,  rest responses will be discarded)
 // or the specified instance will respond your call
-storageMessageHub.emit(methodName: string | IMethodNameConfig, ...args: any[]) => Promise<unknown>
+//
+// in typescript, use ResponseType to specify response type
+storageMessageHub.emit<ResponseType = unknown>(methodName: string | IMethodNameConfig, ...args: any[]) => Promise<ResponseType>
 
 interface IMethodNameConfig {
   methodName: string
@@ -449,10 +468,14 @@ e.g.
 storageMessageHub.emit('user-logout')
 
 // send a message and get the first success response
-storageMessageHub.emit('get-some-info').then(res => {
-  console.log(res)
+//  in ts, specify response type
+storageMessageHub.emit<{name: string, email: string}>('get-some-info').then(res => {
+  console.log(res.name)
 }).catch(err => { console.error(err)})
-
+//  in js
+storageMessageHub.emit('get-some-info').then(res => {
+  console.log(res.name)
+}).catch(err => { console.error(err)})
 ```
 
 #### storageMessageHub.on
@@ -567,8 +590,8 @@ Tips:
 Send a message to peer, invoking `methodName` registered on the peer via [`on`](#pagescriptmessagehubon) with all its arguments `args`:
 
 ```ts
-// in renderer process
-pageScriptMessageHub.emit(methodName: string | IMethodNameConfig, ...args: any[]) => Promise<unknown>
+// in typescript, use ResponseType to specify response type
+pageScriptMessageHub.emit<ResponseType = unknown>(methodName: string | IMethodNameConfig, ...args: any[]) => Promise<ResponseType>
 
 interface IMethodNameConfig {
   methodName: string
@@ -578,11 +601,16 @@ interface IMethodNameConfig {
 ```
 
 e.g.
-```js
-// in renderer process
+```ts
+// in ts
+pageScriptMessageHub
+  .emit<{status: string, message: string}>('stop-download')
+  .then(res => console.log('status', res.status))
+  .catch(err => console.warn('error', err))
+// in js
 pageScriptMessageHub
   .emit('stop-download')
-  .then(res => console.log('success', res))
+  .then(res => console.log('status', res.status))
   .catch(err => console.warn('error', err))
 ```
 
@@ -591,7 +619,7 @@ Notice:
 2. If there are multi instances listening to the same message, you'll only get the first one who respond, others will be ignored.
 3. look into [Error](#error) when you catch an error
 4. omit args if no args are required, e.g `pageScriptMessageHub.emit('some-method')`
-5. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
+5. you may need to handle the promise returned by `emit` if some lint tools warning unhandled promise(or floating promise)
 
 
 #### pageScriptMessageHub.on
@@ -608,7 +636,6 @@ pageScriptMessageHub.on(singleHandler: Function)
 
 e.g.
 ```js
-
 // in renderer process
 pageScriptMessageHub.on('async-add', async function (a, b) {
   return new Promise((resolve, reject) => {

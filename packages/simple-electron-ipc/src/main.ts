@@ -17,8 +17,8 @@ export class MainMessageHub extends ElectronMessageHub {
     this._ipc.on(this._channelName, this._onMessageReceived)
   }
 
-  emit(target: WebContents, method: string, ...args: any[]) {
-    return super._emit(target, method, ...args)
+  emit<ResponseType = unknown>(target: WebContents, method: string, ...args: any[]) {
+    return super._emit<ResponseType>(target, method, ...args)
   }
 
   on(target: WebContents | '*', handlerMap: Function | IHandlerMap): void;

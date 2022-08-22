@@ -57,12 +57,12 @@ $('get-title').addEventListener('click', () => {
 })
 
 $('download').addEventListener('click', () => {
-  port2.emit('download', {
+  port2.emit<string>('download', {
     onprogress(e) {
       $('download-resp').innerHTML = 'progress ' + e
     }
   }).then((e) => {
-    $('download-resp').innerHTML = String(e)
+    $('download-resp').innerHTML = e
   })
 })
 

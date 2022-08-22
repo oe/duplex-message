@@ -17,8 +17,8 @@ export class RendererMessageHub extends ElectronMessageHub {
     this._ipc.on(this._channelName, this._onMessageReceived)
   }
 
-  emit(method: string, ...args: any[]) {
-    return super._emit(this._ipc, method, ...args)
+  emit<ResponseType = unknown>(method: string, ...args: any[]) {
+    return super._emit<ResponseType>(this._ipc, method, ...args)
   }
 
   on(handlerMap: Function | IHandlerMap): void;
