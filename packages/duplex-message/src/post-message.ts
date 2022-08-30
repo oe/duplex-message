@@ -20,7 +20,7 @@ function isWorker(peer: any): peer is Worker {
 }
 
 function isWindow(peer:any): peer is Window {
-  return !isInWorker && typeof window !== 'undefined' && peer instanceof Window
+  return !isInWorker && typeof window !== 'undefined' && peer && peer.window === peer
 }
 
 export class PostMessageHub extends AbstractHub {
