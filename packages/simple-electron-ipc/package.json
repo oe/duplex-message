@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "vite": "catalog:",
+    "vitest": "catalog:",
     "vite-plugin-dts": "catalog:",
     "typescript": "catalog:",
     "electron": "catalog:"

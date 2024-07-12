@@ -8,6 +8,9 @@
       "ES2017",
       "DOM"
     ],
+    "types": [
+      "@vitest/browser/providers/playwright"
+    ],
     "strict": true,
     "allowJs": false,
     "skipLibCheck": true,
@@ -16,9 +19,13 @@
     "esModuleInterop": true,
     "resolveJsonModule": true
   },
+  "include": [
+    "src"
+  ],
   "exclude": [
-    "dist",
     "test",
+    "dist",
+    "demo",
     "vite.config.ts"
   ]
 }
