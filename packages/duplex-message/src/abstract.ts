@@ -76,6 +76,9 @@ const CONTINUE_INDICATOR = '--message-hub-to-be-continued--'
 const WAIT_TIMEOUT = 200
 
 export interface IAbstractHubOptions {
+  /**
+   * custom instance id
+   */
   instanceID?: string
 }
 

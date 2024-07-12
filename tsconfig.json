@@ -17,5 +17,5 @@
     "baseUrl": "./",
     "lib": ["dom", "es7"],
   },
-  "include": ["./packages/**/*.ts"]
+  "include": ["./packages/**/*.ts", ".eslintrc.js"]
 }

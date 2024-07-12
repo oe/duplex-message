@@ -11,7 +11,7 @@ import {
 
 type IOwnPeer = Window | Worker | undefined
 
-let sharedPostMessageHub: PostMessageHub
+let sharedMessageHub: PostMessageHub
 
 const isInWorker = typeof document === 'undefined'
 
@@ -242,9 +242,9 @@ export class PostMessageHub extends AbstractHub {
 
   /** shared PostMessageHub instance */
   public static get shared() {
-    if (!sharedPostMessageHub) {
-      sharedPostMessageHub = new PostMessageHub()
+    if (!sharedMessageHub) {
+      sharedMessageHub = new PostMessageHub()
     }
-    return sharedPostMessageHub
+    return sharedMessageHub
   }
 }

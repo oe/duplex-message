@@ -19,6 +19,6 @@
   "exclude": [
     "dist",
     "test",
-    "rollup.config.ts"
+    "vite.config.ts"
   ]
 }

@@ -9,7 +9,7 @@ import {
 } from './abstract'
 
 export interface IStorageMessageHubOptions extends IAbstractHubOptions {
-  /** localStorage key prefix to store message, default: $$xiu */
+  /** sessionStorage key prefix to store message, default: $$xiu */
   keyPrefix?: string
   /**
    * a customable identity that can make your self identified by others
@@ -18,7 +18,7 @@ export interface IStorageMessageHubOptions extends IAbstractHubOptions {
   identity?: any
 }
 
-let sharedStorageMessageHub: StorageMessageHub
+let sharedMessageHub: StorageMessageHub
 
 export class StorageMessageHub extends AbstractHub {
   protected readonly _keyPrefix: string
@@ -27,7 +27,7 @@ export class StorageMessageHub extends AbstractHub {
 
   constructor(options?: IStorageMessageHubOptions) {
     // tslint:disable-next-line
-    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
       throw new Error(
         'StorageMessageHub only available in normal browser context, nodejs/worker are not supported',
       )
@@ -84,7 +84,7 @@ export class StorageMessageHub extends AbstractHub {
   protected sendMessage(peer: string, msg: IRequest | IResponse) {
     const msgKey = this._getMsgKey(msg)
     try {
-      localStorage.setItem(msgKey, JSON.stringify(msg))
+      sessionStorage.setItem(msgKey, JSON.stringify(msg))
     } catch (e) {
       console.warn(
         '[duplex-message] unable to stringify message, message not sent',
@@ -103,7 +103,7 @@ export class StorageMessageHub extends AbstractHub {
     const clearStorage = (k: string) => {
       clearTimeout(timeoutObj[k])
       timeoutObj[k] = setTimeout(() => {
-        localStorage.removeItem(k)
+        sessionStorage.removeItem(k)
         delete timeoutObj[k]
       }, 100)
     }
@@ -138,7 +138,7 @@ export class StorageMessageHub extends AbstractHub {
     if (!super._runResponseCallback(resp)) {
       // clean unhandled responses
       if (resp.toInstance === this.instanceID && resp.type === 'response') {
-        localStorage.removeItem(this._getMsgKey(resp))
+        sessionStorage.removeItem(this._getMsgKey(resp))
       }
       return false
     }
@@ -151,8 +151,8 @@ export class StorageMessageHub extends AbstractHub {
     if (this._isRequest(msg)) {
       // clear received message after proceeded
       setTimeout(() => {
-        if (localStorage.getItem(evt.key!) === null) return
-        localStorage.removeItem(evt.key!)
+        if (sessionStorage.getItem(evt.key!) === null) return
+        sessionStorage.removeItem(evt.key!)
       }, 100 + Math.floor(1000 * Math.random()))
     }
     this._onMessage(this.instanceID, msg)
@@ -181,9 +181,9 @@ export class StorageMessageHub extends AbstractHub {
 
   /** shared StorageMessageHub instance */
   public static get shared() {
-    if (!sharedStorageMessageHub) {
-      sharedStorageMessageHub = new StorageMessageHub()
+    if (!sharedMessageHub) {
+      sharedMessageHub = new StorageMessageHub()
     }
-    return sharedStorageMessageHub
+    return sharedMessageHub
   }
 }

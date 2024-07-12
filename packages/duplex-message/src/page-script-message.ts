@@ -7,7 +7,7 @@ import {
   IMethodNameConfig,
 } from './abstract'
 
-let sharedPageMessageHub: PageScriptMessageHub
+let sharedMessageHub: PageScriptMessageHub
 
 export interface IPageScriptMessageHubOptions extends IAbstractHubOptions {
   /** custom event name, default: message-hub */
@@ -86,9 +86,9 @@ export class PageScriptMessageHub extends AbstractHub {
 
   /** shared PageScriptMessageHub instance */
   public static get shared() {
-    if (!sharedPageMessageHub) {
-      sharedPageMessageHub = new PageScriptMessageHub()
+    if (!sharedMessageHub) {
+      sharedMessageHub = new PageScriptMessageHub()
     }
-    return sharedPageMessageHub
+    return sharedMessageHub
   }
 }

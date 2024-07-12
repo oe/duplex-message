@@ -23,19 +23,19 @@
 - [Install](#install)
 - [Example](#example)
 - [Usage](#usage)
-  - [PostMessageHub](#postmessagehub) for windows / iframes / workers messaging
+  - [PostMessageHub](#postmessagehub) for windows / iframes / workers
     - [postMessageHub.emit](#postmessagehubemit)
     - [postMessageHub.on](#postmessagehubon)
     - [progress for PostMessageHub](#progress-for-postmessagehub)
     - [postMessageHub.off](#postmessagehuboff)
     - [postMessageHub.createDedicatedMessageHub](#postmessagehubcreatededicatedmessagehub)
     - [postMessageHub.createProxy](#postmessagehubcreateproxy)
-  - [StorageMessageHub](#storagemessagehub)
+  - [StorageMessageHub](#storagemessagehub) for same-origin pages messaging via sessionStorage
     - [storageMessageHub.emit](#storagemessagehubemit)
     - [storageMessageHub.on](#storagemessagehubon)
     - [progress for storageMessageHub](#progress-for-storagemessagehub)
     - [storageMessageHub.off](#storagemessagehuboff)
-  - [PageScriptMessageHub](#pagescriptmessagehub)
+  - [PageScriptMessageHub](#pagescriptmessagehub) for isolated js environment in same window context
     - [pageScriptMessageHub.emit](#pagescriptmessagehubemit)
     - [pageScriptMessageHub.on](#pagescriptmessagehubon)
     - [progress for PageScriptMessageHub](#progress-for-pagescriptmessagehub)
