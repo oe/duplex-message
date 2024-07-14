@@ -16,8 +16,11 @@ export default defineConfig({
     browser: {
       provider: 'playwright',
       enabled: true,
-      name: 'chrome',
-      headless: true,
+      name: 'chromium',
+      headless: false,
+    },
+    alias: {
+      src: '/src',
     },
     globals: true,
   },

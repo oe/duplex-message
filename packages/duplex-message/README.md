@@ -18,6 +18,9 @@
 
 <h4 align="center">A tinny(~3kb) utility that can simplify cross window / iframes / workers communications, even with progress feedback support.</h4>
 
+>[!NOTE]
+> This utility is designed to simplify the communication between different window contexts(windows, iframes, workers) in the browser, it's a peer-to-peer communication tool, you can create multi peers as you want, but only one event callback is allow for per event on a peer. If you want to listen multi callbacks for one event, you may use this library along with other event-bus like `mitt` or `eventemitter3` library.
+
 ## 📝 Table of Contents
 - [Features](#features)
 - [Install](#install)
