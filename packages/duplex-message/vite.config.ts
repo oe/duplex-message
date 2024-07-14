@@ -13,11 +13,11 @@ export default defineConfig({
     },
   },
   test: {
-    browser: {
-      provider: 'playwright',
-      enabled: true,
-      name: 'chromium',
-      headless: false,
+    include: ['test/**/*.{tb,tn}.ts', 'test/**/*.{tb,tn}.tsx'],
+    exclude: ['demo/**'],
+    coverage: {
+      provider: 'istanbul',
+      exclude: ['demo/**', 'test/**', 'dist/**', '*.config.ts'],
     },
     alias: {
       src: '/src',

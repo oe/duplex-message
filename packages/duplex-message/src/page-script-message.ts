@@ -19,7 +19,7 @@ export class PageScriptMessageHub extends AbstractHub {
 
   constructor(options?: IPageScriptMessageHubOptions) {
     // tslint:disable-next-line
-    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    if (typeof window === 'undefined') {
       throw new Error(
         'PageScriptMessageHub only available in normal browser context, nodejs/worker are not supported',
       )

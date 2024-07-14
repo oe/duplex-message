@@ -1,3 +1,6 @@
+/**
+ * BroadcastChannel works for different browser-tabs or nodejs-processes
+ */
 import {
   AbstractHub,
   IResponse,

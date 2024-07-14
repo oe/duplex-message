@@ -174,8 +174,7 @@ export class PostMessageHub extends AbstractHub {
       if (!checkPeer()) return
       // @ts-ignore
       if (!methodName) {
-        if (!ownPeer) return
-        this.off(ownPeer)
+        this.off(ownPeer!)
         return
       }
       const matchedMap = this._eventHandlerMap.find((wm) => wm[0] === ownPeer)

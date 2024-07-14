@@ -71,3 +71,4 @@ cache
 test-cache
 test/cache
 **/dist
+__screenshots__
