@@ -9,6 +9,7 @@ describe('broadcast', () => {
     const hub = new BroadcastMessageHub();
     const cb = vi.fn();
     const shared = BroadcastMessageHub.shared;
+    // @ts-expect-error for test
     expect(shared.isDestroyed).toBe(false);
     setConfig({ debug: true })
   });

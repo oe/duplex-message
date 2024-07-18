@@ -76,7 +76,7 @@ export class StorageMessageHub extends AbstractHub {
   }
 
   destroy() {
-    if (this._isDestroyed) return
+    if (this.isDestroyed) return
     super.destroy()
     window.removeEventListener('storage', this._onMessageReceived)
   }
@@ -94,7 +94,7 @@ export class StorageMessageHub extends AbstractHub {
     }
   }
 
-  protected _listenResponse(
+  protected listenResponse(
     peer: any,
     reqMsg: IRequest,
     callback: (resp: IResponse | IProgress) => number,
@@ -108,7 +108,7 @@ export class StorageMessageHub extends AbstractHub {
       }, 100)
     }
 
-    const wrappedCallback = AbstractHub._wrapCallback(this, reqMsg, callback)
+    const wrappedCallback = AbstractHub.wrapResponseCallback(this, reqMsg, callback)
     /**
      * callback handled via onMessageReceived
      *  returns:  0 not a corresponding response
@@ -119,25 +119,25 @@ export class StorageMessageHub extends AbstractHub {
      */
     const evtCallback = (msg: IResponse | IProgress) => {
       const msgKey = this._getMsgKey({ ...msg, type: 'progress' })
-      if (this._isProgress(reqMsg, msg)) {
+      if (this.isProgressMessage(reqMsg, msg)) {
         const res = wrappedCallback(msg)
         if (!res || !reqMsg.progress) {
           clearStorage(msgKey)
         }
         return res
       }
-      if (!this._isResponse(reqMsg, msg)) return 0
+      if (!this.isResponseMessage(reqMsg, msg)) return 0
       clearStorage(this._getMsgKey(msg))
       clearStorage(msgKey)
       return wrappedCallback(msg)
     }
-    super._listenResponse(peer, reqMsg, evtCallback, true)
+    super.listenResponse(peer, reqMsg, evtCallback, true)
   }
 
-  protected _runResponseCallback(resp: IResponse) {
-    if (!super._runResponseCallback(resp)) {
+  protected runResponseCallback(resp: IResponse) {
+    if (!super.runResponseCallback(resp)) {
       // clean unhandled responses
-      if (resp.toInstance === this.instanceID && resp.type === 'response') {
+      if (resp.to === this.instanceID && resp.type === 'response') {
         sessionStorage.removeItem(this._getMsgKey(resp))
       }
       return false
@@ -148,14 +148,14 @@ export class StorageMessageHub extends AbstractHub {
   protected _onMessageReceived(evt: StorageEvent) {
     const msg = this._getMsgFromEvent(evt)
     if (!msg) return
-    if (this._isRequest(msg)) {
+    if (this.isRequestMessage(msg)) {
       // clear received message after proceeded
       setTimeout(() => {
         if (sessionStorage.getItem(evt.key!) === null) return
         sessionStorage.removeItem(evt.key!)
       }, 100 + Math.floor(1000 * Math.random()))
     }
-    this._onMessage(this.instanceID, msg)
+    this.onMessage(this.instanceID, msg)
   }
 
   protected _getMsgFromEvent(evt: StorageEvent): any {
@@ -174,8 +174,8 @@ export class StorageMessageHub extends AbstractHub {
   }
 
   protected _getMsgKey(msg: IRequest | IResponse | IProgress) {
-    return `${this._keyPrefix}-${msg.type}-${msg.fromInstance}-${
-      msg.toInstance || ''
+    return `${this._keyPrefix}-${msg.type}-${msg.from}-${
+      msg.to || ''
     }-${msg.messageID}`
   }
 

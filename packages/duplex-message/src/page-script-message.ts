@@ -69,14 +69,14 @@ export class PageScriptMessageHub extends AbstractHub {
   }
 
   destroy() {
-    if (this._isDestroyed) return
+    if (this.isDestroyed) return
     super.destroy()
     // @ts-ignore
     window.removeEventListener(this._customEventName, this._onMessageReceived)
   }
 
   protected _onMessageReceived(evt: CustomEvent) {
-    this._onMessage(this.instanceID, evt.detail)
+    this.onMessage(this.instanceID, evt.detail)
   }
 
   protected sendMessage(peer: string, msg: IRequest | IResponse) {

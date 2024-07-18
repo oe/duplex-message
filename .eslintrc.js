@@ -1,3 +1,4 @@
+/** @type {import('eslint').Linter.Config} */
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
@@ -21,6 +22,7 @@ module.exports = {
         ],
       },
     ],
+    'no-trailing-spaces': ['error', { ignoreComments: true }],
     'import/prefer-default-export': ['off'],
     'prefer-promise-reject-errors': ['off'],
     '@typescript-eslint/no-throw-literal': ['off'],

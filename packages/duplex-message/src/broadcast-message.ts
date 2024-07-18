@@ -72,7 +72,7 @@ export class BroadcastMessageHub extends AbstractHub {
   }
 
   destroy() {
-    if (this._isDestroyed) return
+    if (this.isDestroyed) return
     this.bc.onmessage = null
     this.bc.close()
     // @ts-expect-error fix type error
@@ -81,7 +81,7 @@ export class BroadcastMessageHub extends AbstractHub {
   }
 
   protected _onMessageReceived(evt: MessageEvent) {
-    this._onMessage(PEER, evt.data)
+    this.onMessage(PEER, evt.data)
   }
 
   protected sendMessage(

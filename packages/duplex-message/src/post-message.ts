@@ -105,7 +105,7 @@ export class PostMessageHub extends AbstractHub {
   }
 
   destroy() {
-    if (this._isDestroyed) return
+    if (this.isDestroyed) return
     super.destroy()
     // @ts-ignore
     this._WIN.removeEventListener('message', this._onMessageReceived)
@@ -221,7 +221,7 @@ export class PostMessageHub extends AbstractHub {
 
   protected _onMessageReceived(evt: MessageEvent) {
     const peer = evt.source || evt.currentTarget || this._WIN
-    this._onMessage(peer, evt.data)
+    this.onMessage(peer, evt.data)
   }
 
   protected sendMessage(
