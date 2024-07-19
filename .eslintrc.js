@@ -22,6 +22,7 @@ module.exports = {
         ],
       },
     ],
+    '@typescript-eslint/comma-dangle': ['off'],
     'no-trailing-spaces': ['error', { ignoreComments: true }],
     'import/prefer-default-export': ['off'],
     'prefer-promise-reject-errors': ['off'],

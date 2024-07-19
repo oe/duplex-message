@@ -1,7 +1,8 @@
 import { PostMessageHub } from '../../src'
+import PeerWorker from './worker?worker'
 const postMessageHub = new PostMessageHub
 
-const peer = new Worker('./worker.ts')
+const peer = new PeerWorker
 
 
 // use route to handle other side's request, and set ctx.response to reply the request
@@ -53,7 +54,7 @@ testCase2.input.addEventListener('keyup', (e) => {
 document.getElementById('hi-btn')!.addEventListener('click', (e) => {
   // send worker a message without message data, no care about the response
   postMessageHub.emit(peer, 'hi', {
-    onprogress(e) { console.log('progress', e) }
+    onprogress(e: any) { console.log('progress', e) }
   }).then(res => console.log('`hi` response', res))
   .catch(err => console.warn('hi error', err))
 })

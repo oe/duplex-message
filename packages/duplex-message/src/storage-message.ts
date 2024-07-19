@@ -9,7 +9,7 @@ import {
 } from './abstract'
 
 export interface IStorageMessageHubOptions extends IAbstractHubOptions {
-  /** sessionStorage key prefix to store message, default: $$xiu */
+  /** localStorage key prefix to store message, default: $$xiu */
   keyPrefix?: string
   /**
    * a customable identity that can make your self identified by others
@@ -27,7 +27,7 @@ export class StorageMessageHub extends AbstractHub {
 
   constructor(options?: IStorageMessageHubOptions) {
     // tslint:disable-next-line
-    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
       throw new Error(
         'StorageMessageHub only available in normal browser context, nodejs/worker are not supported',
       )
@@ -84,7 +84,11 @@ export class StorageMessageHub extends AbstractHub {
   protected sendMessage(peer: string, msg: IRequest | IResponse) {
     const msgKey = this._getMsgKey(msg)
     try {
-      sessionStorage.setItem(msgKey, JSON.stringify(msg))
+      localStorage.setItem(msgKey, JSON.stringify(msg))
+      // clean storage key after 100ms
+      setTimeout(() => {
+        localStorage.removeItem(msgKey)
+      }, 100)
     } catch (e) {
       console.warn(
         '[duplex-message] unable to stringify message, message not sent',
@@ -94,75 +98,18 @@ export class StorageMessageHub extends AbstractHub {
     }
   }
 
-  protected listenResponse(
-    peer: any,
-    reqMsg: IRequest,
-    callback: (resp: IResponse | IProgress) => number,
-  ) {
-    const timeoutObj: Record<string, any> = {}
-    const clearStorage = (k: string) => {
-      clearTimeout(timeoutObj[k])
-      timeoutObj[k] = setTimeout(() => {
-        sessionStorage.removeItem(k)
-        delete timeoutObj[k]
-      }, 100)
-    }
-
-    const wrappedCallback = AbstractHub.wrapResponseCallback(this, reqMsg, callback)
-    /**
-     * callback handled via onMessageReceived
-     *  returns:  0 not a corresponding response
-     *            1 corresponding response and everything get proceeded
-     *            2 corresponding response and need waiting for rest responses
-     * @param msg
-     * @returns number
-     */
-    const evtCallback = (msg: IResponse | IProgress) => {
-      const msgKey = this._getMsgKey({ ...msg, type: 'progress' })
-      if (this.isProgressMessage(reqMsg, msg)) {
-        const res = wrappedCallback(msg)
-        if (!res || !reqMsg.progress) {
-          clearStorage(msgKey)
-        }
-        return res
-      }
-      if (!this.isResponseMessage(reqMsg, msg)) return 0
-      clearStorage(this._getMsgKey(msg))
-      clearStorage(msgKey)
-      return wrappedCallback(msg)
-    }
-    super.listenResponse(peer, reqMsg, evtCallback, true)
-  }
-
-  protected runResponseCallback(resp: IResponse) {
-    if (!super.runResponseCallback(resp)) {
-      // clean unhandled responses
-      if (resp.to === this.instanceID && resp.type === 'response') {
-        sessionStorage.removeItem(this._getMsgKey(resp))
-      }
-      return false
-    }
-    return true
-  }
-
   protected _onMessageReceived(evt: StorageEvent) {
     const msg = this._getMsgFromEvent(evt)
     if (!msg) return
-    if (this.isRequestMessage(msg)) {
-      // clear received message after proceeded
-      setTimeout(() => {
-        if (sessionStorage.getItem(evt.key!) === null) return
-        sessionStorage.removeItem(evt.key!)
-      }, 100 + Math.floor(1000 * Math.random()))
-    }
     this.onMessage(this.instanceID, msg)
   }
 
   protected _getMsgFromEvent(evt: StorageEvent): any {
     if (
       !evt.key
-      || evt.key.indexOf(`${this._keyPrefix}-`) !== 0
       || !evt.newValue
+      || evt.storageArea !== localStorage
+      || evt.key.indexOf(`${this._keyPrefix}-`) !== 0
     ) return
     try {
       const msg = JSON.parse(evt.newValue)

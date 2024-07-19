@@ -3,12 +3,12 @@ const postMessageHub = new PostMessageHub
 const peer = self
 
 // tik count
-let tikCount = 0
+// let tikCount = 0
 
-setInterval(() => {
-  // console.log('tick tok')
-  postMessageHub.emit(peer, 'tik-tok', `<i>I'm alive: ${tikCount++}</i>`)
-}, 1000)
+// setInterval(() => {
+//   // console.log('tick tok')
+//   postMessageHub.emit(peer, 'tik-tok', `<i>I'm alive: ${tikCount++}</i>`)
+// }, 1000)
 
 postMessageHub.on(peer, {
   'convert2mdH1': async (param) => {
@@ -44,7 +44,7 @@ postMessageHub.on(peer, {
 })
 
 // use a recursion algorithm which will take more than half a minute when n big than 50
-function fib (n) {
+function fib (n: number): number {
   if (n < 2) return n
   return fib(n - 1) + fib(n - 2)
 }

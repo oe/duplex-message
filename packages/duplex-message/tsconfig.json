@@ -28,11 +28,11 @@
   },
   "include": [
     "src",
-    "test"
+    "test",
+    "demo"
   ],
   "exclude": [
     "dist",
-    "demo",
     "vite.config.ts"
   ]
 }

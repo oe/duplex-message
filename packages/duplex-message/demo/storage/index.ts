@@ -59,11 +59,11 @@ $('test-progress').addEventListener('click', async () => {
   try {
     const response = await storageMessageHub.emit('mockDownload',
     {
-      onprogress: (p) => $('progress-response').innerHTML = `progress ${p}`
+      onprogress: (p: any) => $('progress-response').innerHTML = `progress ${p}`
     })
   
     $('progress-response').innerHTML = `progress ${response}`
-  } catch (error) {
+  } catch (error: any) {
     console.error(error)
     $('progress-response').innerHTML = `error ${error.message}`
   }

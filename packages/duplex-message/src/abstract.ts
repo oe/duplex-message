@@ -1,7 +1,8 @@
 export type IFn = (...args: any[]) => any
 
-export type IHandlerMap = Record<string, IFn[]>
+export type IHandlerMap = Record<string, IFn[] | IFn>
 
+type IHandlerMapInner = Record<string, IFn[]>
 export interface IMessageBase<T> {
   /**
    * message source, peer id
@@ -144,7 +145,7 @@ export abstract class AbstractHub {
    * message handler map
    *  array item struct: eventTarget, {eventName: eventHandler } | handler4AllEvents
    */
-  protected readonly _eventHandlerMap: Array<[any, IHandlerMap | IFn]>
+  protected readonly _eventHandlerMap: Array<[any, IHandlerMapInner | IFn]>
 
   /**
    * designed response map
@@ -168,7 +169,7 @@ export abstract class AbstractHub {
     this._messageID = 0
     this._designedResponse = {}
     this.isDestroyed = false
-    if (libConfig.debug) {
+    if (process.env.NODE_ENV === 'development') {
       console.warn(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
     }
   }
@@ -245,11 +246,9 @@ export abstract class AbstractHub {
         }
       }
       // merge existing handler map
-      pair[1] = typeof existingMap === 'function'
+      pair[1] = typeof handlerResult === 'function'
         ? handlerResult
-        : typeof handlerResult === 'function'
-          ? handlerResult
-          : AbstractHub.mergeEventMap(existingMap, handlerResult)
+        : AbstractHub.mergeEventMap(typeof existingMap === 'function' ? {} : existingMap, handlerResult)
 
       return
     }
@@ -258,7 +257,9 @@ export abstract class AbstractHub {
      */
     this._eventHandlerMap[peer === '*' ? 'unshift' : 'push']([
       peer,
-      handlerResult,
+      typeof handlerResult === 'function'
+        ? handlerResult
+        : AbstractHub.mergeEventMap({}, handlerResult),
     ])
   }
 
@@ -300,8 +301,9 @@ export abstract class AbstractHub {
    * listen message from peer
    */
   protected async onMessage(peer: any, msg: any) {
+    if (msg && msg.source === 'react-devtools-content-script') return
     this.checkInstance()
-    if (!AbstractHub.isMessage(msg)) return
+    if (!this.isMessage(msg)) return
     // then it is a response or progress message
     if (!this.isRequestMessage(msg)) {
       // @ts-expect-error ignore
@@ -314,7 +316,7 @@ export abstract class AbstractHub {
     if (!this.getMessageCallbacks(peer, msg)) {
       return
     }
-    // send a heartbeat message to peer, in case of response takes too long
+    // send a heartbeat message to peer, in case of response t  `akes too long
     this.sendMessage(
       peer,
       this.buildProgressMessage(CONTINUE_INDICATOR, msg),
@@ -329,17 +331,19 @@ export abstract class AbstractHub {
     const callback = this._responseCallbackMap[resp.messageID]
     if (!callback) return false
     const ret = callback(resp)
+    // not match
+    if (!ret) return false
     // need to be continued
     if (ret > 1) return true
+    // done
     // clean up
     delete this._responseCallbackMap[resp.messageID]
-    // timeout, in case of any delays
     delete this._designedResponse[resp.messageID]
     return true
   }
 
   /**
-   * run message's callbacks
+   * run message's callbacks when receive request from peer
    * * first none undefined response will be returned
    * * if all callbacks occur error, the last error will be returned
    * * if at least one callback success, and no none undefined response,  
@@ -390,7 +394,7 @@ export abstract class AbstractHub {
           }
           hasSuccess = true
         } catch (error) {
-          if (libConfig.debug) {
+          if (process.env.NODE_ENV === 'development') {
             console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs, error)
           }
           if (responded) return
@@ -431,7 +435,7 @@ export abstract class AbstractHub {
     ...args: any[]
   ) {
     if (this.isDestroyed) throw new Error('instance has been destroyed')
-    const reqMsg = this._buildReqMessage(methodName, args)
+    const reqMsg = this.buildReqMessage(methodName, args)
     const result = new Promise<ResponseType>((resolve, reject) => {
       // 0 for not match
       // 1 for response, done
@@ -462,7 +466,7 @@ export abstract class AbstractHub {
       this.listenResponse(peer, reqMsg, callback)
     })
     try {
-      this.sendMessage(peer, AbstractHub._normalizeRequest(peer, reqMsg))
+      this.sendMessage(peer, AbstractHub.normalizeRequest(peer, reqMsg))
     } catch (error) {
       console.warn(
         '[duplex-message] unable to serialize message, message not sent',
@@ -511,12 +515,12 @@ export abstract class AbstractHub {
     callback: Function,
   ) {
     return (resp: IResponse | IProgress) => {
-      if (!AbstractHub.isMessage(resp)) return 0
+      if (!instance.isMessage(resp)) return 0
       const designedPeerID = instance._designedResponse[reqMsg.messageID]
       // ignore not designed resp
       if (designedPeerID && resp.from !== designedPeerID) {
         if (
-          libConfig.debug
+          process.env.NODE_ENV === 'development'
           && instance.isProgressMessage(reqMsg, resp)
           && resp.data === CONTINUE_INDICATOR
         ) {
@@ -524,7 +528,7 @@ export abstract class AbstractHub {
             '[duplex-message] message',
             reqMsg.methodName,
             'already processing, but handled by another peer',
-            resp.from,
+            designedPeerID, ', message', resp, 'will be ignored',
           )
         }
         /** ignore */
@@ -547,7 +551,7 @@ export abstract class AbstractHub {
    * normalize progress callback on message
    * * remove onprogress in first argument
    */
-  protected static _normalizeRequest(peer: any, msg: IRequest) {
+  protected static normalizeRequest(peer: any, msg: IRequest) {
     // skip if peer is *
     if (peer === '*' || !msg.progress) {
       // eslint-disable-next-line no-param-reassign
@@ -563,7 +567,7 @@ export abstract class AbstractHub {
     return newMsg
   }
 
-  protected _buildReqMessage(
+  protected buildReqMessage(
     methodName: string | IMethodNameConfig,
     args: any[],
   ): IRequest {
@@ -609,8 +613,9 @@ export abstract class AbstractHub {
     }
   }
 
-  protected static isMessage(msg: any): msg is IMessageBase<any> {
+  protected isMessage(msg: any): msg is IMessageBase<any> {
     return msg
+      && (msg.to === this.instanceID || !msg.to)
       && msg.messageID
       && msg.from
       && msg.type
@@ -618,14 +623,14 @@ export abstract class AbstractHub {
   }
 
   protected isRequestMessage(msg: any): msg is IRequest {
-    return AbstractHub.isMessage(msg)
-      && msg.type === 'request'
+    return this.isMessage(msg)
       && msg.from !== this.instanceID
+      && msg.type === 'request'
       && (!msg.to || msg.to === this.instanceID)
   }
 
   protected isResponseMessage(reqMsg: IRequest, msg: any): msg is IResponse {
-    return AbstractHub.isMessage(msg)
+    return this.isMessage(msg)
       && msg.to === this.instanceID
       && msg.to === reqMsg.from
       && msg.messageID === reqMsg.messageID
@@ -633,16 +638,15 @@ export abstract class AbstractHub {
   }
 
   protected isProgressMessage(reqMsg: IRequest, msg: any): msg is IProgress {
-    return AbstractHub.isMessage(msg)
+    return this.isMessage(msg)
       && msg.to === this.instanceID
       && msg.to === reqMsg.from
-      && !!reqMsg.progress
       && msg.messageID === reqMsg.messageID
       && msg.type === 'progress'
   }
 
   protected static getMethodCallbacks(methodName: string,
-    handlerTuple?: [any, IFn | IHandlerMap]): [IFn[], false] | [IFn, true] | undefined {
+    handlerTuple?: [any, IFn | IHandlerMapInner]): [IFn[], false] | [IFn, true] | undefined {
     if (!handlerTuple) return undefined
     const handlerMap = handlerTuple[1]
     if (!handlerMap) return undefined
@@ -660,16 +664,17 @@ export abstract class AbstractHub {
   }
 
   private static mergeEventMap(
-    existingMap: IHandlerMap,
+    existingMap: IHandlerMapInner,
     newMap: IHandlerMap,
-  ): IHandlerMap {
+  ): IHandlerMapInner {
     const result = { ...existingMap }
     const newKeys = Object.keys(newMap)
     newKeys.forEach((key) => {
+      const callbacks = Array.isArray(newMap[key]) ? newMap[key] : [newMap[key]]
       if (existingMap[key]) {
-        result[key].push(...newMap[key])
+        result[key].push(...callbacks)
       } else {
-        result[key] = newMap[key]
+        result[key] = callbacks
       }
     })
     return result

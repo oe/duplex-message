@@ -1,9 +1,10 @@
 import { PostMessageHub, setConfig } from '../../src'
 const postMessageHub = new PostMessageHub
+import PeerWorker from './worker?worker'
 
 setConfig({debug: true})
 
-const peer = new Worker('./worker.ts')
+const peer = new PeerWorker
 
 const messageHub = postMessageHub.createDedicatedMessageHub(parent)
 const $ = (id: string) => {
@@ -16,7 +17,7 @@ postMessageHub.createProxy(peer, parent)
 
 $('#test-1').addEventListener('click', () => {
   messageHub.emit<string>('page-title', {
-    onprogress(e) { 
+    onprogress(e: any) { 
       $('#result-1').innerText = 'progress ' + e
     },
     echo: ($('input-1') as HTMLInputElement).value

@@ -58,12 +58,19 @@ $('get-title').addEventListener('click', () => {
 
 $('download').addEventListener('click', () => {
   port2.emit<string>('download', {
-    onprogress(e) {
+    onprogress(e: any) {
       $('download-resp').innerHTML = 'progress ' + e
     }
   }).then((e) => {
     $('download-resp').innerHTML = e
   })
+})
+
+$('remove-event').addEventListener('click', () => {
+  port3.off('getTitle')
+})
+$('remove-event-p1').addEventListener('click', () => {
+  port1.off('getTitle')
 })
 
 // port2.on({})

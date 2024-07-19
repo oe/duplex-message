@@ -6,7 +6,7 @@
   "module": "dist/index.es.js",
   "typings": "dist/index.d.ts",
   "scripts": {
-    "dev": "parcel test/worker/index.html test/frame/index.html test/page/index.html test/frame/frame.html test/storage/index.html --out-dir test/cache",
+    "dev": "vite",
     "build": "vite build",
     "test": "vitest",
     "test:coverage": "vitest --coverage"

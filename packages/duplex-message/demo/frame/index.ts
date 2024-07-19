@@ -15,7 +15,7 @@ const $ = (id: string) => {
   return document.getElementById(id.replace(/^\#/, '')) as HTMLElement
 }
 
-postMessageHub.on('*', "page-title", (arg) => {
+postMessageHub.on('*', "page-title", (arg: any) => {
   return new Promise((resolve, reject) => {
     let count = 0;
     if (!arg || !arg.onprogress) return resolve(
@@ -33,11 +33,11 @@ postMessageHub.on('*', "page-title", (arg) => {
 
 // listen message from frameWin
 messageHub.on({
-  testError (...args) {
+  testError (...args: any[]) {
     console.log('arguments from testError', args)
     throw new TypeError('testError not implemented')
   },
-  'tik-tok': msg => {
+  'tik-tok': (msg: string) => {
     $('tik-tok').innerHTML = msg
   }
 })
