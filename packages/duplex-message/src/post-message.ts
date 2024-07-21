@@ -3,6 +3,7 @@ import {
   IResponse,
   IRequest,
   IProgress,
+  IFn,
   IHandlerMap,
   EErrorCode,
   IAbstractHubOptions,
@@ -49,18 +50,18 @@ export class PostMessageHub extends AbstractHub {
    * @param peer messages that sent from, * for any peer
    * @param handlerMap handler or a map of handlers
    */
-  on(peer: Window | Worker | '*', handlerMap: Function | IHandlerMap): void;
+  on(peer: Window | Worker | '*', handlerMap: IFn | IHandlerMap): void;
   /**
    * listen `methodName` from `peer` with a handler
    * @param peer messages that sent from, * for any peer
    * @param methodName method name
    * @param handler handler for the method name
    */
-  on(peer: Window | Worker | '*', methodName: string, handler: Function): void;
+  on(peer: Window | Worker | '*', methodName: string, handler: IFn): void;
   on(
     peer: Window | Worker | '*',
-    handlerMap: IHandlerMap | Function | string,
-    handler?: Function,
+    handlerMap: IHandlerMap | IFn | string,
+    handler?: IFn,
   ): void {
     // @ts-ignore
     super._on(peer, handlerMap, handler)
@@ -104,7 +105,7 @@ export class PostMessageHub extends AbstractHub {
     }
   }
 
-  destroy() {
+  override destroy() {
     if (this.isDestroyed) return
     super.destroy()
     // @ts-ignore
@@ -145,7 +146,7 @@ export class PostMessageHub extends AbstractHub {
      * @param methodName method name or handler map
      * @param handler omit if methodName is handler map
      */
-    const on = (methodName: string | object, handler?: Function) => {
+    const on = (methodName: string | object, handler?: IFn) => {
       if (!checkPeer()) return
       const handlerMap = typeof methodName === 'string' ? { [methodName]: handler } : methodName
       // @ts-ignore

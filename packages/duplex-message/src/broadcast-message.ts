@@ -6,12 +6,11 @@ import {
   IResponse,
   IRequest,
   IProgress,
+  IFn,
   IHandlerMap,
   IAbstractHubOptions,
   IMethodNameConfig,
 } from './abstract'
-
-const PEER = '*'
 
 let sharedMessageHub: BroadcastMessageHub
 
@@ -34,7 +33,7 @@ export class BroadcastMessageHub extends AbstractHub {
     super(options)
     this.bc = new BroadcastChannel(options?.channelName || DEFAULT_CHANNEL_NAME)
     this._onMessageReceived = this._onMessageReceived.bind(this)
-    this.bc.onmessage = this._onMessageReceived
+    this.bc.addEventListener('message', this._onMessageReceived)
   }
 
   /**
@@ -43,11 +42,11 @@ export class BroadcastMessageHub extends AbstractHub {
    * @param methodName method name
    * @param handler handler for the method name
    */
-  on(methodName: string, handler: Function): void;
-  on(handlerMap: IHandlerMap | string,
-    handler?: Function): void {
+  on(methodName: string, handler: IFn): void;
+  on(handlerMap: IHandlerMap | IFn): void
+  on(handlerMap: IHandlerMap | IFn | string, handler?: IFn): void {
     // @ts-expect-error fix type error
-    super._on(PEER, handlerMap, handler)
+    super._on(this.instanceID, handlerMap, handler)
   }
 
   /**
@@ -58,7 +57,7 @@ export class BroadcastMessageHub extends AbstractHub {
    * @returns Promise<unknown>
    */
   emit<ResponseType = unknown>(methodName: string | IMethodNameConfig, ...args: any[]) {
-    return this._emit<ResponseType>(PEER, methodName, ...args)
+    return this._emit<ResponseType>(this.instanceID, methodName, ...args)
   }
 
   /**
@@ -68,12 +67,12 @@ export class BroadcastMessageHub extends AbstractHub {
    * @param methodName method name
    */
   off(methodName?: string) {
-    super._off(PEER, methodName)
+    super._off(this.instanceID, methodName)
   }
 
-  destroy() {
+  override destroy() {
     if (this.isDestroyed) return
-    this.bc.onmessage = null
+    this.bc.removeEventListener('message', this._onMessageReceived)
     this.bc.close()
     // @ts-expect-error fix type error
     this.bc = null
@@ -81,7 +80,7 @@ export class BroadcastMessageHub extends AbstractHub {
   }
 
   protected _onMessageReceived(evt: MessageEvent) {
-    this.onMessage(PEER, evt.data)
+    this.onMessage(this.instanceID, evt.data)
   }
 
   protected sendMessage(

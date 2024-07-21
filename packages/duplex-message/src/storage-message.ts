@@ -3,6 +3,7 @@ import {
   IResponse,
   IHandlerMap,
   IRequest,
+  IFn,
   IProgress,
   IAbstractHubOptions,
   IMethodNameConfig,
@@ -11,19 +12,14 @@ import {
 export interface IStorageMessageHubOptions extends IAbstractHubOptions {
   /** localStorage key prefix to store message, default: $$xiu */
   keyPrefix?: string
-  /**
-   * a customable identity that can make your self identified by others
-   * will be used by StorageMessageHub.getPeerIdentifies
-   */
-  identity?: any
 }
+
+const DEFAULT_KEY_PREFIX = '$$xiu'
 
 let sharedMessageHub: StorageMessageHub
 
 export class StorageMessageHub extends AbstractHub {
   protected readonly _keyPrefix: string
-
-  protected readonly _identity?: string
 
   constructor(options?: IStorageMessageHubOptions) {
     // tslint:disable-next-line
@@ -34,9 +30,8 @@ export class StorageMessageHub extends AbstractHub {
     }
     super(options)
     // eslint-disable-next-line no-param-reassign
-    options = { keyPrefix: '$$xiu', ...options }
+    options = { keyPrefix: DEFAULT_KEY_PREFIX, ...options }
     this._onMessageReceived = this._onMessageReceived.bind(this)
-    this._identity = options.identity
     this._keyPrefix = options.keyPrefix!
     window.addEventListener('storage', this._onMessageReceived)
   }
@@ -45,15 +40,16 @@ export class StorageMessageHub extends AbstractHub {
    * listen all messages with one handler; or listen multi message via a handler map
    * @param handlerMap handler or a map of handlers
    */
-  on(handlerMap: Function | IHandlerMap): void;
+  on(handlerMap: IFn | IHandlerMap): void;
   /**
    * listen `methodName` with a handler
    * @param methodName method name
    * @param handler handler for the method name
    */
-  on(handlerMap: string, handler: Function): void;
-  on(handlerMap: IHandlerMap | Function | string, handler?: Function): void {
-    // @ts-ignore
+  on(handlerMap: string, handler: IFn): void;
+  on(handlerMap: IHandlerMap | IFn): void
+  on(handlerMap: IHandlerMap | IFn | string, handler?: IFn): void {
+    // @ts-expect-error fix type error
     super._on(this.instanceID, handlerMap, handler)
   }
 
@@ -75,7 +71,7 @@ export class StorageMessageHub extends AbstractHub {
     super._off(this.instanceID, methodName)
   }
 
-  destroy() {
+  override destroy() {
     if (this.isDestroyed) return
     super.destroy()
     window.removeEventListener('storage', this._onMessageReceived)
@@ -90,10 +86,12 @@ export class StorageMessageHub extends AbstractHub {
         localStorage.removeItem(msgKey)
       }, 100)
     } catch (e) {
-      console.warn(
-        '[duplex-message] unable to stringify message, message not sent',
-        e,
-      )
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '[duplex-message] unable to stringify message, message not sent',
+          e, 'message:', msg,
+        )
+      }
       throw e
     }
   }
@@ -109,7 +107,7 @@ export class StorageMessageHub extends AbstractHub {
       !evt.key
       || !evt.newValue
       || evt.storageArea !== localStorage
-      || evt.key.indexOf(`${this._keyPrefix}-`) !== 0
+      || !evt.key.startsWith(`${this._keyPrefix}-`)
     ) return
     try {
       const msg = JSON.parse(evt.newValue)

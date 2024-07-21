@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
   }
   return {
     plugins: [dts({
-      exclude: ['test/**'],
+      exclude: ['test/**', 'demo/**'],
     })],
     build: {
       lib: {

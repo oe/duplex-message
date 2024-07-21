@@ -3,9 +3,12 @@ import {
   IResponse,
   IHandlerMap,
   IRequest,
+  IFn,
   IAbstractHubOptions,
   IMethodNameConfig,
 } from './abstract'
+
+const DEFAULT_CUSTOM_EVT_NAME = 'message-hub'
 
 let sharedMessageHub: PageScriptMessageHub
 
@@ -25,7 +28,7 @@ export class PageScriptMessageHub extends AbstractHub {
       )
     }
     // eslint-disable-next-line no-param-reassign
-    options = { customEventName: 'message-hub', ...options }
+    options = { customEventName: DEFAULT_CUSTOM_EVT_NAME, ...options }
 
     super(options)
     this._customEventName = options.customEventName!
@@ -38,14 +41,14 @@ export class PageScriptMessageHub extends AbstractHub {
    * listen all messages with one handler; or listen multi message via a handler map
    * @param handlerMap handler or a map of handlers
    */
-  on(handlerMap: Function | IHandlerMap): void;
+  on(handlerMap: IFn | IHandlerMap): void;
   /**
    * listen `methodName` with a handler
    * @param methodName method name
    * @param handler handler for the method name
    */
-  on(methodName: string, handler: Function): void;
-  on(handlerMap: IHandlerMap | Function | string, handler?: Function): void {
+  on(methodName: string, handler: IFn): void;
+  on(handlerMap: IHandlerMap | IFn | string, handler?: IFn): void {
     // @ts-ignore
     super._on(this.instanceID, handlerMap, handler)
   }
@@ -68,7 +71,7 @@ export class PageScriptMessageHub extends AbstractHub {
     super._off(this.instanceID, methodName)
   }
 
-  destroy() {
+  override destroy() {
     if (this.isDestroyed) return
     super.destroy()
     // @ts-ignore

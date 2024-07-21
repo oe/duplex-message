@@ -128,7 +128,7 @@ export interface IAbstractHubOptions {
   /**
    * custom instance id
    */
-  instanceID?: string
+  instanceID?: string | null
 }
 
 export abstract class AbstractHub {
@@ -235,14 +235,6 @@ export abstract class AbstractHub {
           console.warn(`${msg} general handler for`, peer, 'will be overridden by', handlerResult)
         } else if (typeof handlerResult === 'function') {
           console.warn(`${msg} existing handlers`, existingMap, 'for peer(', peer, ') will be overridden by general function', handlerResult)
-        // @ts-ignore
-        } else if (existingMap) {
-          const newKeys = Object.keys(handlerResult)
-          const oldKeys = Object.keys(existingMap)
-          const overrideKeys = newKeys.filter((k) => oldKeys.indexOf(k) > -1)
-          if (overrideKeys.length) {
-            console.warn(`${msg} existing handlers of `, overrideKeys.join(','), 'for peer(', peer, ') will be overridden by handler', handlerResult)
-          }
         }
       }
       // merge existing handler map

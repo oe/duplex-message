@@ -11,12 +11,7 @@ export default defineConfig({
       fileName: (format) => (format === 'umd' ? 'index.js' : 'index.es.js'),
     },
     rollupOptions: {
-      external: ['electron'],
-      output: {
-        globals: {
-          electron: 'electron',
-        },
-      },
+      external: ['electron', 'duplex-message'],
     },
   },
 })

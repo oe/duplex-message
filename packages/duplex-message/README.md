@@ -19,7 +19,8 @@
 <h4 align="center">A tinny(~3kb) utility that can simplify cross window / iframes / workers communications, even with progress feedback support.</h4>
 
 >[!NOTE]
-> This utility is designed to simplify the communication between different window contexts(windows, iframes, workers) in the browser, it's a peer-to-peer communication tool, you can create multi peers as you want, but only one event callback is allow for per event on a peer. If you want to listen multi callbacks for one event, you may use this library along with other event-bus like `mitt` or `eventemitter3` library.
+> This utility is designed to simplify the communication between different window contexts(windows, iframes, workers) in the browser, it's a peer-to-peer communication tool, that means you can send messages to a peer and get its response, or listen to messages from a peer and respond to it, but it's not a traditional pub/sub tool, you won't be able to listen message from it self.
+
 
 ## 📝 Table of Contents
 - [Features](#features)
@@ -33,7 +34,7 @@
     - [postMessageHub.off](#postmessagehuboff)
     - [postMessageHub.createDedicatedMessageHub](#postmessagehubcreatededicatedmessagehub)
     - [postMessageHub.createProxy](#postmessagehubcreateproxy)
-  - [StorageMessageHub](#storagemessagehub) for same-origin pages messaging via sessionStorage
+  - [StorageMessageHub](#storagemessagehub) for same-origin pages messaging via localStorage
     - [storageMessageHub.emit](#storagemessagehubemit)
     - [storageMessageHub.on](#storagemessagehubon)
     - [progress for storageMessageHub](#progress-for-storagemessagehub)

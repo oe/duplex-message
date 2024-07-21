@@ -1,7 +1,7 @@
 import { StorageMessageHub, setConfig } from '../../src'
 setConfig({ debug: true })
 const query = new URLSearchParams(location.search)
-const storageMessageHub = new StorageMessageHub({identity: query.get('name') })
+const storageMessageHub = new StorageMessageHub({ instanceID: query.get('name') })
 // @ts-ignore
 window.sm = storageMessageHub
 
