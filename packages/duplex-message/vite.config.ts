@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
             frame: './demo/frame/index.html',
             page: './demo/page/index.html',
             storage: './demo/storage/index.html',
+            broadcast: './demo/broadcast/index.html',
           },
         },
       },

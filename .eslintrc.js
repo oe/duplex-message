@@ -12,13 +12,16 @@ module.exports = {
     'no-underscore-dangle': ['off'],
     'no-nested-ternary': ['off'],
     'no-console': ['off'],
-    'import/no-extraneous-dependencies': ['error',
+    'import/no-extraneous-dependencies': [
+      'error',
       {
         devDependencies: [
           '**/vite.config.ts',
           '**/vitest.workspace.ts',
           'jest.config.ts',
           '**/*.test.ts',
+          '**/*.tn.ts',
+          '**/*.tb.ts',
         ],
       },
     ],

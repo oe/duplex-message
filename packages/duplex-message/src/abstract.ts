@@ -308,7 +308,7 @@ export abstract class AbstractHub {
     if (!this.getMessageCallbacks(peer, msg)) {
       return
     }
-    // send a heartbeat message to peer, in case of response t  `akes too long
+    // send a heartbeat message to peer, in case of response takes too long
     this.sendMessage(
       peer,
       this.buildProgressMessage(CONTINUE_INDICATOR, msg),
@@ -501,64 +501,6 @@ export abstract class AbstractHub {
     }, HEARTBEAT_WAIT_TIMEOUT)
   }
 
-  protected static wrapResponseCallback(
-    instance: AbstractHub,
-    reqMsg: IRequest,
-    callback: Function,
-  ) {
-    return (resp: IResponse | IProgress) => {
-      if (!instance.isMessage(resp)) return 0
-      const designedPeerID = instance._designedResponse[reqMsg.messageID]
-      // ignore not designed resp
-      if (designedPeerID && resp.from !== designedPeerID) {
-        if (
-          process.env.NODE_ENV === 'development'
-          && instance.isProgressMessage(reqMsg, resp)
-          && resp.data === CONTINUE_INDICATOR
-        ) {
-          console.warn(
-            '[duplex-message] message',
-            reqMsg.methodName,
-            'already processing, but handled by another peer',
-            designedPeerID, ', message', resp, 'will be ignored',
-          )
-        }
-        /** ignore */
-        return 0
-      }
-
-      if (instance.isProgressMessage(reqMsg, resp) && resp.data === CONTINUE_INDICATOR) {
-        if (!designedPeerID) {
-          // eslint-disable-next-line no-param-reassign
-          instance._designedResponse[reqMsg.messageID] = resp.from
-        }
-        /** continue */
-        return 2
-      }
-      return callback(resp)
-    }
-  }
-
-  /**
-   * normalize progress callback on message
-   * * remove onprogress in first argument
-   */
-  protected static normalizeRequest(peer: any, msg: IRequest) {
-    // skip if peer is *
-    if (peer === '*' || !msg.progress) {
-      // eslint-disable-next-line no-param-reassign
-      delete msg.progress
-      return msg
-    }
-    const options = msg.data[0]
-    const newMsg = { ...msg }
-    newMsg.data = newMsg.data.slice()
-    const copied = { ...options }
-    delete copied.onprogress
-    newMsg.data[0] = copied
-    return newMsg
-  }
-
   protected buildReqMessage(
     methodName: string | IMethodNameConfig,
     args: any[],
@@ -635,6 +577,62 @@ export abstract class AbstractHub {
       && msg.to === reqMsg.from
       && msg.messageID === reqMsg.messageID
       && msg.type === 'progress'
+  }
+
+  protected static wrapResponseCallback(
+    instance: AbstractHub,
+    reqMsg: IRequest,
+    callback: IFn,
+  ) {
+    return (resp: IResponse | IProgress) => {
+      if (!instance.isMessage(resp)) return 0
+      const designedPeerID = instance._designedResponse[reqMsg.messageID]
+      // ignore not designed resp
+      if (designedPeerID && resp.from !== designedPeerID) {
+        if (
+          process.env.NODE_ENV === 'development'
+          && instance.isProgressMessage(reqMsg, resp)
+          && resp.data === CONTINUE_INDICATOR
+        ) {
+          console.warn(
+            '[duplex-message] message',
+            reqMsg.methodName,
+            'already processing, but handled by another peer',
+            designedPeerID, ', message', resp, 'will be ignored',
+          )
+        }
+        /** ignore */
+        return 0
+      }
+
+      if (instance.isProgressMessage(reqMsg, resp) && resp.data === CONTINUE_INDICATOR) {
+        if (!designedPeerID) {
+          // eslint-disable-next-line no-param-reassign
+          instance._designedResponse[reqMsg.messageID] = resp.from
+        }
+        /** continue */
+        return 2
+      }
+      return callback(resp)
+    }
+  }
+
+  /**
+   * normalize progress callback on message
+   * * remove onprogress in first argument
+   */
+  protected static normalizeRequest(peer: any, msg: IRequest) {
+    // skip if peer is *
+    if (peer === '*' || !msg.progress) {
+      return msg
+    }
+    const options = msg.data[0]
+    const newMsg = { ...msg }
+    newMsg.data = newMsg.data.slice()
+    const copied = { ...options }
+    delete copied.onprogress
+    newMsg.data[0] = copied
+    return newMsg
   }
 
   protected static getMethodCallbacks(methodName: string,
