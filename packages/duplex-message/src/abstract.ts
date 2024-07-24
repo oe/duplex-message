@@ -460,10 +460,13 @@ export abstract class AbstractHub {
     try {
       this.sendMessage(peer, AbstractHub.normalizeRequest(peer, reqMsg))
     } catch (error) {
-      console.warn(
-        '[duplex-message] unable to serialize message, message not sent',
-        error,
-      )
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '[duplex-message] unable to serialize message, message not sent',
+          error, ', message:', reqMsg,
+        )
+      }
+      delete this._responseCallbackMap[reqMsg.messageID]
       return Promise.reject({
         code: EErrorCode.INVALID_MESSAGE,
         message: 'unable to send message',

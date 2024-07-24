@@ -13,6 +13,9 @@ export default defineWorkspace([
       alias: {
         src: '/src',
       },
+      env: {
+        NODE_ENV: 'production',
+      },
       environment: 'node',
     },
   },
@@ -25,6 +28,10 @@ export default defineWorkspace([
       ],
       alias: {
         src: '/src',
+        test: '/test',
+      },
+      env: {
+        NODE_ENV: 'development',
       },
       name: 'browser',
       browser: {

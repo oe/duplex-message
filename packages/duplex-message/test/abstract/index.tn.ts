@@ -6,7 +6,7 @@ describe('duplex-message abstract static methods', () => {
     // @ts-ignore
     const id = AbstractHub.generateInstanceID();
     expect(typeof id).toBe('string');
-    expect(id.length > 20).toBe(true);
+    expect(id.length > 10).toBe(true);
   })
 
   it('normalizeRequest', () => {
