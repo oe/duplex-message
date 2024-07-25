@@ -17,20 +17,28 @@ describe('PostMessage in worker',  () => {
     worker.terminate()
     hub.on(worker, 'greet', console.log)
     hub.destroy()
+    // @ts-expect-error for test
+    window.parent = null
+    expect(hub.emit(window, 'greet', 'hello')).rejects.toThrowError()
+    
   })
 
   it('use shared instance', async () => {
     const worker = new DemoWorker
 
     const hub = PostMessageHub.shared
+    const hub2 = PostMessageHub.shared
+    expect(hub).toBe(hub2)
     hub.on(worker, 'greet', async (msg: string) => {
       console.log('on message from worker', msg)
     })
     const msg = await hub.emit(worker, 'greet', 'hello')
     expect(msg).toBe('hello')
+    hub.on(worker, {'greet2': console.log})
     hub.off(worker, 'greet')
     worker.terminate()
     hub.on(worker, 'greet', console.log)
+    hub.destroy()
     hub.destroy()
   })
 })
@@ -44,6 +52,7 @@ describe('Dedicated message hub', () => {
 
     const msg = await workerMessage.emit('greet', 'hello')
     workerMessage.on('greet', console.log)
+    workerMessage.on({'greet2': console.log})
     workerMessage.off('greet')
     expect(msg).toBe('hello')
 

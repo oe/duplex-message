@@ -1,7 +1,7 @@
 import { StorageMessageHub } from 'src/storage-message';
 
 
-console.log('frame storage', location.href)
+console.log('frame aaa storage', location.href)
 
 const hub = new StorageMessageHub;
 

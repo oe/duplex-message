@@ -173,15 +173,7 @@ export class PostMessageHub extends AbstractHub {
      */
     const off = (methodName?: string) => {
       if (!checkPeer()) return
-      // @ts-ignore
-      if (!methodName) {
-        this.off(ownPeer!)
-        return
-      }
-      const matchedMap = this._eventHandlerMap.find((wm) => wm[0] === ownPeer)
-      if (matchedMap && typeof matchedMap[1] === 'object') {
-        delete matchedMap[1][methodName]
-      }
+      this.off(ownPeer!, methodName)
     }
     return {
       setPeer,
@@ -208,9 +200,19 @@ export class PostMessageHub extends AbstractHub {
     this.on(fromWin, this.proxyMessage(toWin))
   }
 
-  proxyMessage(destWin: Window | Worker) {
+  /**
+   * stop forwarding message from `fromWin`
+   * TODO: only stop when the callback is a general function and has win property
+   */
+  stopProxy(fromWin: Window | Worker) {
+    this.off(fromWin)
+  }
+
+  protected proxyMessage(destWin: Window | Worker) {
     // @ts-ignore
-    return (...args: any[]) => this.emit(destWin, ...args)
+    const callback = (...args: any[]) => this.emit(destWin, ...args)
+    callback.win = destWin
+    return callback
   }
 
   protected _addWorkerListener(peer: Window | Worker | '*') {
