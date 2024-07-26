@@ -66,8 +66,8 @@ export class BroadcastMessageHub extends AbstractHub {
    * @param peer peer that own handlers
    * @param methodName method name
    */
-  off(methodName?: string) {
-    super._off(this.instanceID, methodName)
+  off(methodName?: string, handler?: IFn) {
+    super._off(this.instanceID, methodName, handler)
   }
 
   override destroy() {

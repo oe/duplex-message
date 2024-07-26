@@ -341,13 +341,12 @@ export abstract class AbstractHub {
    * * if at least one callback success, and no none undefined response,  
    *  success response(undefined) will be returned
    */
-  runMessageCallbacks(peer: any, reqMsg: IRequest) {
+  protected runMessageCallbacks(peer: any, reqMsg: IRequest) {
     const msgInfo = this.getMessageCallbacks(peer, reqMsg)
     const { methodName, data } = reqMsg
     if (!msgInfo) {
       return Promise.resolve(false) as Promise<false>
     }
-
     const newArgs = data.slice(0)
     if (reqMsg.progress && newArgs[0]) {
       const newArg = { ...newArgs[0] }

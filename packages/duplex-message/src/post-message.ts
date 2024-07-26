@@ -93,8 +93,8 @@ export class PostMessageHub extends AbstractHub {
    * @param peer peer that own handlers
    * @param methodName method name
    */
-  off(peer: Window | Worker | '*', methodName?: string) {
-    super._off(peer, methodName)
+  off(peer: Window | Worker | '*', methodName?: string, handler?: IFn) {
+    super._off(peer, methodName, handler)
     const evtMpIndx = this._eventHandlerMap.findIndex((m) => m[0] === peer)
     if (evtMpIndx === -1 && isWorker(peer)) {
       const idx = this._hostedWorkers.indexOf(peer)
@@ -171,9 +171,9 @@ export class PostMessageHub extends AbstractHub {
      * remove method from messageHub. remove all listeners if methodName not presented
      * @param methodName method meed to remove
      */
-    const off = (methodName?: string) => {
+    const off = (methodName?: string, handler?: IFn) => {
       if (!checkPeer()) return
-      this.off(ownPeer!, methodName)
+      this.off(ownPeer!, methodName, handler)
     }
     return {
       setPeer,

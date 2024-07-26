@@ -67,8 +67,8 @@ export class StorageMessageHub extends AbstractHub {
    * remove handler for `methodName`; remove all handlers if `methodName` absent
    * @param methodName method name
    */
-  off(methodName?: string) {
-    super._off(this.instanceID, methodName)
+  off(methodName?: string, handler?: IFn) {
+    super._off(this.instanceID, methodName, handler)
   }
 
   override destroy() {

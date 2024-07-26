@@ -7,8 +7,8 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const frames: HTMLIFrameElement[] = [];
 
-const createFrame = () => {
-  frames.forEach((frame) => frame.remove());
+const createFrame = (keepWin?: boolean) => {
+  keepWin || frames.forEach((frame) => frame.remove());
   frames.length = 0;
   const frame = document.createElement('iframe');
   frame.srcdoc = `
@@ -64,5 +64,29 @@ describe('Storage', () => {
 
     // @ts-expect-error for test
     expect(() => hub.sendMessage('peer', window)).toThrowError();
+  })
+
+  it('multi frame', async (ctx) => {
+    const hub = new StorageMessageHub();
+    const frame = createFrame();
+    const frame2 = createFrame(true);
+    await wait(2000);
+    const res = await hub.emit('greet', 'Saiya');
+    expect(res).toBe('Saiya');
+    // @ts-expect-error for test
+    expect(hub.isDestroyed).toBe(false);
+    setConfig({ debug: true })
+    hub.on('greet', async (msg: string) => {
+      return msg
+    })
+    hub.off('greet')
+    hub.destroy()
+    hub.destroy()
+    // @ts-expect-error for test
+    expect(hub.isDestroyed).toBe(true);
+
+    const shared = StorageMessageHub.shared;
+    const shared2 = StorageMessageHub.shared;
+    expect(shared).toBe(shared2);
   })
 });
