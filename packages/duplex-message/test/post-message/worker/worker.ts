@@ -43,6 +43,7 @@ hub.on(self, 'inter-download', async (req) => {
   return msg === 'done with progress'
 })
 hub.on(self, 'inter-greet', async (req) => {
+  self.postMessage({a: 'demo-message'})
   try {
     const msg = await hub.emit(self, 'greet', {
       onprogress: console.log,
@@ -51,4 +52,9 @@ hub.on(self, 'inter-greet', async (req) => {
   } catch (error) {
     return 'error-catching'
   }
+})
+
+hub.on(self, 'inter-star', async (req) => {
+  const msg = await hub.emit(self, 'inter', 'hello')
+  return msg
 })

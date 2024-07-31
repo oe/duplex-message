@@ -77,5 +77,25 @@ describe('duplex-message abstract static methods', () => {
     const cb3 = AbstractHub.getMethodCallbacks('test', handlerTuple3);
     expect(cb3).toEqual([[fn2], false]);
   })
+})
 
+describe('duplex-message abstract instance utils methods', () => { 
+  it('isRequestMessage', () => {
+    // @ts-expect-error for test
+    const instance = new AbstractHub({ instanceID: 'test' });
+
+    const testsMaps = [
+      [{}, false],
+      [{to: 'test', messageID: 'abc', type: 'progress'}, false],
+      [{to: 'test', from: 'xxx', messageID: 'abc', type: 'progress'}, false],
+      [{to: 'test', from: 'xxx', messageID: 'abc', type: 'request'}, true],
+      [{data: 'test', from: 'xxx', messageID: 'abc', type: 'request'}, true],
+    ]
+
+    testsMaps.forEach(([msg, expected]) => {
+      // @ts-ignore
+      expect(!!instance.isRequestMessage(msg)).toBe(expected);
+    })
+
+  })
 })

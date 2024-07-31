@@ -98,6 +98,16 @@ describe('PostMessage in worker',  () => {
     const msg1 = await hub.emit(worker, 'test-for-inter-call', 'hello')
     expect(msg1).toBe('not found')
   })
+
+  it('invalid callback', async () => {
+    const worker = new DemoWorker
+    const hub = new PostMessageHub()
+    // @ts-expect-error for test
+    hub.on(worker, 'greet', 'invalid')
+    const msg = await hub.emit(worker, 'inter-greet', 'hello')
+    expect(msg).toBe('error-catching')
+    hub.destroy()
+  })
 })
 
 
@@ -214,6 +224,16 @@ describe('check for progress', () => {
     const msg = await hub.emit(worker, 'inter-greet', 'hello')
     expect(msg).toBe('greet')
   })
+})
 
-  
- })
+describe('postMessage * all message', () => {
+  it('general message event', async () => {
+    const worker = new DemoWorker
+    const hub = new PostMessageHub()
+    hub.on('*', function (methodName, arg1) {
+      return `${methodName}-${arg1}`
+    })
+    const msg = await hub.emit(worker, 'inter-star', 'hello')
+    expect(msg).toBe('inter-hello')
+  })
+})

@@ -342,9 +342,9 @@ export abstract class AbstractHub {
    *  success response(undefined) will be returned
    */
   protected runMessageCallbacks(peer: any, reqMsg: IRequest) {
-    const msgInfo = this.getMessageCallbacks(peer, reqMsg)
+    const callbackInfo = this.getMessageCallbacks(peer, reqMsg)
     const { methodName, data } = reqMsg
-    if (!msgInfo) {
+    if (!callbackInfo) {
       return Promise.resolve(false) as Promise<false>
     }
     const newArgs = data.slice(0)
@@ -356,7 +356,7 @@ export abstract class AbstractHub {
       newArgs[0] = newArg
     }
     let methods: IFn[]
-    const [method, isGeneral] = msgInfo
+    const [method, isGeneral] = callbackInfo
     // add methodName as the first argument if handlerMap is a function
     if (isGeneral) {
       newArgs.unshift(methodName)
@@ -373,27 +373,26 @@ export abstract class AbstractHub {
       methods.forEach(async (fn) => {
         if (typeof fn !== 'function') {
           console.warn('[duplex-message] invalid method', method, 'for', methodName)
-          // eslint-disable-next-line no-continue
-          return
-        }
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          const res = await fn(...newArgs)
-          if (res !== undefined && !responded) {
-            resolve(this._buildRespMessage(res, reqMsg, true))
-            responded = true
-          }
-          hasSuccess = true
-        } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs, error)
-          }
-          if (responded) return
-          // error object may be untransferable via postMessage, so it will be ignored
-          lastError = {
-            code: EErrorCode.HANDLER_EXEC_ERROR,
-            // @ts-expect-error ignore
-            message: error.message || error.stack,
+        } else {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            const res = await fn(...newArgs)
+            if (res !== undefined && !responded) {
+              resolve(this._buildRespMessage(res, reqMsg, true))
+              responded = true
+            }
+            hasSuccess = true
+          } catch (error) {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs, error)
+            }
+            if (responded) return
+            // error object may be untransferable via postMessage, so it will be ignored
+            lastError = {
+              code: EErrorCode.HANDLER_EXEC_ERROR,
+              // @ts-expect-error ignore
+              message: error.message || error.stack,
+            }
           }
         }
         count += 1
@@ -555,7 +554,6 @@ export abstract class AbstractHub {
       && msg.messageID
       && msg.from
       && msg.type
-      && msg.from
   }
 
   protected isRequestMessage(msg: any): msg is IRequest {

@@ -1,11 +1,13 @@
 import { StorageMessageHub } from 'src/storage-message';
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 console.log('frame aaa storage', location.href)
 
 const hub = new StorageMessageHub;
 
 hub.on('greet', async (msg: string) => {
+  await wait(200)
   return msg
 })
 
