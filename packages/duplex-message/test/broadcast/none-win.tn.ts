@@ -40,6 +40,17 @@ describe('broadcast in node', () => {
     expect(shared).toBe(shared2);
   });
 
+  it('multi args', async (ctx) => {
+    const hub2 = new BroadcastMessageHub
+    hub2.on('greet33', async (a1: number, a2: number) => {
+      return a1 + a2
+    })
+    const hub = new BroadcastMessageHub();
+    await wait(500);
+    const res = await hub.emit('greet33', 1, 23);
+    expect(res).toBe(24);
+  });
+
   it('test for edge case 1', async () => {
     const hub = new BroadcastMessageHub()
     expect(() => hub.emit('hello', globalThis)).rejects.toThrowError()

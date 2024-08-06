@@ -39,6 +39,9 @@ describe('PostMessage for proxy',  () => {
     await wait(1000);
     const frameWindow2 = frame2.contentWindow as Window
     hub.createProxy(frameWindow, frameWindow2)
+
+    hub.emit(frameWindow, 'start-proxy')
+    await wait(1000);
     hub.stopProxy(frameWindow)
     // @ts-expect-error for test
     hub._isInWorker = true

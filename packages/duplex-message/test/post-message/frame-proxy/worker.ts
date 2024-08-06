@@ -31,3 +31,7 @@ try {
 } catch (error) {
   console.log('createProxy not supported', error)
 }
+
+hub.on(self, 'start-proxy', () => {
+  hub.emit(self, 'greet', 'hello')
+})
