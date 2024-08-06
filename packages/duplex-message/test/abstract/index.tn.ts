@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { AbstractHub } from '../../src/abstract';
 
 describe('duplex-message abstract static methods', () => {
@@ -48,11 +48,106 @@ describe('duplex-message abstract static methods', () => {
     })
   })
 
+})
 
-  it('getMethodCallbacks', () => {
+describe("wrapResponseCallback", () => {
+  it("should return 0 when the response is not a message", () => {
+    // @ts-ignore
+    const instance = new AbstractHub();
+    const reqMsg = { messageID: 1, from: "peer1", type: "request" };
+    const callback = vi.fn();
+    // @ts-ignore
+    const wrappedCallback = AbstractHub.wrapResponseCallback(instance, reqMsg, callback);
+    const resp = { data: "response" };
+    // @ts-ignore
+    const result = wrappedCallback(resp);
+    expect(result).toBe(0);
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it("should return 0 when the response is not designed for the request", () => {
+    // @ts-ignore
+    const instance = new AbstractHub({ instanceID: "peer1" });
+    const reqMsg = { messageID: 1, from: "peer1", type: "request" };
+    const callback = vi.fn();
+    // @ts-ignore
+    const wrappedCallback = AbstractHub.wrapResponseCallback(instance, reqMsg, callback);
+    const resp = { from: "peer2", to: "peer3", messageID: 1, type: "response", data: "response" };
+    // @ts-ignore
+    const result = wrappedCallback(resp);
+    expect(result).toBe(0);
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it("should return 2 when the response is a progress message with CONTINUE_INDICATOR", () => {
+    // @ts-ignore
+    const instance = new AbstractHub({ instanceID: "peer1" });
+    const reqMsg = { messageID: 1, from: "peer1", type: "request" };
+    const callback = vi.fn();
+    // @ts-ignore
+    const wrappedCallback = AbstractHub.wrapResponseCallback(instance, reqMsg, callback);
+    // @ts-ignore
+    const resp = { from: "peer2", to: "peer1", messageID: 1, type: "progress", data: '--message-hub-to-be-continued--' };
+    // @ts-ignore
+    const result = wrappedCallback(resp);
+    expect(result).toBe(2);
+    expect(callback).not.toHaveBeenCalled();
+    // @ts-ignore
+    const result2 = wrappedCallback(resp);
+    expect(result2).toBe(2);
+  });
+
+  it("should call the callback with the response when the response is a valid response message", () => {
+    // @ts-ignore
+    const instance = new AbstractHub({ instanceID: "peer1" });
+    const reqMsg = { messageID: 1, from: "peer1", type: "request" };
+    const callback = vi.fn();
+    // @ts-ignore
+    const wrappedCallback = AbstractHub.wrapResponseCallback(instance, reqMsg, callback);
+    const resp = { from: "peer2", to: "peer1", messageID: 1, type: "response", isSuccess: true, data: "response" };
+    callback.mockReturnValue('test');
+    // @ts-ignore
+    const result = wrappedCallback(resp);
+    expect(result).toBe('test');
+    expect(callback).toHaveBeenCalledWith(resp);
+  });
+});
+
+
+describe('getMethodCallbacks', () => {
+  it('should return undefined when handlerTuple is undefined', () => {
+    // @ts-ignore
+    const result = AbstractHub.getMethodCallbacks('methodName', undefined);
+    expect(result).toBeUndefined();
+  });
+
+  it('should return undefined when handlerMap is undefined', () => {
+    const handlerTuple: [any, undefined] = [null, undefined];
+    // @ts-ignore
+    const result = AbstractHub.getMethodCallbacks('methodName', handlerTuple);
+    expect(result).toBeUndefined();
+  });
+
+  it('should return [callbacks, false] when callbacks exist in handlerMap', () => {
+    const callbacks = [() => {}, () => {}];
+    const handlerMap = { methodName: callbacks };
+    const handlerTuple: [any, typeof handlerMap] = [null, handlerMap];
+    // @ts-ignore
+    const result = AbstractHub.getMethodCallbacks('methodName', handlerTuple);
+    expect(result).toEqual([callbacks, false]);
+  });
+
+  it('should return [handlerMap, true] when handlerMap is a function', () => {
+    const handlerMap = () => {};
+    const handlerTuple: [any, typeof handlerMap] = [null, handlerMap];
+    // @ts-ignore
+    const result = AbstractHub.getMethodCallbacks('methodName', handlerTuple);
+    expect(result).toEqual([handlerMap, true]);
+  });
+
+  it('other cases', () => {
     const fn1 = () => {}
     const fn2 = () => {console.log('test')}
-    const fn3 = () => {console.log('test2')}
     const handlerTuple = [
       '*',
       fn1
@@ -77,7 +172,8 @@ describe('duplex-message abstract static methods', () => {
     const cb3 = AbstractHub.getMethodCallbacks('test', handlerTuple3);
     expect(cb3).toEqual([[fn2], false]);
   })
-})
+});
+
 
 describe('duplex-message abstract instance utils methods', () => { 
   it('isRequestMessage', () => {

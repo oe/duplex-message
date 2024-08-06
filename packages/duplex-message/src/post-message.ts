@@ -10,6 +10,13 @@ import {
   IMethodNameConfig,
 } from './abstract'
 
+export interface IPostMessageMethodOptions extends IMethodNameConfig {
+  /**
+   * transferable data list
+   */
+  transfer?: any[]
+}
+
 type IOwnPeer = Window | Worker | undefined
 
 let sharedMessageHub: PostMessageHub
@@ -76,7 +83,7 @@ export class PostMessageHub extends AbstractHub {
    * @returns Promise<unknown>
    */
   emit<ResponseType = unknown>(peer: Window | Worker,
-    methodName: string | IMethodNameConfig, ...args: any[]) {
+    methodName: string | IPostMessageMethodOptions, ...args: any[]) {
     if (isWindow(peer) && !peer.parent) {
       return Promise.reject({
         code: EErrorCode.PEER_NOT_FOUND,
@@ -146,7 +153,7 @@ export class PostMessageHub extends AbstractHub {
      * @param methodName method name or handler map
      * @param handler omit if methodName is handler map
      */
-    const on = (methodName: string | object, handler?: IFn) => {
+    const on = (methodName: string | IHandlerMap, handler?: IFn) => {
       if (!checkPeer()) return
       const handlerMap = typeof methodName === 'string' ? { [methodName]: handler } : methodName
       // @ts-ignore
@@ -157,7 +164,8 @@ export class PostMessageHub extends AbstractHub {
      * @param methodName
      * @param args
      */
-    const emit = <ResponseType = unknown>(methodName: string, ...args: any[]) => {
+    const emit = <ResponseType = unknown>(
+      methodName: string | IPostMessageMethodOptions, ...args: any[]) => {
       if (!checkPeer()) {
         return Promise.reject({
           code: EErrorCode.PEER_NOT_FOUND,
@@ -235,9 +243,12 @@ export class PostMessageHub extends AbstractHub {
     if (!this._isInWorker && isWindow(peer)) {
       args.push('*')
     }
-    // if (msg && msg.data) {
-    //   args.push([msg.data])
-    // }
+    // add transferable data if exists
+    // @ts-ignore
+    if (Array.isArray(msg.transfer)) {
+      // @ts-ignore
+      args.push(msg.transfer)
+    }
     // @ts-ignore
     peer.postMessage(...args)
   }

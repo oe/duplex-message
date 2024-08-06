@@ -30,4 +30,38 @@ describe('broadcast', () => {
     const shared2 = BroadcastMessageHub.shared;
     expect(shared).toBe(shared2);
   });
+
+  it('edge case 1', async () => {
+    const hub = new BroadcastMessageHub()
+    hub.on(function (mth, data) {
+      return mth === 'greet' ? data : 'error'
+    })
+
+    hub.off('greet')
+    // @ts-expect-error for test
+    expect(hub._eventHandlerMap.length).toBe(1)
+    hub.on('greet', async (msg: string) => {
+      return msg
+    })
+    hub.on(console.log)
+    // @ts-expect-error for test
+    hub._eventHandlerMap = [[hub.instanceID]]
+    hub.off('greet')
+    // @ts-expect-error for test
+    expect(hub._eventHandlerMap.length).toBe(1)
+    hub.on('greet', async (msg: string) => {
+      return msg
+    })
+  })
+  it('edge case 2', async () => {
+    const hub = new BroadcastMessageHub()
+    // @ts-expect-error for test
+    hub._eventHandlerMap = [[hub.instanceID, { greet: null }]]
+    hub.off('greet')
+    // @ts-expect-error for test
+    expect(hub._eventHandlerMap.length).toBe(1)
+    hub.on('greet', console.log)
+    hub.on('greet', console.warn)
+    hub.off('greet', console.log)
+  })
 });

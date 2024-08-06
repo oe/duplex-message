@@ -2,6 +2,7 @@ import { PostMessageHub } from 'src/post-message';
 import { describe, it, expect } from 'vitest';
 import DemoWorker from './worker?worker'
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('PostMessage in worker',  () => {
   it('normal usage', async () => {
@@ -11,7 +12,7 @@ describe('PostMessage in worker',  () => {
     hub.on(worker, 'greet', async (msg: string) => {
       console.log('on message from worker', msg)
     })
-    const msg = await hub.emit(worker, 'greet', 'hello')
+    const msg = await hub.emit(worker, { methodName: 'greet' }, 'hello')
     expect(msg).toBe('hello')
     hub.off(worker, 'greet')
     worker.terminate()
@@ -63,13 +64,16 @@ describe('PostMessage in worker',  () => {
     hub._onMessageReceived({
       currentTarget: worker,
     })
-    // @ts-expect-error
-    const resp = await hub.runMessageCallbacks(worker, {})
-    expect(resp).toBe(false)
+
     
     worker.terminate()
     hub.on(worker, 'greet', console.log)
     hub.destroy()
+
+    expect(() => hub.on(worker, 'greet', async (msg: string) => {
+      console.log(msg)
+    })).toThrowError()
+    expect(() => hub.emit(worker, { methodName: 'greet' }, 'hello')).toThrowError()
   })
 
   it('test for edge case 2', async () => {
@@ -77,7 +81,7 @@ describe('PostMessage in worker',  () => {
     const worker = new DemoWorker
     const hub = new PostMessageHub()
     hub.on(worker, 'greet', async (msg: string) => {
-      throw new Error("test error");
+      throw new Error("test error in request");
     })
 
     const msg = await hub.emit(worker, 'inter-greet', 'hello')
@@ -85,9 +89,57 @@ describe('PostMessage in worker',  () => {
 
     await hub.emit(worker, 'download', {
       onprogress: (n: number) => {
-        throw new Error("test error");
+        throw new Error("test error in onprogress");
       }
     })
+  })
+  it('test for edge case 3', async () => {
+
+    const worker = new DemoWorker
+    const hub = new PostMessageHub()
+    hub.on(worker, 'greet', async (msg: string) => {
+      return 'hello'
+    })
+    hub.on(worker, 'greet', async (msg: string) => {
+      throw new Error("test error in request");
+    })
+
+    const msg = await hub.emit(worker, 'inter-greet', 'hello')
+    expect(msg).toBe('hello')
+  })
+
+  it('test for edge case 4', async () => {
+
+    const worker = new DemoWorker
+    const hub = new PostMessageHub()
+    hub.on(worker, 'greet', async (msg: string) => {
+      console.log('demo message', msg)
+    })
+    hub.on(worker, 'greet', async (msg: string) => {
+      console.log('demo message2', msg)
+    })
+
+    const msg = await hub.emit(worker, 'inter-greet', 'hello')
+    expect(msg).toBe(undefined)
+  })
+
+  it('test for edge case 5', async () => {
+    const worker = new DemoWorker
+    const hub = new PostMessageHub()
+    hub.on(worker, 'some-method', console.log)
+    expect(hub.emit(worker, 'inter-star', 'hello')).rejects.toThrowError()
+  })
+  it('test for edge case 6', async () => {
+    const worker = new DemoWorker
+    const hub = new PostMessageHub()
+    hub.on(worker, 'greet', async (msg: string) => {
+      throw {
+        stack: 'custom error stack',
+      }
+    })
+
+    const msg = await hub.emit(worker, 'inter-greet', 'hello')
+    expect(msg).toBe('error-catching')
   })
 
   it('test when no callback', async () => {
@@ -165,6 +217,15 @@ describe('Dedicated message hub', () => {
     worker.terminate()
     hub.destroy()
   })
+
+  it('support for transfer params', async () => {
+    const worker = new DemoWorker
+    const hub = new PostMessageHub()
+    const workerMessage = hub.createDedicatedMessageHub(worker)
+    const data = new ArrayBuffer(16)
+    const resp = await workerMessage.emit({ methodName: 'greet', transfer: [data] }, data)
+    expect(resp).toStrictEqual(data)
+  })
 })
 
 describe('check for progress', () => {
@@ -227,7 +288,7 @@ describe('check for progress', () => {
 })
 
 describe('postMessage * all message', () => {
-  it('general message event', async () => {
+  it('general message callback', async () => {
     const worker = new DemoWorker
     const hub = new PostMessageHub()
     hub.on('*', function (methodName, arg1) {

@@ -240,7 +240,7 @@ export abstract class AbstractHub {
       // merge existing handler map
       pair[1] = typeof handlerResult === 'function'
         ? handlerResult
-        : AbstractHub.mergeEventMap(typeof existingMap === 'function' ? {} : existingMap, handlerResult)
+        : AbstractHub.mergeEventMap(typeof existingMap === 'function' ? {} : existingMap || {}, handlerResult)
 
       return
     }
@@ -293,7 +293,6 @@ export abstract class AbstractHub {
    * listen message from peer
    */
   protected async onMessage(peer: any, msg: any) {
-    if (msg && msg.source === 'react-devtools-content-script') return
     this.checkInstance()
     if (!this.isMessage(msg)) return
     // then it is a response or progress message
@@ -304,8 +303,10 @@ export abstract class AbstractHub {
     }
     // then it is a request message from a peer
 
-    // check if there is a handler for the message
-    if (!this.getMessageCallbacks(peer, msg)) {
+    // check if there is a handler for the request message
+    const callbackInfo = this.getMessageCallbacks(peer, msg)
+
+    if (!callbackInfo) {
       return
     }
     // send a heartbeat message to peer, in case of response takes too long
@@ -314,8 +315,7 @@ export abstract class AbstractHub {
       this.buildProgressMessage(CONTINUE_INDICATOR, msg),
     )
 
-    const response = await this.runMessageCallbacks(peer, msg)
-    if (response === false) return
+    const response = await this.runMessageCallbacks(peer, callbackInfo, msg)
     this.sendMessage(peer, response)
   }
 
@@ -341,12 +341,13 @@ export abstract class AbstractHub {
    * * if at least one callback success, and no none undefined response,  
    *  success response(undefined) will be returned
    */
-  protected runMessageCallbacks(peer: any, reqMsg: IRequest) {
-    const callbackInfo = this.getMessageCallbacks(peer, reqMsg)
+  protected runMessageCallbacks(
+    peer: any,
+    callbackInfo: NonNullable<ReturnType<typeof this.getMessageCallbacks>>,
+    reqMsg: IRequest
+  ) {
     const { methodName, data } = reqMsg
-    if (!callbackInfo) {
-      return Promise.resolve(false) as Promise<false>
-    }
+    const [method, isGeneral] = callbackInfo
     const newArgs = data.slice(0)
     if (reqMsg.progress && newArgs[0]) {
       const newArg = { ...newArgs[0] }
@@ -356,7 +357,7 @@ export abstract class AbstractHub {
       newArgs[0] = newArg
     }
     let methods: IFn[]
-    const [method, isGeneral] = callbackInfo
+
     // add methodName as the first argument if handlerMap is a function
     if (isGeneral) {
       newArgs.unshift(methodName)
@@ -484,10 +485,9 @@ export abstract class AbstractHub {
     peer: any,
     reqMsg: IRequest,
     callback: (resp: IResponse | IProgress) => number,
-    withoutWrapper = false,
+    // withoutWrapper = false,
   ) {
-    const wrappedCallback = withoutWrapper
-      ? callback : AbstractHub.wrapResponseCallback(this, reqMsg, callback)
+    const wrappedCallback = AbstractHub.wrapResponseCallback(this, reqMsg, callback)
 
     this._responseCallbackMap[reqMsg.messageID] = wrappedCallback
     // timeout when no response, callback get a failure

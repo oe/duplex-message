@@ -52,4 +52,3 @@ describe('PostMessage for proxy',  () => {
 
 })
 
-
