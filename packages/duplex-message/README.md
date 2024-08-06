@@ -745,3 +745,21 @@ import { setConfig } from 'duplex-message'
 setConfig({ debug: true })
 ```
 
+
+## Development
+
+
+
+```sh
+# install dependencies, exec in root of the repo
+pnpm install
+# dev
+pnpm dev
+# test
+pnpm test
+#!! make sure install chromium before running playwright tests by following command
+pnpm playwright install chromium
+
+# build
+pnpm build
+```

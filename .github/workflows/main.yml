@@ -31,6 +31,6 @@ jobs:
     - name: install deps
       run: pnpm install
     - name: install webkit
-      run: cd packages/duplex-message && pnpm playwright install webkit
+      run: cd packages/duplex-message && pnpm playwright install chromium
     - name: build lib
       run: pnpm build
