@@ -5,10 +5,10 @@
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
   "module": "dist/index.es.js",
+  "type": "module",
   "scripts": {
     "build": "vite build",
-    "predev": "vite build",
-    "dev": "electron ./test/dist/main.js"
+    "dev": "electron ./demo/main.ts"
   },
   "files": [
     "dist/*"
@@ -26,11 +26,12 @@
     "duplex-message": "workspace:"
   },
   "devDependencies": {
-    "vite": "catalog:",
-    "vitest": "catalog:",
-    "vite-plugin-dts": "catalog:",
+    "@playwright/test": "^1.46.0",
+    "electron": "catalog:",
     "typescript": "catalog:",
-    "electron": "catalog:"
+    "vite": "catalog:",
+    "vite-plugin-dts": "catalog:",
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "electron": "*"

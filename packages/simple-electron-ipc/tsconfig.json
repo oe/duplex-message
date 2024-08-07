@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "rootDir": "./src",
+    "rootDir": "./",
     "outDir": "./dist",
     "module": "commonjs",
     "target": "ES2017",
@@ -17,9 +17,13 @@
     "resolveJsonModule": true,
     "noImplicitOverride": true,
   },
+  "include": [
+    "src",
+    "test"
+  ],
   "exclude": [
     "dist",
     "vite.config.ts",
-    "test"
+    "demo"
   ]
 }

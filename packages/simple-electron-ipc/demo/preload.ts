@@ -9,6 +9,7 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   for (const type of ["chrome", "node", "electron"]) {
+    // @ts-ignore
     replaceText(`${type}-version`, process.versions[type as keyof NodeJS.ProcessVersions]);
   }
 });
