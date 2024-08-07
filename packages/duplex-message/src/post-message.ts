@@ -15,6 +15,10 @@ export interface IPostMessageMethodOptions extends IMethodNameConfig {
    * transferable data list
    */
   transfer?: any[]
+  /**
+   * target origin, default is '*'
+   */
+  targetOrigin?: string
 }
 
 type IOwnPeer = Window | Worker | undefined
@@ -241,7 +245,8 @@ export class PostMessageHub extends AbstractHub {
   ) {
     const args: any[] = [msg]
     if (!this._isInWorker && isWindow(peer)) {
-      args.push('*')
+      // @ts-ignore
+      args.push(msg.targetOrigin || '*')
     }
     // add transferable data if exists
     // @ts-ignore
