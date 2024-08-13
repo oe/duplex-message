@@ -5,10 +5,10 @@
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
   "module": "dist/index.es.js",
-  "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "electron ./demo/main.ts"
+    "predev": "tsc demo/*.ts --outDir demo/dist -t es5",
+    "dev": "electron ./demo/dist/main.js"
   },
   "files": [
     "dist/*"

@@ -1,6 +1,8 @@
 import { app, BrowserWindow } from "electron";
 import { MainMessageHub } from 'simple-electron-ipc'
 import * as path from "path";
+
+
 let mainWindow //: BrowserWindow
 const messageHub = new MainMessageHub()
 messageHub.on('*', {
@@ -37,11 +39,9 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     height: 600,
     webPreferences: {
-      // webSecurity: false,
       nodeIntegration: true,
       contextIsolation: false,
-      enableRemoteModule: true,
-      // preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "preload.js"),
     },
     width: 800,
   });
@@ -63,7 +63,7 @@ function createWindow() {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.on("ready", () => {
+app.whenReady().then(() => {
   createWindow();
 
   app.on("activate", function () {

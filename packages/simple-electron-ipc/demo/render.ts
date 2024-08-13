@@ -1,4 +1,7 @@
+// @ts-ignore
+export = 0
 import { RendererMessageHub } from 'simple-electron-ipc'
+
 
 const messageHub = new RendererMessageHub()
 // @ts-ignore
@@ -22,7 +25,7 @@ messageHub.on({
 })
 
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, ''))
+  return document.getElementById(id.replace(/^\#/, '')) as HTMLElement
 }
 
 
