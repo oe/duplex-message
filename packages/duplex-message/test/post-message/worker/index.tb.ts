@@ -77,15 +77,17 @@ describe('PostMessage in worker',  () => {
   })
 
   it('test for edge case 2', async () => {
-
     const worker = new DemoWorker
     const hub = new PostMessageHub()
+    hub.stopProxy(worker)
     hub.on(worker, 'greet', async (msg: string) => {
       throw new Error("test error in request");
     })
 
     const msg = await hub.emit(worker, 'inter-greet', 'hello')
     expect(msg).toBe('error-catching')
+
+    hub.stopProxy(worker)
 
     await hub.emit(worker, 'download', {
       onprogress: (n: number) => {

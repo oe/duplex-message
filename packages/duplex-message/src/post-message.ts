@@ -214,10 +214,16 @@ export class PostMessageHub extends AbstractHub {
 
   /**
    * stop forwarding message from `fromWin`
-   * TODO: only stop when the callback is a general function and has win property
+   * * only stop when the callback is a general function and has win property
    */
   stopProxy(fromWin: Window | Worker) {
-    this.off(fromWin)
+    const tuple = this.getEventHandlers(fromWin)
+    if (!tuple) return
+    const [, handlerMap] = tuple
+    // @ts-ignore
+    if (typeof handlerMap === 'function' && handlerMap.win) {
+      this.off(fromWin)
+    }
   }
 
   protected proxyMessage(destWin: Window | Worker) {

@@ -220,7 +220,7 @@ export abstract class AbstractHub {
     handler?: IFn,
   ): void {
     this.checkInstance()
-    const pair = this._eventHandlerMap.find((item) => item[0] === peer)
+    const pair = this.getEventHandlers(peer)
     let handlerResult: IFn | IHandlerMap
     if (typeof handlerMap === 'string') {
       handlerResult = { [handlerMap]: [handler!] }
@@ -413,11 +413,15 @@ export abstract class AbstractHub {
     const { methodName } = reqMsg
     if (!this._eventHandlerMap.length) return undefined
     const result = AbstractHub.getMethodCallbacks(
-      methodName, this._eventHandlerMap.find((wm) => wm[0] === peer),
+      methodName, this.getEventHandlers(peer),
     )
     if (result) return result
     if (this._eventHandlerMap[0][0] !== '*') return undefined
     return AbstractHub.getMethodCallbacks(methodName, this._eventHandlerMap[0])
+  }
+
+  protected getEventHandlers(peer: any) {
+    return this._eventHandlerMap.find((wm) => wm[0] === peer)
   }
 
   protected _emit<ResponseType>(
