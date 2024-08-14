@@ -22,7 +22,6 @@
   ],
   "exclude": [
     "dist",
-    "test",
     "vite.config.ts",
     "demo"
   ]

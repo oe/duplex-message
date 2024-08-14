@@ -8,7 +8,8 @@
   "scripts": {
     "build": "vite build",
     "predev": "tsc demo/*.ts --outDir demo/dist -t es5",
-    "dev": "electron ./demo/dist/main.js"
+    "dev": "electron ./demo/dist/main.js",
+    "test": "wdio run ./wdio.conf.ts"
   },
   "files": [
     "dist/*"
@@ -26,7 +27,6 @@
     "duplex-message": "workspace:"
   },
   "devDependencies": {
-    "@playwright/test": "^1.46.0",
     "electron": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
