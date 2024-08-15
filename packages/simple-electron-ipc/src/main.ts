@@ -5,7 +5,7 @@ import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 let sharedMainMessageHub: MainMessageHub
 export class MainMessageHub extends ElectronMessageHub {
   constructor(options?: IElectronMessageHubOptions) {
-    super({ ...options, type: 'browser' })
+    super({ ...options, type: 'browser' }, 'MainMessageHub')
   }
 
   emit<ResponseType = unknown>(target: WebContents, method: string, ...args: any[]) {

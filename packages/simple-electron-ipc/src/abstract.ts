@@ -24,11 +24,11 @@ export abstract class ElectronMessageHub extends AbstractHub {
 
   protected readonly _ipc: IpcMain | IpcRenderer
 
-  constructor(options: IElectronBaseMessageHubOptions) {
+  constructor(options: IElectronBaseMessageHubOptions, className: string) {
     super(options)
     if (options.type !== process.type) {
       throw new TypeError(
-        `can only be used in electron ${options.type === 'browser' ? 'main' : 'renderer'} process`,
+        `[${className}]can only be used in electron ${options.type === 'browser' ? 'main' : 'renderer'} process`,
       )
     }
     this._ipc = options.type === 'browser' ? electron.ipcMain : electron.ipcRenderer

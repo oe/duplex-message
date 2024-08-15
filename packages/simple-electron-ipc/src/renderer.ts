@@ -4,7 +4,7 @@ import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 let rendererMessageHub: RendererMessageHub
 export class RendererMessageHub extends ElectronMessageHub {
   constructor(options?: IElectronMessageHubOptions) {
-    super({ ...options, type: 'renderer' })
+    super({ ...options, type: 'renderer' }, 'RendererMessageHub')
   }
 
   emit<ResponseType = unknown>(method: string, ...args: any[]) {
