@@ -103,16 +103,8 @@ export interface IMethodNameConfig {
   [k: string]: any
 }
 
-export interface ILibConfig {
-  debug: boolean
-}
-
-const libConfig: ILibConfig = {
-  debug: false,
-}
-
-export function setConfig(options: Partial<ILibConfig>) {
-  Object.assign(libConfig, options)
+export function setConfig() {
+  console.log('[duplex-message] setConfig is deprecated, please remove it')
 }
 
 /**
@@ -169,8 +161,8 @@ export abstract class AbstractHub {
     this._messageID = 0
     this._designedResponse = {}
     this.isDestroyed = false
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
     }
   }
 
@@ -229,7 +221,7 @@ export abstract class AbstractHub {
     }
     if (pair) {
       const existingMap = pair[1]
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV !== 'production') {
         const msg = `[duplex-message]${this.constructor.name}`
         if (typeof existingMap === 'function') {
           console.warn(`${msg} general handler for`, peer, 'will be overridden by', handlerResult)
@@ -343,7 +335,7 @@ export abstract class AbstractHub {
    */
   protected runMessageCallbacks(
     peer: any,
-    callbackInfo: NonNullable<ReturnType<typeof this.getMessageCallbacks>>,
+    callbackInfo: NonNullable<ReturnType<typeof AbstractHub.getMethodCallbacks>>,
     reqMsg: IRequest
   ) {
     const { methodName, data } = reqMsg
@@ -384,7 +376,7 @@ export abstract class AbstractHub {
             }
             hasSuccess = true
           } catch (error) {
-            if (process.env.NODE_ENV === 'development') {
+            if (process.env.NODE_ENV !== 'production') {
               console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs, error)
             }
             if (responded) return
@@ -463,7 +455,7 @@ export abstract class AbstractHub {
     try {
       this.sendMessage(peer, AbstractHub.normalizeRequest(peer, reqMsg))
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV !== 'production') {
         console.warn(
           '[duplex-message] unable to serialize message, message not sent',
           error, ', message:', reqMsg,
@@ -594,7 +586,7 @@ export abstract class AbstractHub {
       // ignore not designed resp
       if (designedPeerID && resp.from !== designedPeerID) {
         if (
-          process.env.NODE_ENV === 'development'
+          process.env.NODE_ENV !== 'production'
           && instance.isProgressMessage(reqMsg, resp)
           && resp.data === CONTINUE_INDICATOR
         ) {

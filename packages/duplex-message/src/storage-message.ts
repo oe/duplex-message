@@ -86,7 +86,7 @@ export class StorageMessageHub extends AbstractHub {
         localStorage.removeItem(msgKey)
       }, 100)
     } catch (e) {
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV !== 'production') {
         console.warn(
           '[duplex-message] unable to stringify message, message not sent',
           e, 'message:', msg,

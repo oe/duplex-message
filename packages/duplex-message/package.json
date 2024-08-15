@@ -7,7 +7,7 @@
   "typings": "dist/index.d.ts",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsx build.config.ts",
     "test": "vitest",
     "test:coverage": "vitest --coverage"
   },
@@ -23,6 +23,7 @@
     "@vitest/browser": "^2.0.2",
     "@vitest/coverage-istanbul": "^2.0.2",
     "playwright": "^1.45.1",
+    "tsx": "^4.17.0",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-dts": "catalog:",

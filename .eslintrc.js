@@ -17,6 +17,7 @@ module.exports = {
       {
         devDependencies: [
           '**/vite.config.ts',
+          '**/build.config.ts',
           '**/vitest.workspace.ts',
           'jest.config.ts',
           '**/*.test.ts',

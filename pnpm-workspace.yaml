@@ -4,7 +4,7 @@ packages:
 catalog:
   vite: ^5.3.3
   vitest: ^2.0.0
-  vite-plugin-dts: ^3.9.1
+  vite-plugin-dts: ^4.0.2
   typescript: ^5.5.0
   electron: ^31.0.0
   jsdom: ^24.0.0

@@ -5,7 +5,10 @@
     <img src="https://github.com/oe/duplex-message/actions/workflows/main.yml/badge.svg" alt="github actions">
   </a>
   <a href="#readme">
-    <img src="https://badgen.net/badge/Built%20With/TypeScript/blue" alt="code with typescript" height="20">
+    <img src="https://img.shields.io/badge/%3C%2F%3E-typescript-blue" alt="code with typescript" height="20">
+  </a>
+  <a href="#readme">
+    <img src="https://img.shields.io/badge/coverage-100%25-44CC11" alt="code coverage" height="20">
   </a>
   <a href="#readme">
     <img src="https://badge.fury.io/js/duplex-message.svg" alt="npm version" height="20">
@@ -26,7 +29,8 @@
 - [Install](#install)
 - [Example](#example)
 - [Usage](#usage)
-  - [Constructor](#constructor)
+  - [import \& debug](#import--debug)
+  - [constructor](#constructor)
   - [Shared instance](#shared-instance)
   - [on](#on)
   - [emit](#emit)
@@ -36,7 +40,6 @@
   - [proxy for PostMessageHub](#proxy-for-postmessagehub)
   - [dedicated instance for PostMessageHub](#dedicated-instance-for-postmessagehub)
   - [Error](#error)
-  - [Debug](#debug)
 - [Development](#development)
 
 
@@ -173,14 +176,36 @@ For more examples, check the [demo folder](./demo/).
 ## Usage
 
 This utility has 4 classes for different scenarios:
-* `PostMessageHub` for windows / iframes / workers communication, via `postMessage`
-* `StorageMessageHub` for same-origin pages messaging via localStorage's `storage` event
-* `PageScriptMessageHub` for isolated js environment(e.g. userscripts) in same window context, via `customEvent`, or it can be used an event bus in the same window context
-* `BroadcastMessageHub` for broadcast messaging in the same-origin pages(documents) or different nodejs thread(worker), via `BroadcastChannel`
 
-They all have implemented the same class `AbstractHub`, so they have the similar api, you can use them in the same way.
+* `PostMessageHub` for windows/iframes/workers communication via `postMessage`
+* `StorageMessageHub`for same-origin pages messaging via localStorage's `storage` event
+* `PageScriptMessageHub` for isolated JS environments (e.g., UserScripts) in the same window context via `customEvent`, or it can be used as an event bus in the same window context
+* `BroadcastMessageHub` for broadcast messaging in same-origin pages (documents) or different Node.js threads (workers) via `BroadcastChannel`
 
-### Constructor
+They all implement the same class `AbstractHub`, so they have a similar API and can be used in the same way.
+
+### Import & Debug
+This utility has a debug mode:
+* When the environment variable `process.env.NODE_ENV` is set to any value other than `production`, like `development`, it will log some debug info to the console.
+* When the environment variable `process.env.NODE_ENV` is set to `production`, there will be no debug logs. With a bundler tool like `webpack` or `vite`, the output will be optimized and the debug code will be stripped out.
+
+```ts
+// Use ES6 import
+import { PostMessageHub, StorageMessageHub, PageScriptMessageHub, BroadcastMessageHub } from "duplex-message"
+
+// Or use CommonJS require
+const { PostMessageHub, StorageMessageHub, PageScriptMessageHub, BroadcastMessageHub } = require("duplex-message")
+
+// If you don't want to use the debug mode, or have trouble with the environment variable, you can use a production version
+
+// Use ES6 import
+import { PostMessageHub, StorageMessageHub, PageScriptMessageHub, BroadcastMessageHub } from "duplex-message/dist/duplex-message.production.es"
+
+// Or use CommonJS require
+const { PostMessageHub, StorageMessageHub, PageScriptMessageHub, BroadcastMessageHub } = require("duplex-message/dist/duplex-message.production.umd")
+```
+
+### constructor
 All classes have a constructor with an optional `options` object, you can set some options when creating an instance
 
 >[!WARNING]
@@ -309,40 +334,40 @@ broadcastMessageHub.on('async-add', async function (a, b) {
 
 
 >[!WARNING]
->Although a message can be listened by multi handlers, but only one response from a handler will be sent to the peer, it follows the first-come-first-serve rule:
-> 1. all handlers will be called when a message received at the same time
-> 2. the first handler that successfully called return a `none-undefined` value will be the response, others will be ignored
-> 3. if no handler return a `none-undefined` value, then the response will be `undefined`
-> 4. error thrown by a handler will be ignored if there is a successful call
-> 5. if all handlers throw an error, the last error will be caught and sent to the peer
+>Although a message can be listened by multiple handlers, only one response from a handler will be sent to the peer. It follows the first-come-first-serve rule:
+> 1. All handlers will be called when a message is received at the same time.
+> 2. The first handler that successfully returns a non-undefined value will be the response; others will be ignored.
+> 3. If no handler returns a non-undefined value, then the response will be `undefined`.
+> 4. Errors thrown by handlers will be ignored if there is a successful call.
+> 5. If all handlers throw an error, the last error will be caught and sent to the peer.
 
 
 ### emit
-Emit a message to peer, invoking `methodName` registered on the peer via [`on`](#on) with all its arguments `args`, return a promise with the response from the peer.
+Emit a message to a peer, invoking `methodName` registered on the peer via [`on`](#on) with all its arguments `args`, and return a promise with the response from the peer.
 
 ```ts
 
 interface IMethodNameConfig {
   methodName: string
-  /** peer instance id that can receive the message */
+  /** peer instance ID that can receive the message */
   to?: string
 }
 
-// in typescript, use ResponseType to specify response type
-// send a message and get response
+// In TypeScript, use ResponseType to specify the response type
+// Send a message and get a response
 instance.emit<ResponseType = unknown>(peer: any, methodName: string | IMethodNameConfig, ...args: any[]) => Promise<ResponseType>
 ```
 
-Just like `on`, the parameter `peer` may be ignored in some instances, e.g. `PageScriptMessageHub`, because it's isolated in the same window context.
+Just like [`on`](#on), the parameter `peer` may be ignored in some instances, e.g., `PageScriptMessageHub`, because it's isolated in the same window context.
 
 ```ts
-// PostMessageHub requires a `peer` to send messages to, it could be a `Window`, `Worker`. (`*` is not allowed when emit messages)
+// PostMessageHub requires a `peer` to send messages to; it could be a `Window` or `Worker`. (`*` is not allowed when emitting messages)
 postMessageHub.emit(peerWindow, 'some-method', 'arg1', 'arg2', 'otherArgs').then(res => {
   console.log('success', res)
 }).catch(err => {
   console.warn('error', err)
 })
-// send a message to a worker that has instance id 'custom-instanceID', if instance id not matched, an error will be thrown
+// Send a message to a worker that has instance ID 'custom-instanceID'. If the instance ID does not match, an error will be thrown
 postMessageHub.emit(workerInstance, { methodName: 'some-method', instanceID: 'custom-instanceID'}, 'arg1', 'arg2', 'otherArgs').then(res => {
   console.log('success', res)
 }).catch(err => {
@@ -386,23 +411,25 @@ broadcastMessageHub.emit('async-add', 223, 89).then(res => {
 ```
 
 >[!WARNING]
-> 1. If there are multi peers listening to the same message, you'll only get the first one who respond, others will be ignored. but all handlers from different peers will be called.
-> 2. If you want to send a message to a specific peer, you should set the `to` property in the `methodName` object, and the peer must have the same instance id as the `to` property.
-> 3. If the message has no listener, the promise will be rejected with an error `no listener for message: ${methodName}`
-> 4. If the handler throws an error, the promise will be rejected with the error thrown by the handler(error object may be lost in some cases due to serialization issues)
+> 1. If there are multiple peers listening to the same message, you'll only get the first one who responds; others will be ignored. However, all handlers from different peers will be called.
+> 2. If you want to send a message to a specific peer, you should set the `to` property in the `methodName` object, and the peer must have the same instance ID as the `to` property.
+> 3. If the message has no listener, the promise will be rejected with an error `no corresponding handler found for method ${methodName}`
+> 4. If the handler throws an error, the promise will be rejected with the error thrown by the handler (error object may be lost in some cases due to serialization issues)
 > 5. Please always handle the promise rejection returned by `emit` to avoid unhandled promise warnings
 
 ### off
 Remove message handlers.
 
 ```ts
-// 1. if handler presented, remove the handler
-// 2. if handlerName presented, remove all handlers for the handlerName
-// 3. if no handlerName presented, remove all handlers for the peer
+// 1. If handler is provided, remove the specific handler.
+// 2. If only methodName is provided, remove all handlers for that methodName.
+// 3. If no methodName is provided, remove all handlers for the peer.
 instance.off(peer: any, methodName?: string, handler?: Function)
 ```
 
-Just like `on`, the parameter `peer` may be ignored in some instances, e.g. `PageScriptMessageHub`, because it's isolated in the same window context.
+Just like [`on`](#on), the parameter `peer` may be ignored in some instances, e.g., `PageScriptMessageHub`, because it's isolated in the same window context.
+
+
 
 ```ts
 postMessageHub.off(peerWindow, 'some-method', someHandler)
@@ -423,25 +450,28 @@ broadcastMessageHub.off()
 ```
 
 ### destroy
-Destroy instance: remove all message handlers and references of objects.
+Destroy the instance: remove all message handlers and references to objects.
 
 ```ts
-// you can't use the instance after destroy, it will throw an exception
+// You can't use the instance after destroy, it will throw an exception.
 instance.destroy()
 ```
 
 ### progress
-Get progress feedback when peer handling you requests.
+Track the progress of a long-running task.
 
 If you need progress feedback when peer handling you requests, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
 
 ```ts
+// emit message with onprogress callback in the first message argument
+// * the parameter `peer` is only required in PostMessageHub
 instance.emit(peer, methodName: string, {
   onprogress: (progressData: any) => void
   ...
 }, ...args: any[])
 
-
+// listen message and call onprogress if exists in the first message argument
+// * the parameter `instance` is only required in PostMessageHub
 peer.on(instance, methodName: string, async (msg, ...args) => {
   // call onprogress if exists
   msg.onprogress && msg.onprogress({progress: 10})
@@ -451,9 +481,6 @@ peer.on(instance, methodName: string, async (msg, ...args) => {
   return 'done'
 })
 ```
-
-Just like `on`, the parameter `peer` may be ignored in some instances, e.g. `PageScriptMessageHub`, because it's isolated in the same window context.
-
 
 ### proxy for PostMessageHub
 PostMessageHub has a `createProxy` method that can forward all messages from `fromWin` to `toWin` then forward `toWin`'s response to the `fromWin`, instead of handle messages by self, it's useful when you want to make two windows communicate directly.
@@ -540,29 +567,23 @@ enum EErrorCode {
 }
 ```
 
-### Debug
-if you has some issues when using this lib, you can enable debug mode to see debug logs in console:
-
-```ts
-import { setConfig } from 'duplex-message'
-setConfig({ debug: true })
-```
-
-
 ## Development
-
-
 
 ```sh
 # install dependencies, exec in root of the repo
 pnpm install
 # dev
 pnpm dev
-# test
-pnpm test
+
 #!! make sure install chromium before running playwright tests by following command
 pnpm playwright install chromium
+
+# test
+pnpm test
 
 # build
 pnpm build
 ```
+
+## License
+MIT
