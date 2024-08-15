@@ -5,8 +5,6 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test -- run",
-    "prepublish": "pnpm build",
-    "publish": "pnpm -r publish",
     "lint": "eslint . --ext .ts"
   },
   "husky": {

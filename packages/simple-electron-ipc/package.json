@@ -7,6 +7,7 @@
   "module": "dist/index.es.js",
   "scripts": {
     "build": "vite build",
+    "prepublish": "pnpm build",
     "predev": "tsc demo/*.ts --outDir demo/dist -t es5",
     "dev": "electron ./demo/dist/main.js"
   },

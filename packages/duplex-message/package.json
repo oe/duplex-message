@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsx build.config.ts",
+    "prepublish": "pnpm build",
     "test": "vitest",
     "test:coverage": "vitest --coverage"
   },
