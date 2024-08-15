@@ -3,6 +3,7 @@ import {
   IResponse,
   IHandlerMap,
   IRequest,
+  IFn,
   IProgress,
   IAbstractHubOptions,
   IMethodNameConfig,
@@ -11,19 +12,14 @@ import {
 export interface IStorageMessageHubOptions extends IAbstractHubOptions {
   /** localStorage key prefix to store message, default: $$xiu */
   keyPrefix?: string
-  /**
-   * a customable identity that can make your self identified by others
-   * will be used by StorageMessageHub.getPeerIdentifies
-   */
-  identity?: any
 }
 
-let sharedStorageMessageHub: StorageMessageHub
+const DEFAULT_KEY_PREFIX = '$$xiu'
+
+let sharedMessageHub: StorageMessageHub
 
 export class StorageMessageHub extends AbstractHub {
   protected readonly _keyPrefix: string
-
-  protected readonly _identity?: string
 
   constructor(options?: IStorageMessageHubOptions) {
     // tslint:disable-next-line
@@ -34,9 +30,8 @@ export class StorageMessageHub extends AbstractHub {
     }
     super(options)
     // eslint-disable-next-line no-param-reassign
-    options = { keyPrefix: '$$xiu', ...options }
+    options = { keyPrefix: DEFAULT_KEY_PREFIX, ...options }
     this._onMessageReceived = this._onMessageReceived.bind(this)
-    this._identity = options.identity
     this._keyPrefix = options.keyPrefix!
     window.addEventListener('storage', this._onMessageReceived)
   }
@@ -45,15 +40,16 @@ export class StorageMessageHub extends AbstractHub {
    * listen all messages with one handler; or listen multi message via a handler map
    * @param handlerMap handler or a map of handlers
    */
-  on(handlerMap: Function | IHandlerMap): void;
+  on(handlerMap: IFn | IHandlerMap): void;
   /**
    * listen `methodName` with a handler
    * @param methodName method name
    * @param handler handler for the method name
    */
-  on(handlerMap: string, handler: Function): void;
-  on(handlerMap: IHandlerMap | Function | string, handler?: Function): void {
-    // @ts-ignore
+  on(handlerMap: string, handler: IFn): void;
+  on(handlerMap: IHandlerMap | IFn): void
+  on(handlerMap: IHandlerMap | IFn | string, handler?: IFn): void {
+    // @ts-expect-error fix type error
     super._on(this.instanceID, handlerMap, handler)
   }
 
@@ -71,12 +67,12 @@ export class StorageMessageHub extends AbstractHub {
    * remove handler for `methodName`; remove all handlers if `methodName` absent
    * @param methodName method name
    */
-  off(methodName?: string) {
-    super._off(this.instanceID, methodName)
+  off(methodName?: string, handler?: IFn) {
+    super._off(this.instanceID, methodName, handler)
   }
 
-  destroy() {
-    if (this._isDestroyed) return
+  override destroy() {
+    if (this.isDestroyed) return
     super.destroy()
     window.removeEventListener('storage', this._onMessageReceived)
   }
@@ -85,84 +81,33 @@ export class StorageMessageHub extends AbstractHub {
     const msgKey = this._getMsgKey(msg)
     try {
       localStorage.setItem(msgKey, JSON.stringify(msg))
+      // clean storage key after 100ms
+      setTimeout(() => {
+        localStorage.removeItem(msgKey)
+      }, 100)
     } catch (e) {
-      console.warn(
-        '[duplex-message] unable to stringify message, message not sent',
-        e,
-      )
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          '[duplex-message] unable to stringify message, message not sent',
+          e, 'message:', msg,
+        )
+      }
       throw e
     }
-  }
-
-  protected _listenResponse(
-    peer: any,
-    reqMsg: IRequest,
-    callback: (resp: IResponse | IProgress) => number,
-  ) {
-    const timeoutObj: Record<string, any> = {}
-    const clearStorage = (k: string) => {
-      clearTimeout(timeoutObj[k])
-      timeoutObj[k] = setTimeout(() => {
-        localStorage.removeItem(k)
-        delete timeoutObj[k]
-      }, 100)
-    }
-
-    const wrappedCallback = AbstractHub._wrapCallback(this, reqMsg, callback)
-    /**
-     * callback handled via onMessageReceived
-     *  returns:  0 not a corresponding response
-     *            1 corresponding response and everything get proceeded
-     *            2 corresponding response and need waiting for rest responses
-     * @param msg
-     * @returns number
-     */
-    const evtCallback = (msg: IResponse | IProgress) => {
-      const msgKey = this._getMsgKey({ ...msg, type: 'progress' })
-      if (this._isProgress(reqMsg, msg)) {
-        const res = wrappedCallback(msg)
-        if (!res || !reqMsg.progress) {
-          clearStorage(msgKey)
-        }
-        return res
-      }
-      if (!this._isResponse(reqMsg, msg)) return 0
-      clearStorage(this._getMsgKey(msg))
-      clearStorage(msgKey)
-      return wrappedCallback(msg)
-    }
-    super._listenResponse(peer, reqMsg, evtCallback, true)
-  }
-
-  protected _runResponseCallback(resp: IResponse) {
-    if (!super._runResponseCallback(resp)) {
-      // clean unhandled responses
-      if (resp.toInstance === this.instanceID && resp.type === 'response') {
-        localStorage.removeItem(this._getMsgKey(resp))
-      }
-      return false
-    }
-    return true
   }
 
   protected _onMessageReceived(evt: StorageEvent) {
     const msg = this._getMsgFromEvent(evt)
     if (!msg) return
-    if (this._isRequest(msg)) {
-      // clear received message after proceeded
-      setTimeout(() => {
-        if (localStorage.getItem(evt.key!) === null) return
-        localStorage.removeItem(evt.key!)
-      }, 100 + Math.floor(1000 * Math.random()))
-    }
-    this._onMessage(this.instanceID, msg)
+    this.onMessage(this.instanceID, msg)
   }
 
   protected _getMsgFromEvent(evt: StorageEvent): any {
     if (
       !evt.key
-      || evt.key.indexOf(`${this._keyPrefix}-`) !== 0
       || !evt.newValue
+      || evt.storageArea !== localStorage
+      || !evt.key.startsWith(`${this._keyPrefix}-`)
     ) return
     try {
       const msg = JSON.parse(evt.newValue)
@@ -174,16 +119,16 @@ export class StorageMessageHub extends AbstractHub {
   }
 
   protected _getMsgKey(msg: IRequest | IResponse | IProgress) {
-    return `${this._keyPrefix}-${msg.type}-${msg.fromInstance}-${
-      msg.toInstance || ''
+    return `${this._keyPrefix}-${msg.type}-${msg.from}-${
+      msg.to || ''
     }-${msg.messageID}`
   }
 
   /** shared StorageMessageHub instance */
   public static get shared() {
-    if (!sharedStorageMessageHub) {
-      sharedStorageMessageHub = new StorageMessageHub()
+    if (!sharedMessageHub) {
+      sharedMessageHub = new StorageMessageHub()
     }
-    return sharedStorageMessageHub
+    return sharedMessageHub
   }
 }

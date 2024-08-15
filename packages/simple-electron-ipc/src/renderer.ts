@@ -1,43 +1,25 @@
-import electron, { IpcRenderer } from 'electron'
-import { IHandlerMap } from 'duplex-message'
+import { IHandlerMap, IFn } from 'duplex-message'
 import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 
 let rendererMessageHub: RendererMessageHub
 export class RendererMessageHub extends ElectronMessageHub {
-  protected readonly _ipc: IpcRenderer
-
   constructor(options?: IElectronMessageHubOptions) {
-    if (process.type !== 'renderer') {
-      throw new TypeError(
-        'RendererMessageHub only available in main renderer process',
-      )
-    }
-    super(options)
-    this._ipc = electron.ipcRenderer
-    this._ipc.on(this._channelName, this._onMessageReceived)
+    super({ ...options, type: 'renderer' }, 'RendererMessageHub')
   }
 
   emit<ResponseType = unknown>(method: string, ...args: any[]) {
     return super._emit<ResponseType>(this._ipc, method, ...args)
   }
 
-  on(handlerMap: Function | IHandlerMap): void;
-  on(methodName: string, handler: Function): void;
-  on(handlerMap: IHandlerMap | Function | string, handler?: Function): void {
+  on(handlerMap: IFn | IHandlerMap): void;
+  on(methodName: string, handler: IFn): void;
+  on(handlerMap: IHandlerMap | IFn | string, handler?: IFn): void {
     // @ts-ignore
     this._on(this._ipc, handlerMap, handler)
   }
 
   off(methodName?: string) {
     this._off(this._ipc, methodName)
-  }
-
-  destroy() {
-    if (this._isDestroyed) return
-    super.destroy()
-    this._ipc.off(this._channelName, this._onMessageReceived)
-    // @ts-ignore
-    this._ipc = null
   }
 
   /** shared MainMessageHub instance */

@@ -9,6 +9,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
+    "noImplicitOverride": true,
     "module": "commonjs",
     "moduleResolution": "node",
     "esModuleInterop": true,
@@ -17,5 +18,5 @@
     "baseUrl": "./",
     "lib": ["dom", "es7"],
   },
-  "include": ["./packages/**/*.ts"]
+  "include": ["./packages/**/*.ts", ".eslintrc.js"]
 }

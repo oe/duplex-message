@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>frame</title>
+</head>
+
+<body>
+  <h2>I am frame</h2>
+  <p>
+    receiving message<br>
+    <span id="result-3"></span>
+  </p>
+  <p>
+    <input id="input-1" placeholder="thing to echo"> <button id="test-1"> get parent title</button> <br>
+    <span id="result-1"></span>
+  </p>
+
+  <p>
+    <button id="test-2"> error test</button> <br>
+    <span id="result-2"></span>
+  </p>
+  <iframe id="sub-iframe" src="./sub-frame.html" frameborder="2" style="width: 100%; height: 200px;"></iframe>
+  <script type="module" src="./frame.ts"></script>
+</body>
+
+</html>

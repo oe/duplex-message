@@ -3,11 +3,14 @@ import {
   IResponse,
   IHandlerMap,
   IRequest,
+  IFn,
   IAbstractHubOptions,
   IMethodNameConfig,
 } from './abstract'
 
-let sharedPageMessageHub: PageScriptMessageHub
+const DEFAULT_CUSTOM_EVT_NAME = 'message-hub'
+
+let sharedMessageHub: PageScriptMessageHub
 
 export interface IPageScriptMessageHubOptions extends IAbstractHubOptions {
   /** custom event name, default: message-hub */
@@ -19,13 +22,13 @@ export class PageScriptMessageHub extends AbstractHub {
 
   constructor(options?: IPageScriptMessageHubOptions) {
     // tslint:disable-next-line
-    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    if (typeof window === 'undefined') {
       throw new Error(
         'PageScriptMessageHub only available in normal browser context, nodejs/worker are not supported',
       )
     }
     // eslint-disable-next-line no-param-reassign
-    options = { customEventName: 'message-hub', ...options }
+    options = { customEventName: DEFAULT_CUSTOM_EVT_NAME, ...options }
 
     super(options)
     this._customEventName = options.customEventName!
@@ -38,14 +41,14 @@ export class PageScriptMessageHub extends AbstractHub {
    * listen all messages with one handler; or listen multi message via a handler map
    * @param handlerMap handler or a map of handlers
    */
-  on(handlerMap: Function | IHandlerMap): void;
+  on(handlerMap: IFn | IHandlerMap): void;
   /**
    * listen `methodName` with a handler
    * @param methodName method name
    * @param handler handler for the method name
    */
-  on(methodName: string, handler: Function): void;
-  on(handlerMap: IHandlerMap | Function | string, handler?: Function): void {
+  on(methodName: string, handler: IFn): void;
+  on(handlerMap: IHandlerMap | IFn | string, handler?: IFn): void {
     // @ts-ignore
     super._on(this.instanceID, handlerMap, handler)
   }
@@ -64,19 +67,19 @@ export class PageScriptMessageHub extends AbstractHub {
    * remove handler for `methodName`; remove all handlers if `methodName` absent
    * @param methodName method name
    */
-  off(methodName?: string) {
-    super._off(this.instanceID, methodName)
+  off(methodName?: string, handler?: IFn) {
+    super._off(this.instanceID, methodName, handler)
   }
 
-  destroy() {
-    if (this._isDestroyed) return
+  override destroy() {
+    if (this.isDestroyed) return
     super.destroy()
     // @ts-ignore
     window.removeEventListener(this._customEventName, this._onMessageReceived)
   }
 
   protected _onMessageReceived(evt: CustomEvent) {
-    this._onMessage(this.instanceID, evt.detail)
+    this.onMessage(this.instanceID, evt.detail)
   }
 
   protected sendMessage(peer: string, msg: IRequest | IResponse) {
@@ -86,9 +89,9 @@ export class PageScriptMessageHub extends AbstractHub {
 
   /** shared PageScriptMessageHub instance */
   public static get shared() {
-    if (!sharedPageMessageHub) {
-      sharedPageMessageHub = new PageScriptMessageHub()
+    if (!sharedMessageHub) {
+      sharedMessageHub = new PageScriptMessageHub()
     }
-    return sharedPageMessageHub
+    return sharedMessageHub
   }
 }

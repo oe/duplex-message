@@ -3,15 +3,27 @@ import {
   IResponse,
   IRequest,
   IProgress,
+  IFn,
   IHandlerMap,
   EErrorCode,
   IAbstractHubOptions,
   IMethodNameConfig,
 } from './abstract'
 
+export interface IPostMessageMethodOptions extends IMethodNameConfig {
+  /**
+   * transferable data list
+   */
+  transfer?: any[]
+  /**
+   * target origin, default is '*'
+   */
+  targetOrigin?: string
+}
+
 type IOwnPeer = Window | Worker | undefined
 
-let sharedPostMessageHub: PostMessageHub
+let sharedMessageHub: PostMessageHub
 
 const isInWorker = typeof document === 'undefined'
 
@@ -49,18 +61,18 @@ export class PostMessageHub extends AbstractHub {
    * @param peer messages that sent from, * for any peer
    * @param handlerMap handler or a map of handlers
    */
-  on(peer: Window | Worker | '*', handlerMap: Function | IHandlerMap): void;
+  on(peer: Window | Worker | '*', handlerMap: IFn | IHandlerMap): void;
   /**
    * listen `methodName` from `peer` with a handler
    * @param peer messages that sent from, * for any peer
    * @param methodName method name
    * @param handler handler for the method name
    */
-  on(peer: Window | Worker | '*', methodName: string, handler: Function): void;
+  on(peer: Window | Worker | '*', methodName: string, handler: IFn): void;
   on(
     peer: Window | Worker | '*',
-    handlerMap: IHandlerMap | Function | string,
-    handler?: Function,
+    handlerMap: IHandlerMap | IFn | string,
+    handler?: IFn,
   ): void {
     // @ts-ignore
     super._on(peer, handlerMap, handler)
@@ -75,7 +87,7 @@ export class PostMessageHub extends AbstractHub {
    * @returns Promise<unknown>
    */
   emit<ResponseType = unknown>(peer: Window | Worker,
-    methodName: string | IMethodNameConfig, ...args: any[]) {
+    methodName: string | IPostMessageMethodOptions, ...args: any[]) {
     if (isWindow(peer) && !peer.parent) {
       return Promise.reject({
         code: EErrorCode.PEER_NOT_FOUND,
@@ -92,8 +104,8 @@ export class PostMessageHub extends AbstractHub {
    * @param peer peer that own handlers
    * @param methodName method name
    */
-  off(peer: Window | Worker | '*', methodName?: string) {
-    super._off(peer, methodName)
+  off(peer: Window | Worker | '*', methodName?: string, handler?: IFn) {
+    super._off(peer, methodName, handler)
     const evtMpIndx = this._eventHandlerMap.findIndex((m) => m[0] === peer)
     if (evtMpIndx === -1 && isWorker(peer)) {
       const idx = this._hostedWorkers.indexOf(peer)
@@ -104,8 +116,8 @@ export class PostMessageHub extends AbstractHub {
     }
   }
 
-  destroy() {
-    if (this._isDestroyed) return
+  override destroy() {
+    if (this.isDestroyed) return
     super.destroy()
     // @ts-ignore
     this._WIN.removeEventListener('message', this._onMessageReceived)
@@ -145,7 +157,7 @@ export class PostMessageHub extends AbstractHub {
      * @param methodName method name or handler map
      * @param handler omit if methodName is handler map
      */
-    const on = (methodName: string | object, handler?: Function) => {
+    const on = (methodName: string | IHandlerMap, handler?: IFn) => {
       if (!checkPeer()) return
       const handlerMap = typeof methodName === 'string' ? { [methodName]: handler } : methodName
       // @ts-ignore
@@ -156,7 +168,8 @@ export class PostMessageHub extends AbstractHub {
      * @param methodName
      * @param args
      */
-    const emit = <ResponseType = unknown>(methodName: string, ...args: any[]) => {
+    const emit = <ResponseType = unknown>(
+      methodName: string | IPostMessageMethodOptions, ...args: any[]) => {
       if (!checkPeer()) {
         return Promise.reject({
           code: EErrorCode.PEER_NOT_FOUND,
@@ -170,18 +183,9 @@ export class PostMessageHub extends AbstractHub {
      * remove method from messageHub. remove all listeners if methodName not presented
      * @param methodName method meed to remove
      */
-    const off = (methodName?: string) => {
+    const off = (methodName?: string, handler?: IFn) => {
       if (!checkPeer()) return
-      // @ts-ignore
-      if (!methodName) {
-        if (!ownPeer) return
-        this.off(ownPeer)
-        return
-      }
-      const matchedMap = this._eventHandlerMap.find((wm) => wm[0] === ownPeer)
-      if (matchedMap && typeof matchedMap[1] === 'object') {
-        delete matchedMap[1][methodName]
-      }
+      this.off(ownPeer!, methodName, handler)
     }
     return {
       setPeer,
@@ -208,9 +212,25 @@ export class PostMessageHub extends AbstractHub {
     this.on(fromWin, this.proxyMessage(toWin))
   }
 
-  proxyMessage(destWin: Window | Worker) {
+  /**
+   * stop forwarding message from `fromWin`
+   * * only stop when the callback is a general function and has win property
+   */
+  stopProxy(fromWin: Window | Worker) {
+    const tuple = this.getEventHandlers(fromWin)
+    if (!tuple) return
+    const [, handlerMap] = tuple
     // @ts-ignore
-    return (...args: any[]) => this.emit(destWin, ...args)
+    if (typeof handlerMap === 'function' && handlerMap.win) {
+      this.off(fromWin)
+    }
+  }
+
+  protected proxyMessage(destWin: Window | Worker) {
+    // @ts-ignore
+    const callback = (...args: any[]) => this.emit(destWin, ...args)
+    callback.win = destWin
+    return callback
   }
 
   protected _addWorkerListener(peer: Window | Worker | '*') {
@@ -222,7 +242,7 @@ export class PostMessageHub extends AbstractHub {
 
   protected _onMessageReceived(evt: MessageEvent) {
     const peer = evt.source || evt.currentTarget || this._WIN
-    this._onMessage(peer, evt.data)
+    this.onMessage(peer, evt.data)
   }
 
   protected sendMessage(
@@ -231,20 +251,24 @@ export class PostMessageHub extends AbstractHub {
   ) {
     const args: any[] = [msg]
     if (!this._isInWorker && isWindow(peer)) {
-      args.push('*')
+      // @ts-ignore
+      args.push(msg.targetOrigin || '*')
     }
-    // if (msg && msg.data) {
-    //   args.push([msg.data])
-    // }
+    // add transferable data if exists
+    // @ts-ignore
+    if (Array.isArray(msg.transfer)) {
+      // @ts-ignore
+      args.push(msg.transfer)
+    }
     // @ts-ignore
     peer.postMessage(...args)
   }
 
   /** shared PostMessageHub instance */
   public static get shared() {
-    if (!sharedPostMessageHub) {
-      sharedPostMessageHub = new PostMessageHub()
+    if (!sharedMessageHub) {
+      sharedMessageHub = new PostMessageHub()
     }
-    return sharedPostMessageHub
+    return sharedMessageHub
   }
 }

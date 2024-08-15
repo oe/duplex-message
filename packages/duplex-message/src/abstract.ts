@@ -1,35 +1,79 @@
-export type IHandlerMap = Record<string, Function>
+export type IFn = (...args: any[]) => any
 
-export interface IRequest {
-  fromInstance: string
-  toInstance?: string
+export type IHandlerMap = Record<string, IFn[] | IFn>
+
+type IHandlerMapInner = Record<string, IFn[]>
+export interface IMessageBase<T> {
+  /**
+   * message source, peer id
+   */
+  from: string
+  /**
+   * message target, peer id
+   */
+  to?: string
+  /**
+   * message id
+   */
   messageID: number
+  /**
+   * message type
+   */
+  type: 'request' | 'response' | 'progress'
+  /**
+   * message data
+   */
+  data: T
+}
+
+/**
+ * request message
+ */
+export interface IRequest<T extends any[] = any[]> extends IMessageBase<T> {
+  /**
+   * message target, peer id
+   * * empty for default behavior, may vary in different implementations
+   */
+  to?: string
+  /**
+   * message type
+   */
   type: 'request'
+  /**
+   * method name
+   */
   methodName: string,
-  args: any[]
+  /**
+   * method arguments
+   */
+  data: T
+  /**
+   * whether message need progress callback
+   */
   progress?: boolean
-  [k: string]: any
 }
 
-export interface IResponse {
-  fromInstance: string
-  toInstance: string
-  messageID: number
+export interface IResponse<T = any> extends IMessageBase<T> {
+  to: string
   type: 'response'
+  /**
+   * whether response is success
+   */
   isSuccess: boolean
-  data: any
+  /**
+   * response data
+   */
+  data: T
 }
 
-export interface IProgress {
-  fromInstance: string
-  toInstance: string
-  messageID: number
+export interface IProgress<T = any> extends IMessageBase<T> {
+  to: string
   type: 'progress'
-  data: any
+  data: T
 }
 
 /** enum of error code */
-export enum EErrorCode {
+export const enum EErrorCode {
   /** handler on other side encounter an error  */
   HANDLER_EXEC_ERROR = 1,
   /** peer not found */
@@ -55,28 +99,28 @@ export interface IError {
 export interface IMethodNameConfig {
   methodName: string
   /** peer instance id */
-  toInstance?: string
+  to?: string
   [k: string]: any
 }
 
-export interface ILibConfig {
-  debug: boolean
+export function setConfig() {
+  console.log('[duplex-message] setConfig is deprecated, please remove it')
 }
 
-const libConfig: ILibConfig = {
-  debug: false,
-}
-
-export function setConfig(options: Partial<ILibConfig>) {
-  Object.assign(libConfig, options)
-}
-
+/**
+ * heartbeat message
+ */
 const CONTINUE_INDICATOR = '--message-hub-to-be-continued--'
-
-const WAIT_TIMEOUT = 200
+/**
+ * timeout for waiting heartbeat message
+ */
+const HEARTBEAT_WAIT_TIMEOUT = 200
 
 export interface IAbstractHubOptions {
-  instanceID?: string
+  /**
+   * custom instance id
+   */
+  instanceID?: string | null
 }
 
 export abstract class AbstractHub {
@@ -85,7 +129,7 @@ export abstract class AbstractHub {
    */
   readonly instanceID: string
 
-  protected readonly _responseCallbacks: ((...args: any[]) => number)[]
+  protected _responseCallbackMap: Record<string, (...args: any[]) => number>
 
   protected _messageID: number
 
@@ -93,24 +137,19 @@ export abstract class AbstractHub {
    * message handler map
    *  array item struct: eventTarget, {eventName: eventHandler } | handler4AllEvents
    */
-  protected readonly _eventHandlerMap: Array<[any, IHandlerMap | Function]>
+  protected readonly _eventHandlerMap: Array<[any, IHandlerMapInner | IFn]>
 
   /**
    * designed response map
    *  key: messageID
-   *  value: instanceID which will respond
+   *  value: instanceID which respond the heartbeat message earliest
    */
   protected _designedResponse: Record<string, string>
 
   /**
    * inner props to store whether instance is destroyed
    */
-  protected _isDestroyed: boolean
-
-  /** whether instance is destroyed */
-  get isDestroyed() {
-    return this._isDestroyed
-  }
+  protected isDestroyed: boolean
 
   /**
    * init Hub, subclass should implement its own constructor
@@ -118,12 +157,12 @@ export abstract class AbstractHub {
   constructor(options?: IAbstractHubOptions) {
     this.instanceID = (options && options.instanceID) || AbstractHub.generateInstanceID()
     this._eventHandlerMap = []
-    this._responseCallbacks = []
+    this._responseCallbackMap = {}
     this._messageID = 0
     this._designedResponse = {}
-    this._isDestroyed = false
-    if (libConfig.debug) {
-      console.warn(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
+    this.isDestroyed = false
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
     }
   }
 
@@ -155,64 +194,61 @@ export abstract class AbstractHub {
     msg: IRequest | IProgress | IResponse
   ): void
 
-  protected _hasListeners() {
-    return this._eventHandlerMap.length > 0
+  /**
+   * check whether instance is usable
+   */
+  protected checkInstance() {
+    if (this.isDestroyed) throw new Error('instance has been destroyed')
   }
 
   /**
    * add listener for peer
    */
-  protected _on(peer: any, handlerMap: Function | IHandlerMap): void;
-  protected _on(peer: any, methodName: string, handler: Function): void;
+  protected _on(peer: any, handlerMap: IFn | IHandlerMap): void;
+  protected _on(peer: any, methodName: string, handler: IFn): void;
   protected _on(
     peer: any,
-    handlerMap: IHandlerMap | Function | string,
-    handler?: Function,
+    handlerMap: IHandlerMap | IFn | string,
+    handler?: IFn,
   ): void {
-    if (this._isDestroyed) throw new Error('instance has been destroyed')
-    const pair = this._eventHandlerMap.find((item) => item[0] === peer)
-    let handlerResult: Function | IHandlerMap
+    this.checkInstance()
+    const pair = this.getEventHandlers(peer)
+    let handlerResult: IFn | IHandlerMap
     if (typeof handlerMap === 'string') {
-      handlerResult = { [handlerMap]: handler! }
+      handlerResult = { [handlerMap]: [handler!] }
     } else {
       handlerResult = handlerMap
     }
     if (pair) {
       const existingMap = pair[1]
-      if (libConfig.debug) {
+      if (process.env.NODE_ENV !== 'production') {
         const msg = `[duplex-message]${this.constructor.name}`
         if (typeof existingMap === 'function') {
           console.warn(`${msg} general handler for`, peer, 'will be overridden by', handlerResult)
         } else if (typeof handlerResult === 'function') {
           console.warn(`${msg} existing handlers`, existingMap, 'for peer(', peer, ') will be overridden by general function', handlerResult)
-        // @ts-ignore
-        } else if (existingMap) {
-          const newKeys = Object.keys(handlerResult)
-          const oldKeys = Object.keys(existingMap)
-          const overrideKeys = newKeys.filter((k) => oldKeys.indexOf(k) > -1)
-          if (overrideKeys.length) {
-            console.warn(`${msg} existing handlers of `, overrideKeys.join(','), 'for peer(', peer, ') will be overridden by handler', handlerResult)
-          }
         }
       }
       // merge existing handler map
-      // @ts-ignore
-      pair[1] = typeof existingMap === 'function'
+      pair[1] = typeof handlerResult === 'function'
         ? handlerResult
-        : typeof handlerResult === 'function'
-          ? handlerResult
-          : ({ ...existingMap, ...handlerResult })
+        : AbstractHub.mergeEventMap(typeof existingMap === 'function' ? {} : existingMap || {}, handlerResult)
 
       return
     }
+    /**
+     * * for general handler, will be executed if no specific handler found
+     */
     this._eventHandlerMap[peer === '*' ? 'unshift' : 'push']([
       peer,
-      handlerResult,
+      typeof handlerResult === 'function'
+        ? handlerResult
+        : AbstractHub.mergeEventMap({}, handlerResult),
     ])
   }
 
-  protected _off(peer: any, methodName?: string) {
-    if (this._isDestroyed) throw new Error('instance has been destroyed')
+  protected _off(peer: any, methodName?: string, handler?: IFn): void {
+    this.checkInstance()
     const index = this._eventHandlerMap.findIndex((pair) => pair[0] === peer)
     if (index === -1) return
     if (!methodName) {
@@ -220,132 +256,164 @@ export abstract class AbstractHub {
       return
     }
     const handlerMap = this._eventHandlerMap[index][1]
-    if (typeof handlerMap === 'object') {
-      delete handlerMap[methodName]
-      // nothing left
-      if (!Object.keys(handlerMap).length) {
-        this._eventHandlerMap.splice(index, 1)
+    if (typeof handlerMap !== 'object') return
+    const handlers = handlerMap[methodName]
+    if (!handlers) return
+    if (typeof handler === 'function') {
+      handlerMap[methodName] = handlers.filter((fn: IFn) => fn !== handler)
+      if (!handlerMap[methodName].length) {
+        delete handlerMap[methodName]
       }
+    } else {
+      delete handlerMap[methodName]
+    }
+    // nothing left
+    if (!Object.keys(handlerMap).length) {
+      this._eventHandlerMap.splice(index, 1)
     }
   }
 
   /** destroy instance  */
   destroy() {
-    this._eventHandlerMap.splice(0)
-    this._responseCallbacks.splice(0)
+    this._eventHandlerMap.length = 0
+    this._responseCallbackMap = {}
     this._designedResponse = {}
-    this._isDestroyed = true
+    this.isDestroyed = true
   }
 
-  protected async _onMessage(peer: any, msg: any) {
-    if (this._isDestroyed) throw new Error('instance has been destroyed')
-    if (!this._isMessage(msg)) return
-    if (!this._isRequest(msg)) {
-      this._runResponseCallback(msg)
+  /**
+   * listen message from peer
+   */
+  protected async onMessage(peer: any, msg: any) {
+    this.checkInstance()
+    if (!this.isMessage(msg)) return
+    // then it is a response or progress message
+    if (!this.isRequestMessage(msg)) {
+      // @ts-expect-error ignore
+      this.runResponseCallback(msg)
       return
     }
+    // then it is a request message from a peer
 
-    if (!this._getMsgHandler(peer, msg)) {
+    // check if there is a handler for the request message
+    const callbackInfo = this.getMessageCallbacks(peer, msg)
+
+    if (!callbackInfo) {
       return
     }
-
+    // send a heartbeat message to peer, in case of response takes too long
     this.sendMessage(
       peer,
-      this._buildProgressMessage(CONTINUE_INDICATOR, msg),
+      this.buildProgressMessage(CONTINUE_INDICATOR, msg),
     )
 
-    let response: IResponse | Error | false
-    try {
-      response = await this._runMsgHandler(peer, msg)
-      if (response === false) return
-    } catch (error) {
-      response = error as Error
-    }
-    // @ts-ignore
+    const response = await this.runMessageCallbacks(peer, callbackInfo, msg)
     this.sendMessage(peer, response)
   }
 
-  protected _runResponseCallback(resp: IResponse) {
-    let ret = 0
-    const idx = this._responseCallbacks.findIndex((fn) => {
-      ret = fn(resp)
-      return Boolean(ret)
-    })
-    if (idx >= 0) {
-      // need to be continued
-      if (ret > 1) return true
-      this._responseCallbacks.splice(idx, 1)
-      // timeout, in case of any delays
-      setTimeout(() => {
-        delete this._designedResponse[resp.messageID]
-      }, WAIT_TIMEOUT + 50)
-      return true
-    }
-    return false
+  protected runResponseCallback(resp: IResponse | IProgress) {
+    const callback = this._responseCallbackMap[resp.messageID]
+    if (!callback) return false
+    const ret = callback(resp)
+    // not match
+    if (!ret) return false
+    // need to be continued
+    if (ret > 1) return true
+    // done
+    // clean up
+    delete this._responseCallbackMap[resp.messageID]
+    delete this._designedResponse[resp.messageID]
+    return true
   }
 
-  async _runMsgHandler(peer: any, reqMsg: IRequest) {
-    const msgInfo = this._getMsgHandler(peer, reqMsg)
-    const { methodName, args } = reqMsg
-    if (!msgInfo) {
-      return false
-    }
-
-    const newArgs = args.slice(0)
+  /**
+   * run message's callbacks when receive request from peer
+   * * first none undefined response will be returned
+   * * if all callbacks occur error, the last error will be returned
+   * * if at least one callback success, and no none undefined response,  
+   *  success response(undefined) will be returned
+   */
+  protected runMessageCallbacks(
+    peer: any,
+    callbackInfo: NonNullable<ReturnType<typeof AbstractHub.getMethodCallbacks>>,
+    reqMsg: IRequest
+  ) {
+    const { methodName, data } = reqMsg
+    const [method, isGeneral] = callbackInfo
+    const newArgs = data.slice(0)
     if (reqMsg.progress && newArgs[0]) {
       const newArg = { ...newArgs[0] }
-      newArg.onprogress = (data: any) => {
-        this.sendMessage(peer, this._buildProgressMessage(data, reqMsg))
+      newArg.onprogress = (d: any) => {
+        this.sendMessage(peer, this.buildProgressMessage(d, reqMsg))
       }
       newArgs[0] = newArg
     }
+    let methods: IFn[]
 
-    const [method, isGeneral] = msgInfo
     // add methodName as the first argument if handlerMap is a function
     if (isGeneral) {
       newArgs.unshift(methodName)
+      methods = [method]
+    } else {
+      methods = method
     }
-    try {
-      // eslint-disable-next-line prefer-spread
-      const data = await method.apply(null, newArgs)
-      return this._buildRespMessage(data, reqMsg, true)
-    } catch (error: any) {
-      if (libConfig.debug) {
-        console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs)
-      }
-      const data = {
-        code: EErrorCode.HANDLER_EXEC_ERROR,
-        message: error.message || error.stack,
-      }
-      throw this._buildRespMessage(data, reqMsg, false)
-    }
+    let responded = false
+    let lastError: IError | undefined
+    let hasSuccess = false
+    let count = 0
+
+    return new Promise<IResponse>((resolve) => {
+      methods.forEach(async (fn) => {
+        if (typeof fn !== 'function') {
+          console.warn('[duplex-message] invalid method', method, 'for', methodName)
+        } else {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            const res = await fn(...newArgs)
+            if (res !== undefined && !responded) {
+              resolve(this._buildRespMessage(res, reqMsg, true))
+              responded = true
+            }
+            hasSuccess = true
+          } catch (error) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs, error)
+            }
+            if (responded) return
+            // error object may be untransferable via postMessage, so it will be ignored
+            lastError = {
+              code: EErrorCode.HANDLER_EXEC_ERROR,
+              // @ts-expect-error ignore
+              message: error.message || error.stack,
+            }
+          }
+        }
+        count += 1
+        if (!responded && count === methods.length) {
+          resolve(this._buildRespMessage(hasSuccess ? undefined : lastError, reqMsg, hasSuccess))
+        }
+      })
+    })
   }
 
-  protected _getMsgHandler(peer: any, reqMsg: IRequest): [Function, boolean] | false {
-    const getHandler = (
-      methodName: string,
-      handlerTuple?: [any, Function | IHandlerMap] | false,
-    ): [Function, boolean] | false => {
-      if (!handlerTuple) return false
-      const handlerMap = handlerTuple[1]
-      if (!handlerMap) return false
-      if (typeof handlerMap === 'function') {
-        return [handlerMap, true]
-      }
-      if (typeof handlerMap[methodName] === 'function') {
-        return [handlerMap[methodName], false]
-      }
-      return false
-    }
+  /**
+   * get message callbacks
+   * * return a tuple of [callbacks, isGeneral], or undefined when no callbacks found
+   * * when General is true, callbacks will receive methodName as the first argument  
+   */
+  protected getMessageCallbacks(peer: any, reqMsg: IRequest) {
     const { methodName } = reqMsg
-    const result = getHandler(
-      methodName, this._eventHandlerMap.find((wm) => wm[0] === peer),
+    if (!this._eventHandlerMap.length) return undefined
+    const result = AbstractHub.getMethodCallbacks(
+      methodName, this.getEventHandlers(peer),
     )
     if (result) return result
-    return getHandler(methodName,
-      this._eventHandlerMap[0]
-        && this._eventHandlerMap[0][0] === '*'
-        && this._eventHandlerMap[0])
+    if (this._eventHandlerMap[0][0] !== '*') return undefined
+    return AbstractHub.getMethodCallbacks(methodName, this._eventHandlerMap[0])
+  }
+
+  protected getEventHandlers(peer: any) {
+    return this._eventHandlerMap.find((wm) => wm[0] === peer)
   }
 
   protected _emit<ResponseType>(
@@ -353,44 +421,47 @@ export abstract class AbstractHub {
     methodName: string | IMethodNameConfig,
     ...args: any[]
   ) {
-    if (this._isDestroyed) throw new Error('instance has been destroyed')
-    const reqMsg = this._buildReqMessage(methodName, args)
+    if (this.isDestroyed) throw new Error('instance has been destroyed')
+    const reqMsg = this.buildReqMessage(methodName, args)
     const result = new Promise<ResponseType>((resolve, reject) => {
       // 0 for not match
-      // 1 for done
-      // 2 for need to be continue
+      // 1 for response, done
+      // 2 for progress, need to be continue
       const callback = (response: IResponse | IProgress) => {
-        if (!this._isResponse(reqMsg, response)) {
-          if (!this._isProgress(reqMsg, response)) return 0
-          if (reqMsg.progress && reqMsg.args[0]) {
-            try {
-              reqMsg.args[0].onprogress(response.data)
-            } catch (error) {
-              console.warn(
-                '[duplex-message] progress callback for',
-                reqMsg,
-                'response',
-                response,
-                ', error:',
-                error,
-              )
-            }
+        if (this.isProgressMessage(reqMsg, response)) {
+          try {
+            reqMsg.data[0].onprogress(response.data)
+          } catch (error) {
+            console.warn(
+              '[duplex-message] progress callback for',
+              reqMsg,
+              'response',
+              response,
+              ', error:',
+              error,
+            )
           }
           return 2
         }
-        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-        response.isSuccess ? resolve(response.data) : reject(response.data)
-        return 1
+        if (this.isResponseMessage(reqMsg, response)) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+          response.isSuccess ? resolve(response.data) : reject(response.data)
+          return 1
+        }
+        return 0
       }
-      this._listenResponse(peer, reqMsg, callback)
+      this.listenResponse(peer, reqMsg, callback)
     })
     try {
-      this.sendMessage(peer, AbstractHub._normalizeRequest(peer, reqMsg))
+      this.sendMessage(peer, AbstractHub.normalizeRequest(peer, reqMsg))
     } catch (error) {
-      console.warn(
-        '[duplex-message] unable to serialize message, message not sent',
-        error,
-      )
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          '[duplex-message] unable to serialize message, message not sent',
+          error, ', message:', reqMsg,
+        )
+      }
+      delete this._responseCallbackMap[reqMsg.messageID]
       return Promise.reject({
         code: EErrorCode.INVALID_MESSAGE,
         message: 'unable to send message',
@@ -406,16 +477,15 @@ export abstract class AbstractHub {
    *            1 corresponding response and everything get proceeded
    *            2 corresponding response and need waiting for rest responses
    */
-  protected _listenResponse(
+  protected listenResponse(
     peer: any,
     reqMsg: IRequest,
     callback: (resp: IResponse | IProgress) => number,
-    withoutWrapper = false,
+    // withoutWrapper = false,
   ) {
-    const wrappedCallback = withoutWrapper
-      ? callback : AbstractHub._wrapCallback(this, reqMsg, callback)
+    const wrappedCallback = AbstractHub.wrapResponseCallback(this, reqMsg, callback)
 
-    this._responseCallbacks.push(wrappedCallback)
+    this._responseCallbackMap[reqMsg.messageID] = wrappedCallback
     // timeout when no response, callback get a failure
     setTimeout(() => {
       if (this._designedResponse[reqMsg.messageID]) return
@@ -424,61 +494,11 @@ export abstract class AbstractHub {
         reqMsg,
         false,
       )
-      this._runResponseCallback(resp)
-    }, WAIT_TIMEOUT)
+      this.runResponseCallback(resp)
+    }, HEARTBEAT_WAIT_TIMEOUT)
   }
 
-  protected static _wrapCallback(instance: AbstractHub, reqMsg: IRequest, callback: Function) {
-    return (resp: IResponse | IProgress) => {
-      const designedPeerID = instance._designedResponse[reqMsg.messageID]
-      // ignore not designed resp
-      if (designedPeerID && resp && resp.fromInstance !== designedPeerID) {
-        if (
-          libConfig.debug
-          && instance._isProgress(reqMsg, resp)
-          && resp.data === CONTINUE_INDICATOR
-        ) {
-          console.warn(
-            '[duplex-message] message',
-            reqMsg.methodName,
-            'already processing, but handled by another peer',
-            resp.fromInstance,
-          )
-        }
-        /** ignore */
-        return 0
-      }
-
-      if (instance._isProgress(reqMsg, resp) && resp.data === CONTINUE_INDICATOR) {
-        if (!designedPeerID) {
-          // eslint-disable-next-line no-param-reassign
-          instance._designedResponse[reqMsg.messageID] = resp.fromInstance
-        }
-        /** continue */
-        return 2
-      }
-      return callback(resp)
-    }
-  }
-
-  // normalize progress callback on message
-  protected static _normalizeRequest(peer: any, msg: IRequest) {
-    // skip if peer is *
-    if (peer === '*' || !msg.progress) {
-      // eslint-disable-next-line no-param-reassign
-      delete msg.progress
-      return msg
-    }
-    const options = msg.args[0]
-    const newMsg = { ...msg }
-    newMsg.args = newMsg.args.slice()
-    const copied = { ...options }
-    delete copied.onprogress
-    newMsg.args[0] = copied
-    return newMsg
-  }
-
-  protected _buildReqMessage(
+  protected buildReqMessage(
     methodName: string | IMethodNameConfig,
     args: any[],
   ): IRequest {
@@ -487,14 +507,14 @@ export abstract class AbstractHub {
     const progress = Boolean(
       options && typeof options.onprogress === 'function',
     )
-    // @ts-ignore
+
     return Object.assign(basicCfg, {
-      fromInstance: this.instanceID,
+      from: this.instanceID,
       // toInstance,
       // eslint-disable-next-line no-plusplus
       messageID: ++this._messageID,
-      type: 'request',
-      args,
+      type: 'request' as const,
+      data: args,
       progress,
     })
   }
@@ -505,8 +525,8 @@ export abstract class AbstractHub {
     isSuccess: boolean,
   ): IResponse {
     return {
-      fromInstance: this.instanceID,
-      toInstance: reqMsg.fromInstance,
+      from: this.instanceID,
+      to: reqMsg.from,
       messageID: reqMsg.messageID,
       type: 'response',
       isSuccess,
@@ -514,60 +534,135 @@ export abstract class AbstractHub {
     }
   }
 
-  protected _buildProgressMessage(data: any, reqMsg: IRequest): IProgress {
+  protected buildProgressMessage(data: any, reqMsg: IRequest): IProgress {
     return {
-      fromInstance: this.instanceID,
-      toInstance: reqMsg.fromInstance,
+      from: this.instanceID,
+      to: reqMsg.from,
       messageID: reqMsg.messageID,
       type: 'progress',
       data,
     }
   }
 
-  protected _isMessage(msg: any) {
+  protected isMessage(msg: any): msg is IMessageBase<any> {
     return msg
+      && (msg.to === this.instanceID || !msg.to)
       && msg.messageID
-      && msg.fromInstance
+      && msg.from
       && msg.type
-      && msg.fromInstance !== this.instanceID
   }
 
-  protected _isRequest(reqMsg: any): reqMsg is IRequest {
-    return Boolean(
-      reqMsg
-        && reqMsg.fromInstance
-        && reqMsg.fromInstance !== this.instanceID
-        && (!reqMsg.toInstance || reqMsg.toInstance === this.instanceID)
-        && reqMsg.messageID
-        && reqMsg.type === 'request',
-    )
+  protected isRequestMessage(msg: any): msg is IRequest {
+    return this.isMessage(msg)
+      && msg.from !== this.instanceID
+      && msg.type === 'request'
+      && (!msg.to || msg.to === this.instanceID)
   }
 
-  protected _isResponse(reqMsg: IRequest, respMsg: any): respMsg is IResponse {
-    return (
-      reqMsg
-      && respMsg
-      && respMsg.toInstance === this.instanceID
-      && respMsg.toInstance === reqMsg.fromInstance
-      && respMsg.messageID === reqMsg.messageID
-      && respMsg.type === 'response'
-    )
+  protected isResponseMessage(reqMsg: IRequest, msg: any): msg is IResponse {
+    return this.isMessage(msg)
+      && msg.to === this.instanceID
+      && msg.to === reqMsg.from
+      && msg.messageID === reqMsg.messageID
+      && msg.type === 'response'
   }
 
-  protected _isProgress(reqMsg: IRequest, respMsg: any): respMsg is IProgress {
-    return (
-      reqMsg
-      && respMsg
-      && respMsg.toInstance === this.instanceID
-      && respMsg.toInstance === reqMsg.fromInstance
-      && respMsg.messageID === reqMsg.messageID
-      && respMsg.type === 'progress'
-    )
+  protected isProgressMessage(reqMsg: IRequest, msg: any): msg is IProgress {
+    return this.isMessage(msg)
+      && msg.to === this.instanceID
+      && msg.to === reqMsg.from
+      && msg.messageID === reqMsg.messageID
+      && msg.type === 'progress'
   }
 
-  static generateInstanceID() {
+  protected static wrapResponseCallback(
+    instance: AbstractHub,
+    reqMsg: IRequest,
+    callback: IFn,
+  ) {
+    return (resp: IResponse | IProgress) => {
+      if (!instance.isMessage(resp)) return 0
+      const designedPeerID = instance._designedResponse[reqMsg.messageID]
+      // ignore not designed resp
+      if (designedPeerID && resp.from !== designedPeerID) {
+        if (
+          process.env.NODE_ENV !== 'production'
+          && instance.isProgressMessage(reqMsg, resp)
+          && resp.data === CONTINUE_INDICATOR
+        ) {
+          console.warn(
+            '[duplex-message] message',
+            reqMsg.methodName,
+            'already processing, but handled by another peer',
+            designedPeerID, ', message', resp, 'will be ignored',
+          )
+        }
+        /** ignore */
+        return 0
+      }
+
+      if (instance.isProgressMessage(reqMsg, resp) && resp.data === CONTINUE_INDICATOR) {
+        if (!designedPeerID) {
+          // eslint-disable-next-line no-param-reassign
+          instance._designedResponse[reqMsg.messageID] = resp.from
+        }
+        /** continue */
+        return 2
+      }
+      return callback(resp)
+    }
+  }
+
+  /**
+   * normalize progress callback on message
+   * * remove onprogress in first argument
+   */
+  protected static normalizeRequest(peer: any, msg: IRequest) {
+    // skip if peer is *
+    if (peer === '*' || !msg.progress) {
+      return msg
+    }
+    const options = msg.data[0]
+    const newMsg = { ...msg }
+    newMsg.data = newMsg.data.slice()
+    const copied = { ...options }
+    delete copied.onprogress
+    newMsg.data[0] = copied
+    return newMsg
+  }
+
+  protected static getMethodCallbacks(methodName: string,
+    handlerTuple?: [any, IFn | IHandlerMapInner]): [IFn[], false] | [IFn, true] | undefined {
+    if (!handlerTuple) return undefined
+    const handlerMap = handlerTuple[1]
+    if (!handlerMap) return undefined
+    if (typeof handlerMap === 'function') {
+      return [handlerMap, true]
+    }
+    const callbacks = handlerMap[methodName]
+    return callbacks ? [callbacks, false] : undefined
+  }
+
+  protected static generateInstanceID() {
     return Array(3)
       .join(`${Math.random().toString(36).slice(2)}-`)
       .slice(0, -1)
+  }
+
+  private static mergeEventMap(
+    existingMap: IHandlerMapInner,
+    newMap: IHandlerMap,
+  ): IHandlerMapInner {
+    const result = { ...existingMap }
+    const newKeys = Object.keys(newMap)
+    newKeys.forEach((key) => {
+      const callbacks = Array.isArray(newMap[key]) ? newMap[key] : [newMap[key]]
+      if (existingMap[key]) {
+        result[key].push(...callbacks)
+      } else {
+        result[key] = callbacks
+      }
+    })
+    return result
   }
 }

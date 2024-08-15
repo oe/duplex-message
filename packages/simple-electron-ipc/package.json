@@ -4,12 +4,11 @@
   "description": "an easy way to use electron ipc, get a response via promise, event support progress feedback",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
+  "module": "dist/index.es.js",
   "scripts": {
-    "prebuild": "rimraf dist/*",
-    "clean": "rimraf dist/* && rimraf .cache && rimraf test/cache",
-    "build": "tsc",
-    "predev": "cd test && tsc ./*.ts --outDir dist",
-    "dev": "electron ./test/dist/main.js"
+    "build": "vite build",
+    "predev": "tsc demo/*.ts --outDir demo/dist -t es5",
+    "dev": "electron ./demo/dist/main.js"
   },
   "files": [
     "dist/*"
@@ -24,7 +23,14 @@
     "promise"
   ],
   "dependencies": {
-    "duplex-message": "^1.1.7"
+    "duplex-message": "workspace:"
+  },
+  "devDependencies": {
+    "electron": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-dts": "catalog:",
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "electron": "*"

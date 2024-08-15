@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "rootDir": "./src",
+    "rootDir": "./",
     "outDir": "./dist",
-    "module": "commonjs",
+    "module": "ESNext",
     "target": "ES2017",
     "lib": [
       "ES2017",
@@ -13,12 +13,16 @@
     "skipLibCheck": true,
     "declaration": true,
     "noImplicitAny": true,
+    "moduleResolution": "node",
     "esModuleInterop": true,
-    "resolveJsonModule": true
+    "noImplicitOverride": true,
   },
+  "include": [
+    "src"
+  ],
   "exclude": [
     "dist",
-    "rollup.config.ts",
-    "test"
+    "vite.config.ts",
+    "demo"
   ]
 }

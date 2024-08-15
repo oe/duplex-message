@@ -6,19 +6,29 @@
   "module": "dist/index.es.js",
   "typings": "dist/index.d.ts",
   "scripts": {
-    "prebuild": "rimraf dist/*",
-    "clean": "rimraf dist/* && rimraf .cache && rimraf test/cache",
-    "dev": "parcel test/worker/index.html test/frame/index.html test/page/index.html test/frame/frame.html test/storage/index.html --out-dir test/cache",
-    "build": "tsc && rimraf dist/*.js && rollup -c rollup.config.ts"
+    "dev": "vite",
+    "build": "tsx build.config.ts",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
   },
   "husky": {
     "hooks": {
-      "pre-commit": "yarn lint"
+      "pre-commit": "pnpm lint"
     }
   },
   "files": [
     "dist/*"
   ],
+  "devDependencies": {
+    "@vitest/browser": "^2.0.2",
+    "@vitest/coverage-istanbul": "^2.0.2",
+    "playwright": "^1.45.1",
+    "tsx": "^4.17.0",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-dts": "catalog:",
+    "vitest": "catalog:"
+  },
   "keywords": [
     "rpc",
     "duplex",
@@ -33,8 +43,5 @@
   "repository": "https://oe@github.com/oe/duplex-message.git",
   "author": "Saiya",
   "license": "MIT",
-  "homepage": "https://github.com/oe/duplex-message/tree/master/packages/duplex-message",
-  "devDependencies": {
-    "@babel/core": "^7.14.0"
-  }
+  "homepage": "https://github.com/oe/duplex-message/tree/master/packages/duplex-message"
 }

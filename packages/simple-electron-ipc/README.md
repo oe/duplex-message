@@ -340,9 +340,4 @@ enum EErrorCode {
 ```
 
 ### Debug
-if you has some issues when using this lib, you can enable debug mode to see debug logs in console:
-
-```ts
-import { setConfig } from 'simple-electron-ipc'
-setConfig({ debug: true })
-```
+You can enable debug mode by setting `process.env.NODE_ENV` to any value other than `production`, like `development`, it will log some debug info to the console.
