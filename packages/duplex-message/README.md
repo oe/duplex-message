@@ -29,7 +29,7 @@
 - [Install](#install)
 - [Example](#example)
 - [Usage](#usage)
-  - [import \& debug](#import--debug)
+  - [Import \& Debug](#import--debug)
   - [constructor](#constructor)
   - [Shared instance](#shared-instance)
   - [on](#on)
@@ -40,7 +40,10 @@
   - [proxy for PostMessageHub](#proxy-for-postmessagehub)
   - [dedicated instance for PostMessageHub](#dedicated-instance-for-postmessagehub)
   - [Error](#error)
+- [FAQ](#faq)
+  - [How to deal with the error `no corresponding handler found for method xxx`?](#how-to-deal-with-the-error-no-corresponding-handler-found-for-method-xxx)
 - [Development](#development)
+- [License](#license)
 
 
 ## Features

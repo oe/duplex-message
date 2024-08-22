@@ -22,11 +22,12 @@
 - [Install](#install)
 - [Example](#example)
 - [Usage](#usage)
-  - [MainMessageHub & RendererMessageHub](#mainmessagehub--renderermessagehub)
+  - [MainMessageHub \& RendererMessageHub](#mainmessagehub--renderermessagehub)
   - [emit](#emit)
   - [on](#on)
   - [progress](#progress)
   - [off](#off)
+  - [destroy](#destroy)
   - [Error](#error)
   - [Debug](#debug)
 ## Features
@@ -297,7 +298,7 @@ mainMessageHub.off(peer: WebContents | '*', methodName?: string)
 rendererMessageHub.off(methodName?: string)
 ```
 
-#### destroy
+### destroy
 Destroy instance: remove all message handlers and references of objects.
 Any invoking of destroyed instance's methods will throw an exception
 
