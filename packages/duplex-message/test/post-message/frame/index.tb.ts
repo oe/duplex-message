@@ -24,7 +24,7 @@ describe('PostMessage for iframe',  () => {
     await wait(1000);
     const frameWindow = frame.contentWindow as Window
 
-    const hub = new PostMessageHub()
+    const hub = new PostMessageHub({ heartbeatTimeout: 1000 });
 
     const msg = await hub.emit(frameWindow, { methodName: 'greet', targetOrigin: '*' }, 'hello')
     expect(msg).toBe('hello')
@@ -37,5 +37,18 @@ describe('PostMessage for iframe',  () => {
     expect(() => hub.emit(frameWindow, { methodName: 'greet', targetOrigin: 'https://www.google.com/' }, 'hello')).rejects.toThrowError()
   })
 
+  it('with instanceID', async () => {
+    const frame = createFrame();
+    await wait(1000);
+    const frameWindow = frame.contentWindow as Window
+
+    const hub = new PostMessageHub({ heartbeatTimeout: 1000 });
+
+    expect(hub.emit(frameWindow, { methodName: 'greet', to: 'ab', targetOrigin: '*' }, 'hello')).rejects.toThrowError()
+    const msg = await hub.emit(frameWindow, { methodName: 'greet', targetOrigin: '*' }, 'hello')
+    expect(msg).toBe('hello')
+    const msg2 = await hub.emit(frameWindow, { methodName: 'greet', to: 'iframe', targetOrigin: '*' }, 'hello')
+    expect(msg2).toBe('hello')
+  })
 })
 

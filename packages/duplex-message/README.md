@@ -220,10 +220,21 @@ interface IAbstractHubOptions {
    * if not set, a random id will be generated
    */
   instanceID?: string | null
+  /**
+   * timeout(milliseconds) for waiting heartbeat message, default 500ms
+   * 1. A heartbeat message will be sent to peer immediately when a request message is received 
+   *    and there is at least one handler for it. Or the `emit` method will catch a no handler error
+   *    It has nothing to do with the time of handler execution, there is no timeout
+   *    for handler execution
+   * 2. Normally, a heartbeat message will be sent to peer in less then 10 ms,
+   *    but you may still need to set a longer timeout if browser is heavy loaded
+   *    and the native apis are slow
+   */
+  heartbeatTimeout?: number
 }
 
 // new an instance with options
-const postMessageHub = new PostMessageHub({ instanceID: 'some-id' })
+const postMessageHub = new PostMessageHub({ instanceID: 'some-id', heartbeatTimeout: 1000 })
 // or use default options
 const pageScriptMessageHub = new PageScriptMessageHub()
 
@@ -567,6 +578,17 @@ enum EErrorCode {
 }
 ```
 
+## FAQ
+### How to deal with the error `no corresponding handler found for method xxx`?
+This may happen in the following situations:
+1. the message was sent to the peer, but the peer has no handler for it.
+2. the message was sent to the wrong peer, or there is no peer(or the peer has not been set / loaded correctly).
+   1. the peer is not using the same class that current instance using
+   2. the peer has not been loaded(e.g.: iframe not loaded, worker not started)
+   3. the peer is using different channel(e.g.: none-match `keyPrefix` for `StorageMessageHub`, none-match `channelName` for `BroadcastMessageHub`)
+3. The message was sent to the wrong peer: `emit` specifies a `to` property in the `methodName` object, but the peer does not have the same instance ID as the `to` property.
+4. the runtime(browser/node) is heavy loaded, the native api is too slow, you may need to set [a longer `heartbeatTimeout` for the instance](#constructor)
+
 ## Development
 
 ```sh
@@ -583,6 +605,9 @@ pnpm test
 
 # build
 pnpm build
+
+# publish
+pnpm publish -r
 ```
 
 ## License

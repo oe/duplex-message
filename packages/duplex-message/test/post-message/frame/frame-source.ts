@@ -4,7 +4,7 @@ import DemoWorker from './worker?worker'
 
 console.log('frame proxy postMessage', location.href)
 
-const hub = new PostMessageHub;
+const hub = new PostMessageHub({instanceID: 'iframe'});
 
 const worker = new DemoWorker()
 

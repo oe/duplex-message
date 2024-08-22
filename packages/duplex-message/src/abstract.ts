@@ -114,13 +114,24 @@ const CONTINUE_INDICATOR = '--message-hub-to-be-continued--'
 /**
  * timeout for waiting heartbeat message
  */
-const HEARTBEAT_WAIT_TIMEOUT = 200
+const DEFAULT_HEARTBEAT_WAIT_TIMEOUT = 500
 
 export interface IAbstractHubOptions {
   /**
    * custom instance id
    */
   instanceID?: string | null
+  /**
+   * timeout(milliseconds) for waiting heartbeat message, default 500ms
+   * 1. A heartbeat message will be sent to peer immediately when a request message is received 
+   *    and there is at least one handler for it. Or the `emit` method will catch a no handler error
+   *    It has nothing to do with the time of handler execution, there is no timeout
+   *    for handler execution
+   * 2. Normally, a heartbeat message will be sent to peer in less then 10 ms,
+   *    but you may still need to set a longer timeout if browser is heavy loaded
+   *    and the native apis are slow
+   */
+  heartbeatTimeout?: number
 }
 
 export abstract class AbstractHub {
@@ -147,6 +158,11 @@ export abstract class AbstractHub {
   protected _designedResponse: Record<string, string>
 
   /**
+   * timeout for waiting heartbeat message
+   */
+  protected _heartbeatTimeout: number
+
+  /**
    * inner props to store whether instance is destroyed
    */
   protected isDestroyed: boolean
@@ -160,6 +176,7 @@ export abstract class AbstractHub {
     this._responseCallbackMap = {}
     this._messageID = 0
     this._designedResponse = {}
+    this._heartbeatTimeout = (options && options.heartbeatTimeout) || DEFAULT_HEARTBEAT_WAIT_TIMEOUT
     this.isDestroyed = false
     if (process.env.NODE_ENV !== 'production') {
       console.log(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
@@ -421,7 +438,7 @@ export abstract class AbstractHub {
     methodName: string | IMethodNameConfig,
     ...args: any[]
   ) {
-    if (this.isDestroyed) throw new Error('instance has been destroyed')
+    this.checkInstance()
     const reqMsg = this.buildReqMessage(methodName, args)
     const result = new Promise<ResponseType>((resolve, reject) => {
       // 0 for not match
@@ -495,7 +512,7 @@ export abstract class AbstractHub {
         false,
       )
       this.runResponseCallback(resp)
-    }, HEARTBEAT_WAIT_TIMEOUT)
+    }, this._heartbeatTimeout)
   }
 
   protected buildReqMessage(
