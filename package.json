@@ -18,6 +18,7 @@
   "homepage": "https://github.com/oe/duplex-message",
   "private": true,
   "devDependencies": {
+    "@changesets/cli": "^2.29.2",
     "@typescript-eslint/eslint-plugin": "^4.22.1",
     "@typescript-eslint/parser": "^4.22.1",
     "cross-env": "^5.2.0",
