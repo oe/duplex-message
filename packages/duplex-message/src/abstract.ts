@@ -116,6 +116,12 @@ const CONTINUE_INDICATOR = '--message-hub-to-be-continued--'
  */
 const DEFAULT_HEARTBEAT_WAIT_TIMEOUT = 500
 
+/**
+ * enable debug mode when env `NODE_ENV` is not production
+ */
+const ENABLE_DEBUG = typeof process !== 'undefined'
+  && process.env.NODE_ENV !== 'production'
+
 export interface IAbstractHubOptions {
   /**
    * custom instance id
@@ -178,7 +184,7 @@ export abstract class AbstractHub {
     this._designedResponse = {}
     this._heartbeatTimeout = (options && options.heartbeatTimeout) || DEFAULT_HEARTBEAT_WAIT_TIMEOUT
     this.isDestroyed = false
-    if (process.env.NODE_ENV !== 'production') {
+    if (ENABLE_DEBUG) {
       console.log(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
     }
   }
@@ -238,7 +244,7 @@ export abstract class AbstractHub {
     }
     if (pair) {
       const existingMap = pair[1]
-      if (process.env.NODE_ENV !== 'production') {
+      if (ENABLE_DEBUG) {
         const msg = `[duplex-message]${this.constructor.name}`
         if (typeof existingMap === 'function') {
           console.warn(`${msg} general handler for`, peer, 'will be overridden by', handlerResult)
@@ -393,7 +399,7 @@ export abstract class AbstractHub {
             }
             hasSuccess = true
           } catch (error) {
-            if (process.env.NODE_ENV !== 'production') {
+            if (ENABLE_DEBUG) {
               console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs, error)
             }
             if (responded) return
@@ -472,7 +478,7 @@ export abstract class AbstractHub {
     try {
       this.sendMessage(peer, AbstractHub.normalizeRequest(peer, reqMsg))
     } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (ENABLE_DEBUG) {
         console.warn(
           '[duplex-message] unable to serialize message, message not sent',
           error, ', message:', reqMsg,
@@ -603,7 +609,7 @@ export abstract class AbstractHub {
       // ignore not designed resp
       if (designedPeerID && resp.from !== designedPeerID) {
         if (
-          process.env.NODE_ENV !== 'production'
+          ENABLE_DEBUG
           && instance.isProgressMessage(reqMsg, resp)
           && resp.data === CONTINUE_INDICATOR
         ) {
