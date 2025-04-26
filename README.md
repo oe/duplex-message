@@ -19,4 +19,4 @@ enhance postMessage/storageEvent/electron IPC/chrome extension scripts</h3>
 ## publish steps
 1. `pnpm changeset` to create a changeset
 2. `pnpm changeset version` to update the version
-3. `pnpm changeset publish` to publish the package
+3. `pnpm publish -r` to publish the package
