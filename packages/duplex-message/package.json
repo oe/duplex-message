@@ -53,10 +53,15 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "node": "./dist/index.cjs",
       "import": "./dist/index.es.mjs",
       "require": "./dist/index.cjs"
     },
     "./dist/*": "./dist/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./dist/index.umd": "./dist/index.umd.js",
+    "./dist/index.es": "./dist/index.es.js",
+    "./dist/index.production.umd": "./dist/index.production.umd.js",
+    "./dist/index.production.es": "./dist/index.production.es.js"
   }
 }

@@ -29,7 +29,13 @@ try {
     const packed = JSON.parse(await readFile(join(destination, 'package.json'), 'utf8'))
     assert.ok(!JSON.stringify(packed).includes('workspace:'), 'workspace dependency leaked into package')
     if (name === 'simple-electron-ipc') assert.match(packed.dependencies['duplex-message'], /^\^\d+\.\d+\.\d+$/)
-    for (const entry of Object.values(packed.exports['.'])) await readFile(join(destination, entry))
+    const verifyEntries = async entries => {
+      for (const entry of Object.values(entries)) {
+        if (typeof entry === 'string') await readFile(join(destination, entry))
+        else await verifyEntries(entry)
+      }
+    }
+    await verifyEntries(packed.exports['.'])
   }
 
   // Use a transport stub for Node import checks; Electron runtime integration is tested separately.
@@ -53,7 +59,16 @@ try {
     import * as electronEsm from 'simple-electron-ipc'
     const require = createRequire(import.meta.url)
     const cjs = require('duplex-message')
+    assert.equal(esm.PostMessageHub, cjs.PostMessageHub, 'Node import/require loaded different hub classes')
+    const shared = esm.BroadcastMessageHub.shared
+    assert.equal(shared, cjs.BroadcastMessageHub.shared, 'Node import/require duplicated shared hubs')
+    shared.destroy()
+    for (const entry of ['index.umd', 'index.production.umd']) {
+      assert.equal(typeof require('duplex-message/dist/' + entry).PostMessageHub, 'function')
+    }
+    assert.equal(typeof require('simple-electron-ipc/dist/index').MainMessageHub, 'function')
     const { MainMessageHub, RendererMessageHub } = require('simple-electron-ipc')
+    assert.equal(EsmMain, MainMessageHub, 'Node import/require loaded different Electron classes')
     for (const api of [electronEsm, require('simple-electron-ipc')]) {
       assert.equal(typeof api.createRpcClient, 'function')
       assert.equal(typeof api.waitForPeer, 'function')
@@ -114,10 +129,17 @@ try {
     const ipcTimed: Promise<string> = renderer.emit<string>({ methodName: 'title', requestTimeout: 100, signal: controller.signal })
     const timeoutError: IError = { code: EErrorCode.REQUEST_TIMEOUT, message: 'timeout' }
     const abortError: IError = { code: EErrorCode.REQUEST_ABORTED, message: 'aborted' }
-    interface Api { add(a: number, b: number): number; title(): Promise<string> }
+    interface Api {
+      add(a: number, b: number): number
+      title(): Promise<string>
+      nested(): PromiseLike<PromiseLike<number>>
+      nullable(): number | Promise<string> | null
+    }
     const rpc = createRpcClient<Api>((method, ...args) => hub.emit(method, ...args))
     const sum: Promise<number> = rpc.call('add', 1, 2)
     const name: Promise<string> = rpc.call({ methodName: 'title', signal: controller.signal })
+    const nested: Promise<number> = rpc.call('nested')
+    const nullable: Promise<number | string | null> = rpc.call('nullable')
     // @ts-expect-error unknown remote method
     rpc.call('missing')
     // @ts-expect-error incorrect argument type
@@ -136,7 +158,7 @@ try {
     const ipcSum: Promise<number> = ipcClient.call('add', 1, 2)
     // @ts-expect-error configuration must name an existing method
     rpc.call({ methodName: 'missing' })
-    void [result, error, title, timed, ipcTimed, timeoutError, abortError, sum, name, incorrectResult, windowHub, checkedMain, ready, ipcOptions, ipcSum]
+    void [result, error, title, timed, ipcTimed, timeoutError, abortError, sum, name, nested, nullable, incorrectResult, windowHub, checkedMain, ready, ipcOptions, ipcSum]
   `
   await writeFile(join(consumer, 'types.cts'), types)
   await writeFile(join(consumer, 'types.mts'), types)
@@ -165,7 +187,7 @@ try {
   const builds = Array.isArray(result) ? result : [result]
   const code = builds.flatMap((item) => item.output)
     .filter((item) => item.type === 'chunk').map((item) => item.code).join('\n')
-  for (const unused of ['localStorage', 'BroadcastChannel', '_hostedWorkers']) {
+  for (const unused of ['localStorage', 'BroadcastChannel', '_hostedWorkers', '__duplex_message_ready__']) {
     assert.ok(!code.includes(unused), `unused transport retained: ${unused}`)
   }
   console.log('Packed packages passed CJS/ESM RPC, Electron import, NodeNext types, UMD and tree-shaking checks.')

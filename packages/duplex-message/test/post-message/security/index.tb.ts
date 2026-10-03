@@ -57,6 +57,24 @@ describe('window origin policy and readiness', () => {
     send.mockRestore()
   })
 
+  it('keeps the configured outgoing origin after receiving an accepted message', async () => {
+    const targetOrigin = 'https://outgoing.example'
+    const hub = track(new PostMessageHub({ allowedOrigins: [location.origin], targetOrigin }))
+    const send = vi.spyOn(window, 'postMessage')
+    hub.on(self, 'echo', () => 'done')
+    window.dispatchEvent(new MessageEvent('message', {
+      source: window, origin: location.origin,
+      data: { from: 'remote', to: hub.instanceID, messageID: 1, type: 'request', methodName: 'echo', data: [] },
+    }))
+    const controller = new AbortController()
+    const pending = expect(hub.emit(self, { methodName: 'outgoing', signal: controller.signal }))
+      .rejects.toMatchObject({ code: EErrorCode.REQUEST_ABORTED })
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'request' }), targetOrigin)
+    controller.abort()
+    await pending
+    send.mockRestore()
+  })
+
   it('keeps Worker communication working with a window origin policy', async () => {
     const worker = track(new DemoWorker())
     const hub = track(new PostMessageHub({ allowedOrigins: [] }))

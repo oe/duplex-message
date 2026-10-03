@@ -21,7 +21,14 @@ export class MainMessageHub extends ElectronMessageHub {
 
   protected override async onMessage(event: IpcMainEvent, message: unknown) {
     try {
-      if (this._validateSender && !this._validateSender(event)) return
+      if (this._validateSender) {
+        const allowed = this._validateSender(event)
+        if (allowed !== true) {
+          // An accidentally async validator must neither accept IPC nor crash main on rejection.
+          void Promise.resolve(allowed).catch(() => {})
+          return
+        }
+      }
     } catch { return }
     await super.onMessage(event, message)
   }

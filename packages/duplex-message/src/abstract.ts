@@ -151,6 +151,14 @@ export interface IAbstractHubOptions {
   requestTimeout?: number
 }
 
+interface IPendingRequest {
+  peer: any
+  reject: (error: IError) => void
+  heartbeatTimer?: ReturnType<typeof setTimeout>
+  requestTimer?: ReturnType<typeof setTimeout>
+  abortCleanup?: () => void
+}
+
 export abstract class AbstractHub {
   /**
    * hub instance
@@ -186,15 +194,7 @@ export abstract class AbstractHub {
    */
   protected isDestroyed: boolean
 
-  private readonly _heartbeatTimers = new Map<number, ReturnType<typeof setTimeout>>()
-
-  private readonly _requestTimers = new Map<number, ReturnType<typeof setTimeout>>()
-
-  private readonly _abortCleanups = new Map<number, () => void>()
-
-  private readonly _pendingRejects = new Map<number, (error: IError) => void>()
-
-  private readonly _responsePeers = new Map<number, any>()
+  private readonly _pendingRequests = new Map<number, IPendingRequest>()
 
   private readonly _pendingPeerCounts = new Map<any, number>()
 
@@ -207,7 +207,7 @@ export abstract class AbstractHub {
     this._responseCallbackMap = Object.create(null)
     this._messageID = 0
     this._designedResponse = Object.create(null)
-    this._heartbeatTimeout = options?.heartbeatTimeout ?? DEFAULT_HEARTBEAT_WAIT_TIMEOUT
+    this._heartbeatTimeout = options?.heartbeatTimeout || DEFAULT_HEARTBEAT_WAIT_TIMEOUT
     this._requestTimeout = options?.requestTimeout ?? 0
     if (!AbstractHub.isValidRequestTimeout(this._requestTimeout)) {
       throw new RangeError('requestTimeout must be a finite number between 0 and 2147483647')
@@ -329,8 +329,8 @@ export abstract class AbstractHub {
   destroy() {
     if (this.isDestroyed) return
     this.isDestroyed = true
-    for (const [messageID, reject] of this._pendingRejects) {
-      reject({ code: EErrorCode.UNKNOWN, message: 'instance has been destroyed' })
+    for (const [messageID, pending] of this._pendingRequests) {
+      pending.reject({ code: EErrorCode.UNKNOWN, message: 'instance has been destroyed' })
       this.clearPendingRequest(messageID)
     }
     this._eventHandlerMap.length = 0
@@ -377,15 +377,17 @@ export abstract class AbstractHub {
   }
 
   protected runResponseCallback(resp: IResponse | IProgress, peer?: any) {
-    if (peer !== undefined && this._responsePeers.get(resp.messageID) !== peer) return false
+    if (peer !== undefined && this._pendingRequests.get(resp.messageID)?.peer !== peer) return false
     const callback = this._responseCallbackMap[resp.messageID]
     if (!callback) return false
     const ret = callback(resp)
     // not match
     if (!ret) return false
-    this.clearHeartbeatTimer(resp.messageID)
     // need to be continued
-    if (ret > 1) return true
+    if (ret > 1) {
+      this.clearHeartbeatTimer(resp.messageID)
+      return true
+    }
     // done
     // clean up
     this.clearPendingRequest(resp.messageID)
@@ -393,37 +395,34 @@ export abstract class AbstractHub {
   }
 
   private clearHeartbeatTimer(messageID: number) {
-    const timer = this._heartbeatTimers.get(messageID)
-    if (timer !== undefined) {
-      clearTimeout(timer)
-      this._heartbeatTimers.delete(messageID)
+    const pending = this._pendingRequests.get(messageID)
+    if (pending?.heartbeatTimer !== undefined) {
+      clearTimeout(pending.heartbeatTimer)
+      pending.heartbeatTimer = undefined
     }
   }
 
   private clearPendingRequest(messageID: number) {
-    const peer = this._responsePeers.get(messageID)
-    if (this._responsePeers.has(messageID)) {
-      const count = this._pendingPeerCounts.get(peer)! - 1
-      if (count) this._pendingPeerCounts.set(peer, count)
-      else this._pendingPeerCounts.delete(peer)
-    }
-    this.clearHeartbeatTimer(messageID)
-    const requestTimer = this._requestTimers.get(messageID)
+    const pending = this._pendingRequests.get(messageID)
+    if (!pending) return
+    // Remove state before invoking cleanup hooks so reentrant settlement is harmless.
+    this._pendingRequests.delete(messageID)
+    const { peer, heartbeatTimer, requestTimer, abortCleanup } = pending
+    const count = this._pendingPeerCounts.get(peer)! - 1
+    if (count) this._pendingPeerCounts.set(peer, count)
+    else this._pendingPeerCounts.delete(peer)
+    if (heartbeatTimer !== undefined) clearTimeout(heartbeatTimer)
     if (requestTimer !== undefined) clearTimeout(requestTimer)
-    this._requestTimers.delete(messageID)
-    this._abortCleanups.get(messageID)?.()
-    this._abortCleanups.delete(messageID)
     delete this._responseCallbackMap[messageID]
     delete this._designedResponse[messageID]
-    this._pendingRejects.delete(messageID)
-    this._responsePeers.delete(messageID)
+    abortCleanup?.()
     this.onRequestSettled(peer)
   }
 
   private rejectPendingRequest(messageID: number, error: IError) {
-    const reject = this._pendingRejects.get(messageID)
-    if (!reject) return
-    reject(error)
+    const pending = this._pendingRequests.get(messageID)
+    if (!pending) return
+    pending.reject(error)
     this.clearPendingRequest(messageID)
   }
 
@@ -492,14 +491,18 @@ export abstract class AbstractHub {
             }
             if (responded) return
             // error object may be untransferable via postMessage, so it will be ignored
-            lastError = {
-              code: EErrorCode.HANDLER_EXEC_ERROR,
-              message: error instanceof Error ? error.message : String(
+            let message = 'handler threw an unreadable error'
+            try {
+              message = String(error instanceof Error ? error.message : (
                 error && typeof error === 'object'
                   ? (error as { message?: unknown; stack?: unknown }).message
                     ?? (error as { stack?: unknown }).stack ?? error
-                  : error,
-              ),
+                  : error
+              ))
+            } catch { /* Error objects can have throwing getters or no string conversion. */ }
+            lastError = {
+              code: EErrorCode.HANDLER_EXEC_ERROR,
+              message,
             }
           }
         }
@@ -552,8 +555,8 @@ export abstract class AbstractHub {
     }
     const reqMsg = this.buildReqMessage(methodName, args)
     const result = new Promise<ResponseType>((resolve, reject) => {
-      this._pendingRejects.set(reqMsg.messageID, reject)
-      this._responsePeers.set(reqMsg.messageID, peer)
+      const pending: IPendingRequest = { peer, reject }
+      this._pendingRequests.set(reqMsg.messageID, pending)
       this._pendingPeerCounts.set(peer, (this._pendingPeerCounts.get(peer) || 0) + 1)
       // 0 for not match
       // 1 for response, done
@@ -590,14 +593,14 @@ export abstract class AbstractHub {
               message: `request timed out after ${requestTimeout}ms for method ${reqMsg.methodName}`,
             })
           }, requestTimeout)
-          this._requestTimers.set(reqMsg.messageID, timer)
+          pending.requestTimer = timer
         }
         if (signal) {
           const abort = () => this.rejectPendingRequest(reqMsg.messageID, {
             code: EErrorCode.REQUEST_ABORTED,
             message: 'request has been aborted',
           })
-          this._abortCleanups.set(reqMsg.messageID, () => signal.removeEventListener('abort', abort))
+          pending.abortCleanup = () => signal.removeEventListener('abort', abort)
           signal.addEventListener('abort', abort, { once: true })
           // Also handle cancellation that occurred during listener registration.
           if (signal.aborted) abort()
@@ -609,7 +612,7 @@ export abstract class AbstractHub {
         })
       }
     })
-    if (!this._pendingRejects.has(reqMsg.messageID)) return result
+    if (!this._pendingRequests.has(reqMsg.messageID)) return result
     try {
       this.onRequestStarted(peer)
       this.sendMessage(peer, AbstractHub.normalizeRequest(peer, reqMsg))
@@ -654,7 +657,7 @@ export abstract class AbstractHub {
       callback(resp)
       this.clearPendingRequest(reqMsg.messageID)
     }, this._heartbeatTimeout)
-    this._heartbeatTimers.set(reqMsg.messageID, timer)
+    this._pendingRequests.get(reqMsg.messageID)!.heartbeatTimer = timer
   }
 
   protected buildReqMessage(

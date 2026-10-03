@@ -80,10 +80,12 @@ describe('request lifecycle', () => {
     await expect(response).resolves.toBe('done')
   })
 
-  it('supports a zero heartbeat timeout and cleans missing-handler requests', async () => {
+  it('preserves the legacy 500ms fallback for a zero heartbeat timeout', async () => {
     const client = hub({ heartbeatTimeout: 0 })
     const response = expect(client.emit(hub(), 'missing')).rejects.toMatchObject({ code: EErrorCode.METHOD_NOT_FOUND })
-    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(499)
+    expect(client.pendingCount).toBe(1)
+    await vi.advanceTimersByTimeAsync(1)
     await response
     expect(client.pendingCount).toBe(0)
     expect(vi.getTimerCount()).toBe(0)
@@ -140,10 +142,14 @@ describe('request lifecycle', () => {
     expect(client.pendingCount).toBe(0)
   })
 
-  it.each([null, undefined, 'failure', { stack: 'custom stack' }])('handles non-Error throws: %s', async (error) => {
+  it.each([
+    ['null', (): unknown => null], ['undefined', (): unknown => undefined], ['string', (): unknown => 'failure'],
+    ['stack object', (): unknown => ({ stack: 'custom stack' })], ['null prototype', (): unknown => Object.create(null)],
+    ['throwing getter', (): object => ({ get message(): string { throw new Error('unreadable message') } })],
+  ] as const)('handles non-Error throws: %s', async (_name, createError) => {
     const client = hub()
     const server = hub()
-    server.on(client, 'fail', () => { throw error })
+    server.on(client, 'fail', () => { throw createError() })
     await expect(client.emit(server, 'fail')).rejects.toMatchObject({ code: EErrorCode.HANDLER_EXEC_ERROR, message: expect.any(String) })
   })
 

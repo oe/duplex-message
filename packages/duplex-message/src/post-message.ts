@@ -47,9 +47,7 @@ export class PostMessageHub extends AbstractHub {
 
   private readonly _targetOrigin: string
 
-  private readonly _peerOrigins = new WeakMap<Window, string>()
-
-  private readonly _messageOrigins = new WeakMap<object, string>()
+  private readonly _messageOrigins?: WeakMap<object, string>
   protected _hostedWorkers: Worker[]
 
   protected readonly _WIN: Window | Worker
@@ -67,6 +65,7 @@ export class PostMessageHub extends AbstractHub {
       throw new TypeError('targetOrigin must be an origin string')
     }
     this._allowedOrigins = options?.allowedOrigins?.slice()
+    if (this._allowedOrigins) this._messageOrigins = new WeakMap()
     this._targetOrigin = options?.targetOrigin ?? '*'
     this._hostedWorkers = []
     // save current window it's self
@@ -283,12 +282,13 @@ export class PostMessageHub extends AbstractHub {
   protected _onMessageReceived(evt: MessageEvent) {
     const peer = evt.source || evt.currentTarget || this._WIN
     // Worker messages have no Window source or meaningful origin.
-    if (isWindow(evt.source) && this._allowedOrigins) {
+    if (this._allowedOrigins && isWindow(evt.source)) {
       if (!this._allowedOrigins.includes('*') && !this._allowedOrigins.includes(evt.origin)) return
       if (evt.origin !== 'null') {
-        this._peerOrigins.set(evt.source, evt.origin)
         // Remember each request separately: a Window can navigate between accepted origins.
-        if (evt.data && typeof evt.data === 'object') this._messageOrigins.set(evt.data, evt.origin)
+        if (evt.data && typeof evt.data === 'object' && evt.data.type === 'request') {
+          this._messageOrigins!.set(evt.data, evt.origin)
+        }
       }
     }
     this.onMessage(peer, evt.data)
@@ -307,8 +307,8 @@ export class PostMessageHub extends AbstractHub {
   }
 
   private copyMessageOrigin(request: IRequest, response: IResponse | IProgress) {
-    const origin = this._messageOrigins.get(request)
-    if (origin !== undefined) this._messageOrigins.set(response, origin)
+    const origin = this._messageOrigins?.get(request)
+    if (origin !== undefined) this._messageOrigins!.set(response, origin)
   }
 
   protected sendMessage(
@@ -318,7 +318,7 @@ export class PostMessageHub extends AbstractHub {
     const args: any[] = [msg]
     if (!this._isInWorker && isWindow(peer)) {
       // @ts-ignore
-      args.push(msg.targetOrigin ?? this._messageOrigins.get(msg) ?? this._peerOrigins.get(peer) ?? this._targetOrigin)
+      args.push(msg.targetOrigin || this._messageOrigins?.get(msg) || this._targetOrigin)
     }
     // add transferable data if exists
     // @ts-ignore

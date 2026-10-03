@@ -178,7 +178,7 @@ A total `requestTimeout` includes heartbeat wait and is not extended by progress
 
 ## Sender validation and application boundaries
 
-`MainMessageHub` accepts `validateSender(event: IpcMainEvent): boolean`. It runs before any incoming request, progress or response is processed. Returning false or throwing ignores the message. Validate both the expected `WebContents` and trusted frame/URL; a registered `WebContents` can contain untrusted child frames.
+`MainMessageHub` accepts a synchronous `validateSender(event: IpcMainEvent): boolean`. It runs before any incoming request, progress or response is processed. Only returning `true` accepts the message; any other value or a thrown error ignores it. Async validators are unsupported. Validate both the expected `WebContents` and trusted frame/URL; a registered `WebContents` can contain untrusted child frames.
 
 The hook is optional for compatibility. Configure it for privileged operations, use a narrow bridge API, and validate method arguments and permissions. See [Electron's security guidance](https://www.electronjs.org/docs/latest/tutorial/security#17-validate-the-sender-of-all-ipc-messages).
 
@@ -211,7 +211,7 @@ Errors inside the hub conform to `IError`: `{ code, message, error? }`. `EErrorC
 
 Error objects crossing `contextBridge` do not necessarily retain custom properties. If your page needs structured error codes, catch errors in preload and return a narrow application result such as `{ ok: false, code, message }`.
 
-ESM/CommonJS imports and type declarations are available. Library output targets ES2020. CI exercises mocked IPC and a real Electron 44 main/preload/renderer application on Linux; older Electron versions and other desktop platforms are not currently in the matrix.
+ESM/CommonJS imports and type declarations are available. Shared RPC declarations require TypeScript 4.1 or later; the installed Electron version may require a newer compiler for its own declarations. Consumers do not need the workspace's TypeScript 7 compiler. Library output targets ES2020. When upgrading from 2.1, handle pending-call rejections on `destroy()` and upgrade compilers older than 4.1. `signal` and `requestTimeout` in method configuration are reserved local controls. CI exercises mocked IPC and a real Electron 44 main/preload/renderer application on Linux; older Electron versions and other desktop platforms are not currently in the matrix.
 
 ## Development and license
 

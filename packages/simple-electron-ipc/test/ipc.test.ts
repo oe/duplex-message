@@ -59,11 +59,35 @@ afterEach(() => {
 })
 
 describe('Electron IPC', () => {
+  it.each([undefined, 'true', 1, {}, Promise.resolve(false), Promise.resolve(true)])(
+    'requires an explicit synchronous true from the sender validator (%j)', async value => {
+      const { main, renderer, target } = pair(undefined, (() => value) as unknown as IMainMessageHubOptions['validateSender'])
+      const handler = vi.fn(() => 'secret')
+      main.on(target, 'secret', handler)
+      const response = expect(renderer.emit('secret')).rejects.toMatchObject({ code: 3 })
+      await vi.advanceTimersByTimeAsync(500)
+      await response
+      expect(handler).not.toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
+
   it('accepts a trusted sender and frame', async () => {
     const { main, renderer, target } = pair(undefined, event => event.sender === transport.webContents
       && event.senderFrame?.url === 'file:///app/index.html')
     main.on(target, 'echo', () => 'trusted')
     await expect(renderer.emit('echo')).resolves.toBe('trusted')
+  })
+
+  it('ignores an accidentally async throwing validator without an unhandled rejection', async () => {
+    const validate = async () => { throw new Error('cannot validate sender') }
+    const { main, renderer, target } = pair(undefined, validate as unknown as IMainMessageHubOptions['validateSender'])
+    const handler = vi.fn(() => 'secret')
+    main.on(target, 'secret', handler)
+    const response = expect(renderer.emit('secret')).rejects.toMatchObject({ code: 3 })
+    await vi.advanceTimersByTimeAsync(500)
+    await response
+    expect(handler).not.toHaveBeenCalled()
   })
 
   it.each(['untrusted frame', 'throwing validator'])('ignores IPC from %s before running handlers', async scenario => {

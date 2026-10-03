@@ -151,7 +151,7 @@ hub.on(parent, READY_METHOD, () => true)
 
 For compatibility, omitting `allowedOrigins` accepts any origin and the default `targetOrigin` is `'*'`. Configure explicit origins for trusted iframe/window integrations. An empty list rejects all window origins; `['*']` explicitly accepts all. Origin checks apply to Window messages; Worker messages have no meaningful Window origin. Validate application arguments and permissions in handlers as well.
 
-For multiple trusted origins, set the appropriate per-call `targetOrigin` when first contacting a peer. For opaque origins such as sandboxed iframes, the string `'null'` does not uniquely identify a trusted site; prefer an origin-preserving configuration.
+For multiple trusted origins, set a per-call `targetOrigin` whenever the destination differs from the hub's configured default. For opaque origins such as sandboxed iframes, the string `'null'` does not uniquely identify a trusted site; prefer an origin-preserving configuration.
 
 ## Wait for application readiness
 
@@ -290,7 +290,9 @@ Rejected calls expose `IError`: `{ code: EErrorCode, message: string, error?: Er
 
 ### Imports and debug output
 
-The package provides ESM, CommonJS and type declarations. Use normal package imports with a bundler or Node. Legacy `dist/index.es.js`, UMD and production filenames remain available; explicit ESM filenames end in `.mjs`. The UMD global is `duplex-message`.
+The package provides ESM, CommonJS and type declarations for TypeScript 4.1 or later. The workspace's TypeScript 7 compiler is not required by consumers. Use normal package imports with a bundler or Node. Legacy `dist/index.es.js`, UMD and production filenames remain available, including extensionless distribution imports; explicit ESM filenames end in `.mjs`. The UMD global is `duplex-message`.
+
+When upgrading from 2.1, upgrade TypeScript if using a compiler older than 4.1. `destroy()` now rejects pending calls with `UNKNOWN` instead of leaving them unresolved; handle rejections from each call. The existing `emit` signatures and wire protocol are retained. `signal` and `requestTimeout` in method configuration are reserved local controls, and the legacy `heartbeatTimeout: 0` fallback remains 500ms.
 
 Debug logging is enabled when `process.env.NODE_ENV` exists and is not `production`. Bundlers can replace that value; production-specific browser builds are also available at `duplex-message/dist/index.production.es.mjs` and `duplex-message/dist/index.production.umd.js`.
 

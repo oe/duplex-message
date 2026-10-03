@@ -56,10 +56,16 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "node": {
+        "import": "./dist/index.node.mjs",
+        "require": "./dist/index.js"
+      },
       "import": "./dist/index.es.mjs",
       "require": "./dist/index.js"
     },
     "./dist/*": "./dist/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./dist/index": "./dist/index.js",
+    "./dist/index.es": "./dist/index.es.js"
   }
 }
