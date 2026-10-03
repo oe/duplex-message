@@ -1,6 +1,6 @@
 {
   "name": "duplex-message",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "Promise-based RPC for iframes, Web Workers and browser tabs, with progress feedback, typed calls and local cancellation.",
   "main": "dist/index.umd.js",
   "module": "dist/index.es.mjs",
@@ -14,7 +14,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "files": [
-    "dist/*"
+    "dist/*",
+    "CHANGELOG.md"
   ],
   "devDependencies": {
     "typescript": "catalog:",

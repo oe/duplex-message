@@ -15,7 +15,7 @@ The release has explicit upgrade boundaries:
 
 The initial upgraded build emitted ES2020 syntax unlike the published 2.1.0 artifact. Both library targets now preserve ES2018, and packed `.js`/`.mjs`/`.cjs` files are parsed with Acorn's ES2018 grammar. This checks syntax, not missing runtime APIs. The chosen transport must exist in the runtime. `waitForPeer` and cancellation require `AbortController`/`AbortSignal`; ordinary calls do not.
 
-A major changeset records these boundaries. Versions have not been bumped and packages have not been published.
+The 3.0.0 major release records these boundaries in both package changelogs.
 
 ## Confirmed issues fixed during review
 

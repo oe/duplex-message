@@ -1,6 +1,6 @@
 {
   "name": "simple-electron-ipc",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "Bidirectional Electron RPC with progress feedback, typed calls and local cancellation; use from an isolated preload.",
   "main": "dist/index.js",
   "module": "dist/index.es.mjs",
@@ -14,7 +14,8 @@
     "dev": "electron ./demo/dist/main.js"
   },
   "files": [
-    "dist/*"
+    "dist/*",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "electron",
