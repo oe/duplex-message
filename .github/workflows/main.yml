@@ -31,5 +31,20 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter duplex-message build:demo
-      - run: pnpm --filter simple-electron-ipc exec tsc -p demo/tsconfig.json --noEmit
+      - run: pnpm --filter simple-electron-ipc build:demo
       - run: pnpm check:package
+  electron:
+    runs-on: ubuntu-latest
+    env:
+      NODE_USE_ENV_PROXY: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter duplex-message exec playwright install-deps chromium
+      - run: sudo apt-get install -y xvfb
+      - run: xvfb-run -a pnpm check:electron

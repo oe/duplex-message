@@ -1,56 +1,20 @@
-<!DOCTYPE html>
-<html>
-
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Hello World!</title>
-  <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'">
+  <title>Duplex Message Electron Demo</title>
 </head>
 <body>
-  <h1>Hello World!</h1>
-  We are using Node.js <span id="node-version"></span>, Chromium
-  <span id="chrome-version"></span>, and Electron
-  <span id="electron-version"></span>.
-
-  <div>
-    <button id="download">download</button>
-    <div>
-      response
-      <div id="download-resp"></div>
-    </div>
-
-    <button id="get-token">get token</button>
-    <div>
-      response
-      <div id="get-token-resp"></div>
-    </div>
-
-    <button id="get-title">get title round back</button>
-    <div>
-      response
-      <div id="get-title-resp"></div>
-    </div>
-
-    <button id="get-calc">get calc with progress testing</button>
-    <div>
-      response
-      <div id="get-calc-resp"></div>
-    </div>
-
-    <button id="error">test error</button>
-    <div>
-      response
-      <div id="error-resp"></div>
-    </div>
-  </div>
-
-  <!-- You can also require other files to run in this process -->
+  <h1>Electron RPC with an isolated preload</h1>
+  <p>Progress, local cancellation and typed calls through a fixed contextBridge API.</p>
+  <button id="download">Start download</button>
+  <button id="cancel">Cancel local waiting</button>
+  <p id="download-resp" aria-live="polite"></p>
+  <button id="get-title">Get title through main → preload RPC</button>
+  <p id="get-title-resp" aria-live="polite"></p>
+  <button id="get-calc">Calculate 2 + 3 through bidirectional RPC</button>
+  <p id="get-calc-resp" aria-live="polite"></p>
   <script src="./dist/render.js"></script>
-  <style>
-    body {
-      background: white;
-    }
-  </style>
 </body>
-
 </html>

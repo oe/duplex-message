@@ -8,7 +8,8 @@
     "test": "pnpm -r test",
     "test:unit": "pnpm --filter duplex-message exec vitest run --project unit && pnpm --filter simple-electron-ipc test",
     "lint": "oxlint packages scripts --deny-warnings",
-    "check:package": "node scripts/check-package.mjs"
+    "check:package": "node scripts/check-package.mjs",
+    "check:electron": "pnpm build && pnpm --filter simple-electron-ipc build:demo && node scripts/check-electron.mjs"
   },
   "repository": "https://oe@github.com/oe/duplex-message.git",
   "author": "Saiya",

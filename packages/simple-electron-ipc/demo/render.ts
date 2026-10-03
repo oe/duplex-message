@@ -1,66 +1,17 @@
-// @ts-ignore
-export = 0
-import { RendererMessageHub } from 'simple-electron-ipc'
+import type { DemoApi } from './api'
 
+const api: DemoApi = window.duplexDemo
+const text = (id: string, value: string) => { document.getElementById(id)!.textContent = value }
+const message = (error: unknown) => error instanceof Error ? error.message : String(error)
 
-const messageHub = new RendererMessageHub()
-// @ts-ignore
-window.messageHub = messageHub
-messageHub.on({
-  pageTitle () {
-    return document.title
-  },
-  addNumber (msg: any) {
-    return new Promise((resolve, reject) => {
-      let hiCount = 0
-      const tid = setInterval(() => {
-        if (hiCount >= 100) {
-          clearInterval(tid)
-          return resolve(msg.a + msg.b)
-        }
-        msg.onprogress({count: hiCount += 10})
-      }, 200)
-    })
-  },
+document.getElementById('download')!.addEventListener('click', () => {
+  void api.download(count => text('download-resp', `Progress: ${count}%`))
+    .then(result => text('download-resp', result), error => text('download-resp', message(error)))
 })
-
-const $ = (id: string) => {
-  return document.getElementById(id.replace(/^#/, '')) as HTMLElement
-}
-
-
-$('download').addEventListener('click', () => {
-  messageHub.emit('download', {
-    onprogress(e) {$('download-resp').innerHTML = 'progress: ' + JSON.stringify(e)}
-  }).then(e => {
-    $('download-resp').innerHTML = 'success: ' + JSON.stringify(e)
-  })
+document.getElementById('cancel')!.addEventListener('click', () => api.cancelDownload())
+document.getElementById('get-title')!.addEventListener('click', () => {
+  void api.getTitle('Title: ').then(result => text('get-title-resp', result), error => text('get-title-resp', message(error)))
 })
-
-$('get-token').addEventListener('click', () => {
-  messageHub.emit('getUserToken', 'xiu', 'saiya').then((e) => {
-    $('get-token-resp').innerHTML = 'success: ' + JSON.stringify(e)
-  })
-})
-
-$('error').addEventListener('click', () => {
-  messageHub.emit('aaa', 'xiu', 'saiya').then((e) => {
-    $('error-resp').innerHTML = 'success: ' + JSON.stringify(e)
-  })
-  .catch((e) => {
-    $('error-resp').innerHTML = 'error: ' + JSON.stringify(e)
-  })
-})
-
-
-$('get-title').addEventListener('click', () => {
-  messageHub.emit('getTitle', 'my-xiu').then((e) => {
-    $('get-title-resp').innerHTML = 'success: ' + JSON.stringify(e)
-  })
-})
-
-$('get-calc').addEventListener('click', () => {
-  messageHub.emit('calc', 99, 2323).then((e) => {
-    $('get-calc-resp').innerHTML = 'success: ' + JSON.stringify(e)
-  })
+document.getElementById('get-calc')!.addEventListener('click', () => {
+  void api.calculate(2, 3).then(result => text('get-calc-resp', String(result)), error => text('get-calc-resp', message(error)))
 })

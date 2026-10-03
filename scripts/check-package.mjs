@@ -28,6 +28,7 @@ try {
     run('tar', ['-xzf', join(archives, `${name}-${manifest.version}.tgz`), '--strip-components=1', '-C', destination])
     const packed = JSON.parse(await readFile(join(destination, 'package.json'), 'utf8'))
     assert.ok(!JSON.stringify(packed).includes('workspace:'), 'workspace dependency leaked into package')
+    if (name === 'simple-electron-ipc') assert.match(packed.dependencies['duplex-message'], /^\^\d+\.\d+\.\d+$/)
     for (const entry of Object.values(packed.exports['.'])) await readFile(join(destination, entry))
   }
 
@@ -49,9 +50,16 @@ try {
     import { createRequire } from 'node:module'
     import * as esm from 'duplex-message'
     import { MainMessageHub as EsmMain } from 'simple-electron-ipc'
+    import * as electronEsm from 'simple-electron-ipc'
     const require = createRequire(import.meta.url)
     const cjs = require('duplex-message')
     const { MainMessageHub, RendererMessageHub } = require('simple-electron-ipc')
+    for (const api of [electronEsm, require('simple-electron-ipc')]) {
+      assert.equal(typeof api.createRpcClient, 'function')
+      assert.equal(typeof api.waitForPeer, 'function')
+      assert.equal(typeof api.READY_METHOD, 'string')
+      assert.equal(api.EErrorCode.REQUEST_TIMEOUT, 7)
+    }
     for (const api of [esm, cjs]) {
       assert.equal(typeof api.PostMessageHub, 'function')
       const channelName = 'packed-' + Math.random()
@@ -59,6 +67,10 @@ try {
       const server = new api.BroadcastMessageHub({ channelName })
       try {
         server.on('sum', (a, b) => a + b)
+        server.on(api.READY_METHOD, () => true)
+        await api.waitForPeer(method => client.emit(method))
+        const rpc = api.createRpcClient((method, ...args) => client.emit(method, ...args))
+        assert.equal(await rpc.call('sum', 2, 3), 5)
         assert.equal(await client.emit(Object.freeze({ methodName: 'sum', to: server.instanceID }), 2, 3), 5)
         const controller = new AbortController()
         const updates = []
@@ -87,8 +99,8 @@ try {
   run(process.execPath, ['smoke.mjs'])
 
   const types = `
-    import { BroadcastMessageHub, EErrorCode, type IError } from 'duplex-message'
-    import { MainMessageHub, RendererMessageHub } from 'simple-electron-ipc'
+    import { BroadcastMessageHub, PostMessageHub, EErrorCode, createRpcClient, waitForPeer, type IError } from 'duplex-message'
+    import { MainMessageHub, RendererMessageHub, createRpcClient as createIpcClient, type IElectronMessageHubOptions } from 'simple-electron-ipc'
     const hub = new BroadcastMessageHub()
     const result: Promise<number> = hub.emit<number>('sum', 1, 2)
     const error: IError = { code: EErrorCode.INVALID_MESSAGE, message: 'test' }
@@ -102,7 +114,29 @@ try {
     const ipcTimed: Promise<string> = renderer.emit<string>({ methodName: 'title', requestTimeout: 100, signal: controller.signal })
     const timeoutError: IError = { code: EErrorCode.REQUEST_TIMEOUT, message: 'timeout' }
     const abortError: IError = { code: EErrorCode.REQUEST_ABORTED, message: 'aborted' }
-    void [result, error, title, timed, ipcTimed, timeoutError, abortError]
+    interface Api { add(a: number, b: number): number; title(): Promise<string> }
+    const rpc = createRpcClient<Api>((method, ...args) => hub.emit(method, ...args))
+    const sum: Promise<number> = rpc.call('add', 1, 2)
+    const name: Promise<string> = rpc.call({ methodName: 'title', signal: controller.signal })
+    // @ts-expect-error unknown remote method
+    rpc.call('missing')
+    // @ts-expect-error incorrect argument type
+    rpc.call('add', 'one', 2)
+    // @ts-expect-error missing required argument
+    rpc.call('add', 1)
+    // @ts-expect-error configuration must retain method-specific argument types
+    rpc.call({ methodName: 'add', requestTimeout: 100 }, 'one', 2)
+    // @ts-expect-error async return type must be inferred from the remote method
+    const incorrectResult: Promise<number> = rpc.call('title')
+    const windowHub = new PostMessageHub({ allowedOrigins: ['https://trusted.example'], targetOrigin: 'https://trusted.example' })
+    const checkedMain = new MainMessageHub({ validateSender: event => event.senderFrame?.url === 'file:///app/index.html' })
+    const ready: Promise<void> = waitForPeer(method => hub.emit(method), { signal: controller.signal })
+    const ipcOptions: IElectronMessageHubOptions = { requestTimeout: 100 }
+    const ipcClient = createIpcClient<Api>((method, ...args) => renderer.emit(method, ...args))
+    const ipcSum: Promise<number> = ipcClient.call('add', 1, 2)
+    // @ts-expect-error configuration must name an existing method
+    rpc.call({ methodName: 'missing' })
+    void [result, error, title, timed, ipcTimed, timeoutError, abortError, sum, name, incorrectResult, windowHub, checkedMain, ready, ipcOptions, ipcSum]
   `
   await writeFile(join(consumer, 'types.cts'), types)
   await writeFile(join(consumer, 'types.mts'), types)

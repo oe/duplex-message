@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebContents } from 'electron'
-import { MainMessageHub, RendererMessageHub } from '../src/index'
+import { MainMessageHub, RendererMessageHub, type IMainMessageHubOptions } from '../src/index'
 
 const transport = vi.hoisted(() => {
-  type Listener = (event: { sender: unknown }, data: unknown) => unknown
+  type Listener = (event: { sender: unknown; senderFrame: { url: string } }, data: unknown) => unknown
   class Ipc {
     listeners = new Map<string, Set<Listener>>()
     on(channel: string, listener: Listener) {
@@ -13,10 +13,11 @@ const transport = vi.hoisted(() => {
     }
     off(channel: string, listener: Listener) { this.listeners.get(channel)?.delete(listener) }
     receive(channel: string, sender: unknown, data: unknown) {
-      for (const listener of this.listeners.get(channel) ?? []) void listener({ sender }, data)
+      for (const listener of this.listeners.get(channel) ?? []) void listener({ sender, senderFrame: frame }, data)
     }
   }
   const ipcMain = new Ipc()
+  const frame = { url: 'file:///app/index.html' }
   const ipcRenderer = Object.assign(new Ipc(), {
     send(channel: string, data: unknown) {
       const message = structuredClone(data)
@@ -29,7 +30,7 @@ const transport = vi.hoisted(() => {
       queueMicrotask(() => ipcRenderer.receive(channel, ipcRenderer, message))
     },
   }
-  return { ipcMain, ipcRenderer, webContents }
+  return { ipcMain, ipcRenderer, webContents, frame }
 })
 
 vi.mock('electron', () => ({ default: transport }))
@@ -38,9 +39,9 @@ const hubs: (MainMessageHub | RendererMessageHub)[] = []
 function inProcess(type: 'browser' | 'renderer') {
   vi.stubGlobal('process', { ...process, type })
 }
-function pair(channelName?: string) {
+function pair(channelName?: string, validateSender?: IMainMessageHubOptions['validateSender']) {
   inProcess('browser')
-  const main = new MainMessageHub({ channelName })
+  const main = new MainMessageHub({ channelName, validateSender })
   inProcess('renderer')
   const renderer = new RendererMessageHub({ channelName })
   hubs.push(main, renderer)
@@ -52,11 +53,34 @@ afterEach(() => {
   hubs.splice(0).forEach((hub) => hub.destroy())
   transport.ipcMain.listeners.clear()
   transport.ipcRenderer.listeners.clear()
+  transport.frame.url = 'file:///app/index.html'
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
 
 describe('Electron IPC', () => {
+  it('accepts a trusted sender and frame', async () => {
+    const { main, renderer, target } = pair(undefined, event => event.sender === transport.webContents
+      && event.senderFrame?.url === 'file:///app/index.html')
+    main.on(target, 'echo', () => 'trusted')
+    await expect(renderer.emit('echo')).resolves.toBe('trusted')
+  })
+
+  it.each(['untrusted frame', 'throwing validator'])('ignores IPC from %s before running handlers', async scenario => {
+    const { main, renderer, target } = pair(undefined, event => {
+      if (scenario === 'throwing validator') throw new Error('cannot validate sender')
+      return event.senderFrame?.url === 'file:///app/index.html'
+    })
+    transport.frame.url = 'https://untrusted.example'
+    const handler = vi.fn(() => 'secret')
+    main.on(target, 'secret', handler)
+    const response = expect(renderer.emit('secret')).rejects.toMatchObject({ code: 3 })
+    await vi.advanceTimersByTimeAsync(500)
+    await response
+    expect(handler).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('delivers reserved-string progress with request controls across serialized IPC', async () => {
     const { main, renderer } = pair()
     main.on('*', 'progress', (options: { onprogress: (value: string) => void }) => {

@@ -1,17 +1,32 @@
-import { ipcRenderer } from 'electron';
-// All of the Node.js APIs are available in the preload process.
-// It has the same sandbox as a Chrome extension.
-window.addEventListener("DOMContentLoaded", () => {
-  const replaceText = (selector: string, text: string) => {
-    const element = document.getElementById(selector);
-    if (element) {
-      element.innerText = text;
-    }
-  };
+import { contextBridge } from 'electron'
+import { RendererMessageHub, createRpcClient } from 'simple-electron-ipc'
+import type { DemoApi, MainMethods, PreloadMethods } from './api'
 
-  for (const type of ["chrome", "node", "electron"]) {
-    // @ts-ignore
-    replaceText(`${type}-version`, process.versions[type as keyof NodeJS.ProcessVersions]);
-  }
-});
-console.log(ipcRenderer)
+const hub = new RendererMessageHub({ requestTimeout: 5000 })
+const main = createRpcClient<MainMethods>((method, ...args) => hub.emit(method, ...args))
+hub.on({
+  pageTitle: () => document.title,
+  addNumbers: (a, b) => {
+    if (!Number.isFinite(a) || !Number.isFinite(b)) throw new TypeError('numbers required')
+    return a + b
+  },
+} satisfies PreloadMethods)
+
+let downloadController: AbortController | undefined
+const api: DemoApi = {
+  async download(onprogress) {
+    if (typeof onprogress !== 'function') throw new TypeError('callback required')
+    if (downloadController) throw new Error('a download is already pending')
+    const controller = new AbortController()
+    downloadController = controller
+    try {
+      return await main.call({ methodName: 'download', signal: controller.signal }, { onprogress })
+    } finally { downloadController = undefined }
+  },
+  cancelDownload: () => downloadController?.abort(),
+  getTitle: prefix => main.call('getTitle', prefix),
+  calculate: (a, b) => main.call('calculate', a, b),
+}
+// Expose specific application operations; keep hubs, channel names and signals in preload.
+contextBridge.exposeInMainWorld('duplexDemo', api)
+window.addEventListener('unload', () => { downloadController?.abort(); hub.destroy() })

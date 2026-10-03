@@ -20,6 +20,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'browser',
+          globalSetup: 'test/cross-origin-server.ts',
           include: ['test/**/*.tb.ts'],
           env: { NODE_ENV: 'production' },
           browser: {

@@ -1,7 +1,7 @@
 {
   "name": "duplex-message",
   "version": "2.1.0",
-  "description": "makes one way message responsive, enhance postMessage/storageEvent/chrome extension scripts",
+  "description": "Promise-based RPC for iframes, Web Workers and browser tabs, with progress feedback, typed calls and local cancellation.",
   "main": "dist/index.umd.js",
   "module": "dist/index.es.mjs",
   "scripts": {
@@ -26,16 +26,24 @@
   },
   "keywords": [
     "rpc",
-    "duplex",
-    "duplex-message",
-    "hub",
     "postmessage",
-    "promise",
     "iframe",
+    "worker",
     "webworker",
-    "worker"
+    "web-worker",
+    "cross-window",
+    "cross-origin",
+    "broadcastchannel",
+    "browser-tabs",
+    "progress",
+    "typescript",
+    "promise"
   ],
-  "repository": "https://oe@github.com/oe/duplex-message.git",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oe/duplex-message.git",
+    "directory": "packages/duplex-message"
+  },
   "author": "Saiya",
   "license": "MIT",
   "homepage": "https://github.com/oe/duplex-message/tree/main/packages/duplex-message",

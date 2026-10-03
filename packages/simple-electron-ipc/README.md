@@ -1,382 +1,220 @@
-<h1 align="center">Simple-Electron-IPC</h1>
-<div align="center">
-  <a href="https://github.com/oe/duplex-message/actions">
-    <img src="https://github.com/oe/duplex-message/actions/workflows/main.yml/badge.svg" alt="github actions">
-  </a>
-  <a href="#readme">
-    <img src="https://badgen.net/badge/Built%20With/TypeScript/blue" alt="code with typescript" height="20">
-  </a>
-  <a href="#readme">
-    <img src="https://badge.fury.io/js/simple-electron-ipc.svg" alt="npm version" height="20">
-  </a>
-  <a href="https://www.npmjs.com/package/simple-electron-ipc">
-    <img src="https://img.shields.io/npm/dm/simple-electron-ipc.svg" alt="npm downloads" height="20">
-  </a>
-</div>
+# simple-electron-ipc
 
+**Bidirectional Electron RPC with progress feedback, typed calls and local cancellation.** Use it in the main process and an isolated preload; expose specific application operations through `contextBridge`.
 
-<h4 align="center">an easy way to use electron ipc, get a response via promise, even with progress feedback support</h4>
+[![CI](https://github.com/oe/duplex-message/actions/workflows/main.yml/badge.svg)](https://github.com/oe/duplex-message/actions)
+[![npm](https://img.shields.io/npm/v/simple-electron-ipc.svg)](https://www.npmjs.com/package/simple-electron-ipc)
 
-## 📝 Table of Contents
-- [Features](#features)
-- [Install](#install)
-- [Example](#example)
-- [Usage](#usage)
-  - [MainMessageHub \& RendererMessageHub](#mainmessagehub--renderermessagehub)
-  - [emit](#emit)
-  - [on](#on)
-  - [progress](#progress)
-  - [Cancellation and request deadlines](#cancellation-and-request-deadlines)
-  - [off](#off)
-  - [destroy](#destroy)
-  - [Error](#error)
-  - [Debug](#debug)
-## Features
-* **Simple API**: `on` `emit` and `off` are all you need
-* **Responsible**: `emit` will return a promise with the response from the other side
-* **Progress-able**: get response with progress easily
-* **Small**: tree-shakable; uses `duplex-message` and Electron IPC
-* **Consistency**: same api every where 
-* **Typescript support**: this utility is written in typescript, has type definition inborn
+Use it for long-running tasks with progress, or when both main → preload and preload → main need request/response calls. For a few ordinary renderer → main requests, Electron's native [`ipcRenderer.invoke` / `ipcMain.handle`](https://www.electronjs.org/docs/latest/tutorial/ipc) may be enough.
 
-It also has a browser version that can simplify cross window / js context messaging, check [Duplex-Message
-](https://github.com/oe/duplex-message/tree/main/packages/duplex-message) for more details.
+For browser Workers, iframes and tabs, see [duplex-message](https://github.com/oe/duplex-message/tree/main/packages/duplex-message#readme).
 
 ## Install
-using yarn
+
 ```sh
-yarn add simple-electron-ipc
+pnpm add simple-electron-ipc
+# or: npm install simple-electron-ipc
 ```
 
-or npm
-```sh
-npm install simple-electron-ipc -S
-```
+Your application also needs Electron. The library's runtime dependency on `duplex-message` is installed automatically; shared RPC helpers and types are re-exported here.
 
-## Example
+## Quick start with context isolation
 
-The following example shows you how to use it to to communicate between electron app's main process and renderer process.
+Keep `nodeIntegration: false`, `contextIsolation: true` and `sandbox: true`. Instantiate `RendererMessageHub` in **preload**, not the unprivileged page. Expose a fixed application API rather than the hub, raw IPC or arbitrary method names.
 
-in main process:
-```js
-import { MainMessageHub } from 'simple-electron-ipc'
-
-const mainMessageHub = new MainMessageHub()
-
-// listen getUserToken and download from all renderer processes
-mainMessageHub.on('*', {
-  getUserToken: (a, b) => Math.random().toString(36) + a + b,
-
-  // download with progress support
-  download: (msg) => {
-    return new Promise((resolve, reject) => {
-      let hiCount = 0
-      const tid = setInterval(() => {
-        if (hiCount >= 100) {
-          clearInterval(tid)
-          return resolve('done')
-        }
-        msg.onprogress({count: hiCount += 10})
-      }, 200)
-    })
-  }
-}
-// mainWindow should be an instance of BrowserWindow, use mainWindow.webContents to get WebContents object
-mainMessageHub.on(mainWindow.webContents, 'some-method', () => {...})
-
-mainMessageHub.emit(mainWindow.webContents, 'generate-watermark', 'arg1', 'arg2')
-  .then(base64OfPng => {...})
-  .catch(e => console.log(e))
-```
-
-in renderer process:
-```js
-import { RendererMessageHub } from 'simple-electron-ipc'
-
-const rendererMessageHub = new RendererMessageHub()
-
-rendererMessageHub.on('generate-watermark', async (arg1, arg2) => {
-  ...
-})
-
-rendererMessageHub.emit('download', {
-  onprogress(p) {
-    console.log('progress', p)
-  }
-}).then(res => console.log(res))
-
-```
-
-## Usage
-### MainMessageHub & RendererMessageHub
-Before use this lib to communicate to each other, you need to create instances with `MainMessageHub` for main process & `RendererMessageHub` for renderer process.
-
+**Shared application contract (`api.ts`):**
 
 ```ts
-// in main process
-import { MainMessageHub } from 'simple-electron-ipc'
-
-const mainMessageHub = new MainMessageHub(options?: IElectronMessageHubOptions)
-
-// in renderer process
-import { RendererMessageHub } from 'simple-electron-ipc'
-
-const rendererMessageHub = new RendererMessageHub(options?: IElectronMessageHubOptions)
-
-
-interface IElectronMessageHubOptions {
-  /** ipc channel name used under the hood, default: message-hub */
-  channelName?: string
-  /** heartbeat wait in milliseconds, default 500 */
-  heartbeatTimeout?: number
-  /** total request timeout in milliseconds, default 0 (disabled) */
-  requestTimeout?: number
+export interface MainApi {
+  add(a: number, b: number): number
 }
 ```
 
-Tips:
-> in most cases, you only need one instance in main process, you can use  
->>   `MainMessageHub.shared`/`RendererMessageHub.shared` instead of new an instance.   
->   e.g.:   
->     `MainMessageHub.shared.on(webContent, 'xxx', () => {...})`   
->     `RendererMessageHub.shared.emit('xxx').then((res) => {...})`   
+**Main process:**
 
-If you change `channelName` when creating instances, main and renderers should use the same channel name.
+```ts
+import { app, BrowserWindow } from 'electron'
+import { MainMessageHub } from 'simple-electron-ipc'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import type { MainApi } from './api'
 
-You may need to change `webPreferences` when create BrowserWindow, so that you can import `simple-electron-ipc` in renderer process:
-```js
-import { BrowserWindow } from "electron";
-const mainWindow = new BrowserWindow({
+void app.whenReady().then(() => {
+  const file = join(__dirname, 'index.html')
+  const trustedUrl = pathToFileURL(file).href
+  const window = new BrowserWindow({
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-      enableRemoteModule: true,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      preload: join(__dirname, 'preload.cjs'),
     },
-    // other configurations
-    ...
-  });
-```
-
-The usage of `MainMessageHub` and `RendererMessageHub` have subtle differences, because the main process can send messages to multi renderers, but a renderer process can only send messages to the main process.
-
-
-### emit
-Send a message to peer, invoking `methodName` registered on the peer via [`on`](#on) with all its arguments `args`:
-
-```ts
-// in main process
-//    if you got a BrowserWindow instance, use browserWindow.webContents to get WebContents
-mainMessageHub.emit<ResponseType = unknown>(peer: WebContents, method: string | IMethodNameConfig, ...args: any[]) => Promise<ResponseType>
-
-// in renderer process, no need to specify the peer, the peer is default to the main process
-rendererMessageHub.emit<ResponseType = unknown>(method: string | IMethodNameConfig, ...args: any[]) => Promise<ResponseType>
-```
-
-e.g.
-```js
-// in main process
-const mainWindow = new BrowserWindow({....})
-mainMessageHub
-  .emit(mainWindow.webContents, 'some-method', 'arg1', 'arg2')
-  .then(res => console.log('success', res))
-  .catch(err => console.warn('error', err))
-
-// in renderer process
-rendererMessageHub
-  .emit('stop-download')
-  .then(res => console.log('success', res))
-  .catch(err => console.warn('error', err))
-```
-
-Notice:
-1. look into [Error](#error) when you catch an error
-2. omit args if no arguments are required, e.g `rendererMessageHub.emit('some-method')`
-3. you may need to handle the promise returned by `emit` if some lint warning unhandled promise(or floating promise)
-
-### on
-Listen messages sent from peer, it has following forms:
-
-```ts
-// in main process
-// register(listen)) one handler for methodName when message received from renderer
-//  * means all renderers, same as below
-mainMessageHub.on(peer: WebContents | '*', methodName: string, handler: Function)
-// register(listen)) multi handlers
-mainMessageHub.on(peer: WebContents | '*', handlerMap: Record<string, Function>)
-// register only one handler to deal with all messages from renderer
-mainMessageHub.on(peer: WebContents | '*', singleHandler: Function)
-
-
-// in renderer process
-// register(listen)) one handler for methodName when message received from main process
-rendererMessageHub.on(methodName: string, handler: Function)
-// register(listen)) multi handlers
-rendererMessageHub.on(handlerMap: Record<string, Function>)
-// register only one handler to deal with all messages from process
-rendererMessageHub.on(singleHandler: Function)
-```
-
-e.g.
-```js
-// in main process
-const mainWindow = new BrowserWindow({....})
-// listen multi messages from mainWindow  by passing a handler map
-mainMessageHub.on(mainWindow.webContents, {
-  hi (name) {
-    console.log(`name ${name}`)
-    // response by return
-    return `hi ${name}`
-  },
-  'some-method': function (a, b) {
-    ...
-  }
-})
-// listen 'get-token' from all renderers
-mainMessageHub.on('*', 'get-token', () => Math.random().toString(36).slice(2) )
-
-
-// in renderer process
-rendererMessageHub.on('async-add', async function (a, b) {
-  return new Promise((resolve, reject) => {
-    resolve(a + b)
   })
-})
-
-rendererMessageHub.on({
-  'method1': function () {...},
-  'method2': function (a, b, c) {...}
-})
-
-// listen all messages from  main process with one handler
-anotherWindowRendererMessageHub.on((methodName, ...args) => {
-  ...
+  const target = window.webContents
+  const hub = new MainMessageHub({
+    validateSender: event => event.sender === target
+      && event.senderFrame === target.mainFrame
+      && event.senderFrame.url === trustedUrl,
+  })
+  hub.on(target, {
+    add(a, b) {
+      if (!Number.isFinite(a) || !Number.isFinite(b)) throw new TypeError('numbers required')
+      return a + b
+    },
+  } satisfies MainApi)
+  target.setWindowOpenHandler(() => ({ action: 'deny' }))
+  target.on('will-navigate', event => event.preventDefault())
+  window.on('closed', () => hub.destroy())
+  void window.loadFile(file)
 })
 ```
 
-Notice:
-1. you should only listen a message once, it will override existing listener when do it again
-2. for `mainMessageHub`:  the specified callback will be called if you listen same `methodName` in specified peer and `*`
-
-### Cancellation and request deadlines
-
-Both directions accept `IMethodNameConfig` from `duplex-message` in place of a method string:
+**Preload (`preload.ts`, bundled to `preload.cjs`):**
 
 ```ts
-import { EErrorCode, type IMethodNameConfig } from 'duplex-message'
+import { contextBridge } from 'electron'
+import { RendererMessageHub, createRpcClient } from 'simple-electron-ipc'
+import type { MainApi } from './api'
 
-const controller = new AbortController()
-const request: IMethodNameConfig = {
-  methodName: 'download',
-  requestTimeout: 5_000,
-  signal: controller.signal,
-}
-
-// In the renderer:
-rendererMessageHub.emit(request, { url: '/report.pdf' }).catch(error => {
-  if (error.code === EErrorCode.REQUEST_ABORTED) console.log('Cancelled')
-  else if (error.code === EErrorCode.REQUEST_TIMEOUT) console.log('Timed out')
-  else console.error(error)
+const hub = new RendererMessageHub({ requestTimeout: 5000 })
+const main = createRpcClient<MainApi>((method, ...args) => hub.emit(method, ...args))
+contextBridge.exposeInMainWorld('appApi', {
+  add: (a: number, b: number) => main.call('add', a, b),
 })
-
-// For example, call this when the user clicks Cancel:
-controller.abort()
+window.addEventListener('unload', () => hub.destroy())
 ```
 
-In the main process, use `mainMessageHub.emit(webContents, request, ...args)` and handle rejection in the same way. A hub can set a default with `new RendererMessageHub({ requestTimeout: 10_000 })` or `new MainMessageHub({ requestTimeout: 10_000 })`. A per-request value overrides it; `0` disables the deadline. The default is unlimited. Valid values are finite numbers between `0` and `2147483647` milliseconds.
+**Renderer page:**
 
-The deadline includes heartbeat wait, and progress does not extend it. The existing heartbeat timeout can still reject a missing handler sooner. Cancellation and timeout only end local waiting and release the request's resources. They ignore late responses, but do not stop an already running peer handler or undo its effects. An already aborted signal prevents sending. Signals and timeout options stay local and never cross IPC.
-
-### progress
-If you need progress feedback when peer handling you requests, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
-
-e.g.
 ```js
-// in main process
-// listen download from all renderer processes
-mainMessageHub.on('*', {
-  // download with progress support
-  download: (msg) => {
-    return new Promise((resolve, reject) => {
-      let hiCount = 0
-      const tid = setInterval(() => {
-        if (hiCount >= 100) {
-          clearInterval(tid)
-          return resolve('done')
-        }
-        // send feedback by calling onprogress if it exists
-        msg && msg.onprogress && msg.onprogress({count: hiCount += 10})
-      }, 200)
-    })
-  }
-}
+const sum = await window.appApi.add(2, 3) // 5
+```
 
-// in renderer process
-rendererMessageHub.emit('download', {
- onprogress(p) {console.log('progress: ' + p.count)}
-}).then(e => {
- console.log('success: ', e)
-}).catch(err => {
-  console.log('error: ' + err)
+Register main handlers before loading the window. For application initialization that happens later, use the [explicit readiness endpoint](https://github.com/oe/duplex-message/tree/main/packages/duplex-message#wait-for-application-readiness); expose a named operation or ready promise through your bridge rather than raw `emit`.
+
+### Bundle the sandboxed preload
+
+A sandboxed preload has restricted `require` support. Bundle the library and its dependencies into the preload, leaving **only `electron` external**. Build a normal browser bundle for renderer code; it should not import Electron or this library at runtime.
+
+For example, a Vite preload build can use:
+
+```ts
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+  build: {
+    outDir: 'dist',
+    lib: { entry: 'src/preload.ts', formats: ['cjs'], fileName: () => 'preload.cjs' },
+    rolldownOptions: { external: ['electron'] },
+  },
 })
 ```
 
-### off
-Remove message handlers, if `methodName` presented, remove `methodName`'s listener, or remove the whole peer's listener
+The [runnable demo](https://github.com/oe/duplex-message/tree/main/packages/simple-electron-ipc/demo) includes main, bundled preload, renderer, shared interfaces and a Content Security Policy. From the repository root:
 
-```ts
-// in main process
-mainMessageHub.off(peer: WebContents | '*', methodName?: string)
-
-
-// in renderer process
-rendererMessageHub.off(methodName?: string)
+```sh
+pnpm install
+pnpm build
+pnpm --filter simple-electron-ipc dev
 ```
 
-### destroy
-Destroy the instance: remove message handlers and IPC listeners, clear timers and reject outstanding calls with error code 5 (`UNKNOWN`). A later access to `shared` creates a new instance.
-Any invoking of destroyed instance's methods will throw an exception
+## Typed calls and both directions
+
+`createRpcClient<Api>` checks method names and parameters and infers awaited results. Types describe the expected API; handlers must still validate actual application data.
 
 ```ts
-// in main process
-mainMessageHub.destroy()
+// In main, addressing a particular WebContents:
+const renderer = createRpcClient<RendererApi>((method, ...args) => mainHub.emit(webContents, method, ...args))
+const title = await renderer.call('pageTitle')
 
-
-// in renderer process
-rendererMessageHub.destroy()
+// In preload, addressing main:
+const main = createRpcClient<MainApi>((method, ...args) => rendererHub.emit(method, ...args))
+const sum = await main.call('add', 2, 3)
+// main.call('add', '2', 3) // TypeScript error.
 ```
 
-### Error
-when you catch an error from `emit`, it conforms the following structure `IError`
+Register `pageTitle` in the preload with `rendererHub.on('pageTitle', () => document.title)`. The original generic `emit<ResponseType>` API is also available.
+
+## Progress and local cancellation
+
+Supply `onprogress` in the first argument. The main handler receives a corresponding callback:
 
 ```ts
-/** error object could be caught via emit().catch(err) */
-interface IError {
-  /** none-zero error code */
-  code: EErrorCode
-  /** error message */
-  message: string
-  /** error object if it could pass through via the message channel underground*/
-  error?: Error
-}
-
-/** enum of error code */
-enum EErrorCode {
-  /** handler on other side encounter an error  */
-  HANDLER_EXEC_ERROR = 1,
-  /** peer not found */
-  PEER_NOT_FOUND = 2,
-  /** method not found in peer */
-  METHOD_NOT_FOUND = 3,
-  /** message has invalid content, can't be sent  */
-  INVALID_MESSAGE = 4,
-  /** other unspecified error */
-  UNKNOWN = 5,
-  /** the caller aborted local waiting */
-  REQUEST_ABORTED = 6,
-  /** the total request timeout expired */
-  REQUEST_TIMEOUT = 7,
-}
+mainHub.on(webContents, 'export', async (options: { onprogress: (percent: number) => void }) => {
+  for (let percent = 10; percent <= 100; percent += 10) {
+    await new Promise(resolve => setTimeout(resolve, 50))
+    options.onprogress(percent)
+  }
+  return 'done'
+})
 ```
 
-### Debug
-You can enable debug mode by setting `process.env.NODE_ENV` to any value other than `production`, like `development`, it will log some debug info to the console.
+In preload, keep the signal local and expose named start/cancel operations:
+
+```ts
+let pending: AbortController | undefined
+contextBridge.exposeInMainWorld('exportApi', {
+  async start(onprogress: (percent: number) => void) {
+    if (typeof onprogress !== 'function') throw new TypeError('callback required')
+    if (pending) throw new Error('an export is already pending')
+    const controller = new AbortController()
+    pending = controller
+    try {
+      return await rendererHub.emit({
+        methodName: 'export', requestTimeout: 10_000, signal: controller.signal,
+      }, { onprogress })
+    } finally { pending = undefined }
+  },
+  cancel: () => pending?.abort(),
+})
+```
+
+The renderer calls `window.exportApi.start(percent => updateProgress(percent))` and handles its promise rejection; a Cancel button calls `window.exportApi.cancel()`.
+
+Cancellation stops **local waiting**, not an already running main handler. The signal and deadline are not sent through IPC or `contextBridge`. Remote work can continue after cancellation. Timers and abort listeners are cleared, and late progress/results are ignored.
+
+A total `requestTimeout` includes heartbeat wait and is not extended by progress. The default is `0` (unlimited). Set a constructor default or override it in method configuration; `0` disables that default. Values must be finite numbers from `0` to `2147483647` milliseconds.
+
+## Sender validation and application boundaries
+
+`MainMessageHub` accepts `validateSender(event: IpcMainEvent): boolean`. It runs before any incoming request, progress or response is processed. Returning false or throwing ignores the message. Validate both the expected `WebContents` and trusted frame/URL; a registered `WebContents` can contain untrusted child frames.
+
+The hook is optional for compatibility. Configure it for privileged operations, use a narrow bridge API, and validate method arguments and permissions. See [Electron's security guidance](https://www.electronjs.org/docs/latest/tutorial/security#17-validate-the-sender-of-all-ipc-messages).
+
+## API reference
+
+| Operation | Main | Preload |
+| --- | --- | --- |
+| Register a method | `main.on(webContents, name, handler)` | `renderer.on(name, handler)` |
+| Register a map | `main.on(webContents, handlers)` | `renderer.on(handlers)` |
+| Call a method | `main.emit(webContents, method, ...args)` | `renderer.emit(method, ...args)` |
+| Remove a method | `main.off(webContents, name)` | `renderer.off(name)` |
+| Remove all peer methods | `main.off(webContents)` | `renderer.off()` |
+| Release a hub | `main.destroy()` | `renderer.destroy()` |
+
+`method` is a string or `IMethodNameConfig` with `{ methodName, to?, requestTimeout?, signal? }`. Main can use `'*'` for fallback registration; use peer-specific registration and sender validation for application operations. Both classes also support catch-all handlers and a `shared` getter. Destroy is idempotent, rejects pending calls with `UNKNOWN`, and releases listeners.
+
+Both constructors support `channelName` (default `message-hub`), `instanceID`, `heartbeatTimeout` (default 500ms) and `requestTimeout` (default `0`). Main additionally supports `validateSender`. Use the same channel name on both sides.
+
+Errors inside the hub conform to `IError`: `{ code, message, error? }`. `EErrorCode` and shared helper types can be imported from `simple-electron-ipc`:
+
+| Code | Name |
+| --- | --- |
+| 1 | `HANDLER_EXEC_ERROR` |
+| 2 | `PEER_NOT_FOUND` |
+| 3 | `METHOD_NOT_FOUND` |
+| 4 | `INVALID_MESSAGE` |
+| 5 | `UNKNOWN` |
+| 6 | `REQUEST_ABORTED` |
+| 7 | `REQUEST_TIMEOUT` |
+
+Error objects crossing `contextBridge` do not necessarily retain custom properties. If your page needs structured error codes, catch errors in preload and return a narrow application result such as `{ ok: false, code, message }`.
+
+ESM/CommonJS imports and type declarations are available. Library output targets ES2020. CI exercises mocked IPC and a real Electron 44 main/preload/renderer application on Linux; older Electron versions and other desktop platforms are not currently in the matrix.
+
+## Development and license
+
+See [workspace development instructions](https://github.com/oe/duplex-message#development). `pnpm check:electron` builds and runs the real Electron smoke test; Linux runners need a display, for example `xvfb-run -a pnpm check:electron`. Leave `ELECTRON_SKIP_BINARY_DOWNLOAD` unset when installing to run the demo or smoke test.
+
+MIT. See [LICENSE](https://github.com/oe/duplex-message/blob/main/LICENSE).
