@@ -1,0 +1,219 @@
+{
+  "browser": "153.0.8010.12",
+  "methodology": "Numeric echo; microtask clone transport and native Workers; 8 rotating paused rounds and 3 rotated isolated continuous cycles (2 rounds/cycle) with 1s warmup; concurrency 1 or 32. Concurrent figures are amortized time per call, not individual latency.",
+  "results": [
+    {
+      "scenario": "clone-transport",
+      "version": "published",
+      "medianUsPerCall": 12.6,
+      "samplesUsPerCall": [
+        13.240000000223517,
+        13.019999999925494,
+        13.7,
+        15.060000000149012,
+        11.180000000074505,
+        12.180000000074505,
+        11.940000000223517,
+        11.6
+      ]
+    },
+    {
+      "scenario": "clone-transport",
+      "version": "previous",
+      "medianUsPerCall": 13.419999999925494,
+      "samplesUsPerCall": [
+        17.080000000074506,
+        14.720000000298024,
+        13.919999999925494,
+        15.359999999776482,
+        12.259999999776483,
+        12.919999999925494,
+        12.680000000074505,
+        12.6
+      ]
+    },
+    {
+      "scenario": "clone-transport",
+      "version": "current",
+      "medianUsPerCall": 12.309999999776483,
+      "samplesUsPerCall": [
+        12.980000000074506,
+        14.3,
+        12.939999999850988,
+        13.1,
+        11.6,
+        11.460000000149012,
+        11.679999999701977,
+        11.580000000074506
+      ]
+    },
+    {
+      "scenario": "worker-sequential",
+      "version": "published",
+      "medianUsPerCall": 57.52000000011176,
+      "samplesUsPerCall": [
+        51.859999999776484,
+        51.55999999977648,
+        42.580000000074506,
+        62.26000000014901,
+        54.16000000014901,
+        60.8800000000745,
+        65.1800000000745,
+        62.1
+      ]
+    },
+    {
+      "scenario": "worker-sequential",
+      "version": "previous",
+      "medianUsPerCall": 65.34999999981375,
+      "samplesUsPerCall": [
+        69.48000000007451,
+        60.579999999701975,
+        51.2,
+        71.6199999999255,
+        61.44000000022352,
+        67.48000000007451,
+        65.07999999970198,
+        65.6199999999255
+      ]
+    },
+    {
+      "scenario": "worker-sequential",
+      "version": "current",
+      "medianUsPerCall": 60.22000000011176,
+      "samplesUsPerCall": [
+        65.28000000007451,
+        49.03999999985099,
+        52.96000000014901,
+        62.7,
+        50.94000000022352,
+        57.74000000022352,
+        64.3199999999255,
+        68.35999999977648
+      ]
+    },
+    {
+      "scenario": "worker-32-concurrent",
+      "version": "published",
+      "medianUsPerCall": 27.306250000023283,
+      "samplesUsPerCall": [
+        27.25,
+        26.9375,
+        29.112500000046566,
+        25.4375,
+        27.481249999953434,
+        28.006249999976717,
+        27.362500000046566,
+        25.168749999953434
+      ]
+    },
+    {
+      "scenario": "worker-32-concurrent",
+      "version": "previous",
+      "medianUsPerCall": 30.881250000034925,
+      "samplesUsPerCall": [
+        34.625,
+        30.82500000006985,
+        34.331250000046566,
+        30.9375,
+        33.48749999993015,
+        26.612500000046566,
+        30.743750000023283,
+        30.350000000093132
+      ]
+    },
+    {
+      "scenario": "worker-32-concurrent",
+      "version": "current",
+      "medianUsPerCall": 29.209375000034925,
+      "samplesUsPerCall": [
+        30.48125000006985,
+        32.71875,
+        25.350000000093132,
+        32.00624999997672,
+        28.668749999953434,
+        26.574999999953434,
+        28.85625000006985,
+        29.5625
+      ]
+    },
+    {
+      "scenario": "worker-steady-1",
+      "version": "published",
+      "medianUsPerCall": 64.49000000003724,
+      "samplesUsPerCall": [
+        64.46000000014901,
+        64.51999999992549,
+        55.8800000000745,
+        54.68000000007451,
+        66.75999999977648,
+        64.71999999992549
+      ]
+    },
+    {
+      "scenario": "worker-steady-1",
+      "version": "previous",
+      "medianUsPerCall": 64.6,
+      "samplesUsPerCall": [
+        56.959999999776485,
+        60.140000000223516,
+        69.98000000007451,
+        67.260000000149,
+        61.93999999985099,
+        69.94000000022352
+      ]
+    },
+    {
+      "scenario": "worker-steady-1",
+      "version": "current",
+      "medianUsPerCall": 67.69000000003726,
+      "samplesUsPerCall": [
+        69.04000000022351,
+        67.7,
+        69.13999999985099,
+        67.6800000000745,
+        65.57999999970198,
+        63.420000000298025
+      ]
+    },
+    {
+      "scenario": "worker-steady-32",
+      "version": "published",
+      "medianUsPerCall": 36.84062500001164,
+      "samplesUsPerCall": [
+        39.512499999953434,
+        36.668749999953434,
+        37.02499999990687,
+        37.01250000006985,
+        28.787499999976717,
+        28.962500000023283
+      ]
+    },
+    {
+      "scenario": "worker-steady-32",
+      "version": "previous",
+      "medianUsPerCall": 26.703125,
+      "samplesUsPerCall": [
+        27.862500000046566,
+        26.306249999906868,
+        28.59375,
+        26.53125,
+        26.818749999976717,
+        26.587500000023283
+      ]
+    },
+    {
+      "scenario": "worker-steady-32",
+      "version": "current",
+      "medianUsPerCall": 25.903124999953434,
+      "samplesUsPerCall": [
+        26.612500000046566,
+        26.043749999953434,
+        25.293749999953434,
+        25.324999999953434,
+        25.762499999953434,
+        28.46875
+      ]
+    }
+  ]
+}

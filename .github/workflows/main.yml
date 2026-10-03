@@ -25,7 +25,7 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter duplex-message exec playwright install --with-deps chromium
+      - run: pnpm --filter duplex-message exec playwright install --with-deps chromium firefox webkit
       - run: pnpm lint
       - run: pnpm build
       - run: pnpm typecheck
@@ -34,7 +34,19 @@ jobs:
       - run: pnpm --filter simple-electron-ipc build:demo
       - run: pnpm check:package
   electron:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            electron: workspace
+          - os: ubuntu-latest
+            electron: '31.7.7'
+          - os: windows-latest
+            electron: workspace
+          - os: macos-latest
+            electron: workspace
     env:
       NODE_USE_ENV_PROXY: '1'
     steps:
@@ -45,6 +57,18 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter duplex-message exec playwright install-deps chromium
-      - run: sudo apt-get install -y xvfb
-      - run: xvfb-run -a pnpm check:electron
+      - if: runner.os == 'Linux'
+        run: pnpm --filter duplex-message exec playwright install-deps chromium
+      - if: runner.os == 'Linux'
+        run: sudo apt-get install -y xvfb
+      - if: matrix.electron != 'workspace'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/electron-compat"
+          pnpm --dir "$RUNNER_TEMP/electron-compat" add electron@${{ matrix.electron }} --allow-build electron
+      - if: runner.os == 'Linux' && matrix.electron == 'workspace'
+        run: xvfb-run -a pnpm check:electron
+      - if: runner.os == 'Linux' && matrix.electron != 'workspace'
+        run: ELECTRON_SMOKE_PACKAGE_DIR="$RUNNER_TEMP/electron-compat" xvfb-run -a pnpm check:electron
+      - if: runner.os != 'Linux'
+        run: pnpm check:electron

@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => ({
       },
     },
   } : {
-    target: 'es2020',
+    target: 'es2018',
     emptyOutDir: mode !== 'production-lib',
     lib: {
       entry: 'src/index.ts',

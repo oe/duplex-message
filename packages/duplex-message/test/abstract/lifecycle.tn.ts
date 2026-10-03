@@ -46,6 +46,65 @@ afterEach(() => {
 })
 
 describe('request lifecycle', () => {
+  it('returns a rejected Promise when a custom message predicate throws', async () => {
+    class ThrowingHub extends TestHub {
+      protected override isMessage(_message: unknown): _message is IRequest {
+        throw new Error('custom validation failed')
+      }
+    }
+    const custom = new ThrowingHub()
+    hubs.push(custom)
+    await expect(custom.receive(hub(), {})).rejects.toThrow('custom validation failed')
+  })
+
+  it.each([
+    ['undefined', (): unknown => undefined], ['null', (): unknown => null],
+    ['object', (): unknown => ({ value: 42 })], ['promise', (): unknown => Promise.resolve(42)],
+  ] as const)('preserves single-handler %s results', async (_name, value) => {
+    const client = hub(), server = hub()
+    server.on(client, 'value', value)
+    const expected = await value()
+    await expect(client.emit(server, 'value')).resolves.toEqual(expected)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('assimilates nested thenables and reads a then getter only once', async () => {
+    const client = hub(), server = hub()
+    let reads = 0
+    server.on(client, 'value', () => ({
+      // oxlint-disable-next-line unicorn/no-thenable -- Intentional Promise assimilation fixture.
+      get then() {
+        reads++
+        return (resolve: (value: Promise<number>) => void) => resolve(Promise.resolve(42))
+      },
+    }))
+    await expect(client.emit(server, 'value')).resolves.toBe(42)
+    expect(reads).toBe(1)
+  })
+
+  it('converts a throwing then getter to a handler error', async () => {
+    const client = hub(), server = hub()
+    server.on(client, 'value', () => ({
+      // oxlint-disable-next-line unicorn/no-thenable -- Intentional Promise assimilation fixture.
+      get then(): never { throw new Error('bad then') },
+    }))
+    await expect(client.emit(server, 'value')).rejects.toMatchObject({ code: 1, message: 'bad then' })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('keeps multi-handler first-defined results, undefined success, and last-error semantics', async () => {
+    const client = hub(), server = hub()
+    let finish!: (value: number) => void
+    server.on(client, { race: [() => undefined, () => Promise.reject(new Error('ignored')), () => new Promise<number>(resolve => { finish = resolve })] })
+    const pending = client.emit(server, 'race')
+    finish(42)
+    await expect(pending).resolves.toBe(42)
+    server.on(client, { empty: [() => undefined, () => undefined] })
+    await expect(client.emit(server, 'empty')).resolves.toBeUndefined()
+    server.on(client, { fail: [() => { throw new Error('first') }, () => Promise.reject(new Error('last'))] })
+    await expect(client.emit(server, 'fail')).rejects.toMatchObject({ code: 1, message: 'last' })
+  })
+
   it('reuses frozen method options without mutating the caller or earlier requests', async () => {
     const client = hub()
     const server = hub()

@@ -19,6 +19,7 @@
   "devDependencies": {
     "@changesets/cli": "3.0.3",
     "@types/node": "^24.0.0",
+    "acorn": "8.18.0",
     "oxlint": "1.86.0",
     "typescript": "catalog:"
   },

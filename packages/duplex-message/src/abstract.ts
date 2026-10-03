@@ -1,3 +1,6 @@
+// Response/progress events have no asynchronous work to await.
+const COMPLETED = Promise.resolve()
+
 export type IFn = (...args: any[]) => any
 
 export type IHandlerMap = Record<string, IFn[] | IFn>
@@ -139,7 +142,7 @@ export interface IAbstractHubOptions {
   instanceID?: string | null
   /**
    * timeout(milliseconds) for waiting heartbeat message, default 500ms
-   * 1. A heartbeat message will be sent to peer immediately when a request message is received 
+   * 1. A heartbeat message will be sent to peer immediately when a request message is received
    *    and there is at least one handler for it. Or the `emit` method will catch a no handler error
    *    This only bounds heartbeat wait. Use requestTimeout to bound the total request.
    * 2. Normally, a heartbeat message will be sent to peer in less then 10 ms,
@@ -341,22 +344,33 @@ export abstract class AbstractHub {
   /**
    * listen message from peer
    */
-  protected async onMessage(peer: any, msg: any) {
-    if (this.isDestroyed) return
-    if (!this.isMessage(msg)) return
-    // then it is a response or progress message
-    if (!this.isRequestMessage(msg)) {
-      this.runResponseCallback(msg as IResponse | IProgress, peer)
-      return
-    }
-    // then it is a request message from a peer
+  protected onMessage(peer: any, msg: any): Promise<void> {
+    try {
+      if (this.isDestroyed || !msg || typeof msg !== 'object') return COMPLETED
+      // then it is a response or progress message
+      if (!this.isRequestMessage(msg)) {
+        this.runResponseCallback(msg as IResponse | IProgress, peer)
+        return COMPLETED
+      }
+      // then it is a request message from a peer
 
-    // check if there is a handler for the request message
-    const callbackInfo = this.getMessageCallbacks(peer, msg)
+      // check if there is a handler for the request message
+      const callbackInfo = this.getMessageCallbacks(peer, msg)
 
-    if (!callbackInfo) {
-      return
+      if (!callbackInfo) {
+        return COMPLETED
+      }
+      return this.respondToRequest(peer, msg, callbackInfo)
+    } catch (error) {
+      // Preserve the Promise-based contract for throwing subclass hooks/getters.
+      return Promise.reject(error)
     }
+  }
+
+  private async respondToRequest(
+    peer: any, msg: IRequest,
+    callbackInfo: NonNullable<ReturnType<typeof AbstractHub.getMethodCallbacks>>,
+  ) {
     // send a heartbeat message to peer, in case of response takes too long
     try {
       this.sendMessage(peer, this.buildProgressMessage(CONTINUE_INDICATOR, msg, true))
@@ -440,7 +454,7 @@ export abstract class AbstractHub {
    * run message's callbacks when receive request from peer
    * * first none undefined response will be returned
    * * if all callbacks occur error, the last error will be returned
-   * * if at least one callback success, and no none undefined response,  
+   * * if at least one callback success, and no none undefined response,
    *  success response(undefined) will be returned
    */
   protected runMessageCallbacks(
@@ -450,8 +464,9 @@ export abstract class AbstractHub {
   ) {
     const { methodName, data } = reqMsg
     const [method, isGeneral] = callbackInfo
-    const newArgs = data.slice(0)
+    let newArgs = data
     if (reqMsg.progress && newArgs[0]) {
+      newArgs = data.slice()
       const newArg = { ...newArgs[0] }
       newArg.onprogress = (d: any) => {
         if (!this.isDestroyed) this.sendMessage(peer, this.buildProgressMessage(d, reqMsg))
@@ -462,11 +477,29 @@ export abstract class AbstractHub {
 
     // add methodName as the first argument if handlerMap is a function
     if (isGeneral) {
-      newArgs.unshift(methodName)
+      newArgs = [methodName, ...newArgs]
       methods = [method]
     } else {
-      methods = method.slice()
+      methods = method
     }
+
+    // Most RPC endpoints have one handler. Avoid the multi-handler race machinery here.
+    if (methods.length === 1 && typeof methods[0] === 'function') {
+      try {
+        const result = methods[0](...newArgs)
+        if (result === null || (typeof result !== 'object' && typeof result !== 'function')) {
+          return Promise.resolve(this._buildRespMessage(result, reqMsg, true))
+        }
+        return Promise.resolve(result).then(
+          value => this._buildRespMessage(value, reqMsg, true),
+          error => this._buildRespMessage(this.handlerError(error, method, newArgs), reqMsg, false),
+        )
+      } catch (error) {
+        return Promise.resolve(this._buildRespMessage(this.handlerError(error, method, newArgs), reqMsg, false))
+      }
+    }
+    // Snapshot before invoking handlers: on/off during an invocation must not alter the race.
+    methods = methods.slice()
     let responded = false
     let lastError: IError | undefined
     let hasSuccess = false
@@ -486,24 +519,8 @@ export abstract class AbstractHub {
             }
             hasSuccess = true
           } catch (error) {
-            if (ENABLE_DEBUG) {
-              console.warn('[duplex-message] run handler error', method, 'with arguments', newArgs, error)
-            }
             if (responded) return
-            // error object may be untransferable via postMessage, so it will be ignored
-            let message = 'handler threw an unreadable error'
-            try {
-              message = String(error instanceof Error ? error.message : (
-                error && typeof error === 'object'
-                  ? (error as { message?: unknown; stack?: unknown }).message
-                    ?? (error as { stack?: unknown }).stack ?? error
-                  : error
-              ))
-            } catch { /* Error objects can have throwing getters or no string conversion. */ }
-            lastError = {
-              code: EErrorCode.HANDLER_EXEC_ERROR,
-              message,
-            }
+            lastError = this.handlerError(error, method, newArgs)
           }
         }
         count += 1
@@ -514,10 +531,25 @@ export abstract class AbstractHub {
     })
   }
 
+  private handlerError(error: unknown, method: IFn | IFn[], args: any[]): IError {
+    if (ENABLE_DEBUG) console.warn('[duplex-message] run handler error', method, 'with arguments', args, error)
+    // Thrown values can be uncloneable, have throwing getters, or lack string conversion.
+    let message = 'handler threw an unreadable error'
+    try {
+      message = String(error instanceof Error ? error.message : (
+        error && typeof error === 'object'
+          ? (error as { message?: unknown; stack?: unknown }).message
+            ?? (error as { stack?: unknown }).stack ?? error
+          : error
+      ))
+    } catch { /* Keep error conversion from stranding the call. */ }
+    return { code: EErrorCode.HANDLER_EXEC_ERROR, message }
+  }
+
   /**
    * get message callbacks
    * * return a tuple of [callbacks, isGeneral], or undefined when no callbacks found
-   * * when General is true, callbacks will receive methodName as the first argument  
+   * * when General is true, callbacks will receive methodName as the first argument
    */
   protected getMessageCallbacks(peer: any, reqMsg: IRequest) {
     const { methodName } = reqMsg
@@ -543,7 +575,7 @@ export abstract class AbstractHub {
     const controls = typeof methodName === 'string' ? undefined : methodName
     const requestTimeout = controls?.requestTimeout ?? this._requestTimeout
     const signal = controls?.signal
-    if (!AbstractHub.isValidRequestTimeout(requestTimeout)
+    if ((controls && !AbstractHub.isValidRequestTimeout(requestTimeout))
       || (signal !== undefined && (signal === null || typeof signal !== 'object'
         || typeof signal.aborted !== 'boolean'
         || typeof signal.addEventListener !== 'function'
@@ -664,9 +696,12 @@ export abstract class AbstractHub {
     methodName: string | IMethodNameConfig,
     args: any[],
   ): IRequest {
-    const basicCfg: IMethodNameConfig = typeof methodName === 'string' ? { methodName } : methodName
-    // These controls belong to the caller and must never be serialized to the peer.
-    const { signal: _signal, requestTimeout: _requestTimeout, ...messageConfig } = basicCfg
+    let messageConfig: IMethodNameConfig | undefined
+    if (typeof methodName !== 'string') {
+      // These controls belong to the caller and must never be serialized to the peer.
+      const { signal: _signal, requestTimeout: _requestTimeout, ...config } = methodName
+      messageConfig = config
+    }
     const options = args[0]
     const progress = Boolean(
       options && typeof options.onprogress === 'function',
@@ -674,6 +709,7 @@ export abstract class AbstractHub {
 
     return {
       ...messageConfig,
+      methodName: typeof methodName === 'string' ? methodName : messageConfig!.methodName,
       from: this.instanceID,
       // toInstance,
       // eslint-disable-next-line no-plusplus
@@ -747,7 +783,8 @@ export abstract class AbstractHub {
   }
 
   private isHeartbeatMessage(reqMsg: IRequest, msg: IResponse | IProgress) {
-    return this.isProgressMessage(reqMsg, msg)
+    // wrapResponseCallback has already validated the message's shape.
+    return msg.type === 'progress' && msg.to === reqMsg.from && msg.messageID === reqMsg.messageID
       && (msg.heartbeat === true
         || (msg.heartbeat === undefined && msg.data === CONTINUE_INDICATOR))
   }

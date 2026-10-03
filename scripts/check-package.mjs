@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { runInNewContext } from 'node:vm'
+import { parse } from 'acorn'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const consumer = await mkdtemp(join(tmpdir(), 'duplex-message-consumer-'))
@@ -36,6 +37,13 @@ try {
       }
     }
     await verifyEntries(packed.exports['.'])
+    for (const file of await readdir(join(destination, 'dist'))) {
+      if (!/\.(?:m?js|cjs)$/.test(file)) continue
+      parse(await readFile(join(destination, 'dist', file), 'utf8'), {
+        ecmaVersion: 2018,
+        sourceType: file.endsWith('.mjs') || file.includes('.es.') ? 'module' : 'script',
+      })
+    }
   }
 
   // Use a transport stub for Node import checks; Electron runtime integration is tested separately.

@@ -290,7 +290,7 @@ Rejected calls expose `IError`: `{ code: EErrorCode, message: string, error?: Er
 
 ### Imports and debug output
 
-The package provides ESM, CommonJS and type declarations for TypeScript 4.1 or later. The workspace's TypeScript 7 compiler is not required by consumers. Use normal package imports with a bundler or Node. Legacy `dist/index.es.js`, UMD and production filenames remain available, including extensionless distribution imports; explicit ESM filenames end in `.mjs`. The UMD global is `duplex-message`.
+The package provides ESM, CommonJS and type declarations for TypeScript 4.1 or later. The workspace's TypeScript 7 compiler is not required by consumers. Use normal package imports with a bundler or Node. Legacy `dist/index.es.js`, UMD and production filenames remain available, including extensionless distribution imports; explicit ESM filenames end in `.mjs`. The UMD global is `duplex-message`. Published JavaScript targets ES2018 and is checked against that syntax level. The selected transport must be supported by the runtime; readiness and cancellation additionally need `AbortController`/`AbortSignal`.
 
 When upgrading from 2.1, upgrade TypeScript if using a compiler older than 4.1. `destroy()` now rejects pending calls with `UNKNOWN` instead of leaving them unresolved; handle rejections from each call. The existing `emit` signatures and wire protocol are retained. `signal` and `requestTimeout` in method configuration are reserved local controls, and the legacy `heartbeatTimeout: 0` fallback remains 500ms.
 
@@ -306,7 +306,7 @@ Debug logging is enabled when `process.env.NODE_ENV` exists and is not `producti
 | Typed RPC over a custom transport such as WebSocket | [birpc](https://github.com/antfu-collective/birpc) |
 | Only a handful of simple messages | Native `postMessage` / `MessageChannel` may be sufficient |
 
-See the [runnable browser demos](https://github.com/oe/duplex-message/tree/main/packages/duplex-message/demo) and [workspace development instructions](https://github.com/oe/duplex-message#development). CI exercises Node, Chromium Workers/iframes and packed CJS/ESM consumers. Browser engines beyond Chromium are not currently in the test matrix.
+See the [runnable browser demos](https://github.com/oe/duplex-message/tree/main/packages/duplex-message/demo) and [workspace development instructions](https://github.com/oe/duplex-message#development). CI exercises Node, Chromium/Firefox/WebKit Workers and iframes, and packed CJS/ESM consumers. This covers current Playwright engines; older browsers, mobile Safari and embedded WebViews still require application-level verification.
 
 ## License
 

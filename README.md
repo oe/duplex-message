@@ -58,7 +58,7 @@ Use Node.js 22.12+, 24, or 26+ and pnpm 12.8.1. The workspace pins TypeScript 7.
 ```sh
 npm install -g pnpm@12.8.1
 pnpm install --frozen-lockfile
-pnpm --filter duplex-message exec playwright install --with-deps chromium
+pnpm --filter duplex-message exec playwright install --with-deps chromium firefox webkit
 pnpm lint
 pnpm build
 pnpm typecheck
@@ -66,7 +66,7 @@ pnpm test
 pnpm check:package
 ```
 
-`pnpm test:unit` runs Node and mocked Electron IPC tests without a browser. `pnpm test` also exercises Chromium Workers, real cross-origin iframes, proxies, page-script events and storage messaging. CI checks Node 22 and 24, builds both demos, and validates packed CJS/ESM imports, declarations, UMD globals and tree shaking. Packed type checks include invalid methods/arguments and inferred return types.
+`pnpm test:unit` runs Node and mocked Electron IPC tests without a browser. `pnpm test` also exercises Chromium, Firefox and WebKit Workers, real cross-origin iframes, proxies, page-script events and storage messaging. CI checks Node 22 and 24, builds both demos, and validates packed CJS/ESM imports, declarations, UMD globals and tree shaking. Packed type checks include invalid methods/arguments and inferred return types.
 
 ```sh
 pnpm --filter duplex-message dev
@@ -77,9 +77,9 @@ pnpm check:electron
 # Headless Linux: xvfb-run -a pnpm check:electron
 ```
 
-The separate Electron smoke test launches an actual main/preload/renderer application and checks context isolation, restricted bridge methods, bidirectional RPC, progress, local cancellation and renderer controls. CI runs it on Linux with Electron 44. Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` during installation if you only need library builds/unit tests; leave it unset for the Electron demo/smoke test.
+The separate Electron smoke test launches an actual main/preload/renderer application and checks context isolation, restricted bridge methods, bidirectional RPC, progress, local cancellation and renderer controls. CI runs Electron 31 and 44 on Linux, and Electron 44 on Windows and macOS. Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` during installation if you only need library builds/unit tests; leave it unset for the Electron demo/smoke test.
 
-Library output targets ES2020. Legacy browser distribution filenames and the UMD global remain available; package imports use explicit `.mjs`/CommonJS entries. TypeScript emits declarations directly. Existing `emit` APIs remain available; new typed clients and ready endpoints are additive. Origin/sender filters are opt-in to preserve existing integrations; configure them explicitly for trusted peers.
+Library output targets ES2018; packed JavaScript is checked against that syntax level. Transport APIs must exist in the runtime. `waitForPeer` and cancellation require `AbortController`/`AbortSignal`; ordinary calls do not. Legacy browser distribution filenames and the UMD global remain available; package imports use explicit `.mjs`/CommonJS entries. TypeScript emits declarations directly. Existing `emit` APIs remain available; new typed clients and ready endpoints are additive. Origin/sender filters are opt-in to preserve existing integrations; configure them explicitly for trusted peers.
 
 ## Releasing
 

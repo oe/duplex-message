@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const browserRequire = createRequire(new URL('../packages/duplex-message/package.json', import.meta.url))
-const electronRequire = createRequire(new URL('../packages/simple-electron-ipc/package.json', import.meta.url))
+const electronRequire = createRequire(process.env.ELECTRON_SMOKE_PACKAGE_DIR
+  ? resolve(process.env.ELECTRON_SMOKE_PACKAGE_DIR, 'package.json')
+  : new URL('../packages/simple-electron-ipc/package.json', import.meta.url))
 const { _electron } = browserRequire('playwright')
 const args = [fileURLToPath(new URL('../packages/simple-electron-ipc/demo/dist/main.js', import.meta.url))]
 // Some container runners cannot create Chromium sandbox namespaces.

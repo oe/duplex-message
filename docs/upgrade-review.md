@@ -11,7 +11,9 @@ The release has explicit upgrade boundaries:
 - Declarations require TypeScript 4.1+ for recursive RPC result inference. Published 2.1.0 declarations compiled under 3.9; the new declarations do not. TypeScript 4.1 and 4.4 consumer checks passed, including nested promises, union results and incorrect-call rejection. Consumers do not need TypeScript 7. Electron's own declarations may impose a newer minimum.
 - `destroy()` now rejects pending calls with `UNKNOWN` instead of abandoning unresolved promises. Callers must handle promise rejections.
 - `signal` and `requestTimeout` in method configuration are reserved local controls; they are not forwarded as custom wire metadata.
-- Workspace development requires pnpm 12 and a supported modern Node version. This is separate from the library output's ES2020 target.
+- Workspace development requires pnpm 12 and a supported modern Node version. This is separate from the library output's ES2018 target.
+
+The initial upgraded build emitted ES2020 syntax unlike the published 2.1.0 artifact. Both library targets now preserve ES2018, and packed `.js`/`.mjs`/`.cjs` files are parsed with Acorn's ES2018 grammar. This checks syntax, not missing runtime APIs. The chosen transport must exist in the runtime. `waitForPeer` and cancellation require `AbortController`/`AbortSignal`; ordinary calls do not.
 
 A major changeset records these boundaries. Versions have not been bumped and packages have not been published.
 
@@ -30,18 +32,31 @@ A major changeset records these boundaries. Versions have not been bumped and pa
 
 Request bookkeeping now uses one pending-request record plus a peer-count map, replacing five separate per-request maps. Cleanup is idempotent and removes state before invoking hooks. Origin metadata is allocated only when an origin policy is enabled and recorded only for incoming requests. Readiness is explicit and optional; unused readiness code is removed by tree shaking. No application request is automatically retried.
 
-The additional safeguards still have costs:
+The dispatch path now reuses a resolved Promise for response/progress events, avoids redundant async wrappers in Electron, handles a single endpoint without the multi-handler race machinery, and avoids argument/configuration copies when unnecessary. Thenables are assimilated once; multi-handler first-defined/all-undefined/error behavior and rejected-Promise semantics for subclass hooks are preserved by tests.
 
-- Full production UMD gzip size grows from approximately **3.8 KB to 5.6 KB**. A minified ESM bundle retaining only `PostMessageHub` grows from approximately **3.37 KB to 4.75 KB**. Sizes measure JavaScript, not README/declarations/archive size.
-- After consolidating bookkeeping, an alternating native-Worker benchmark measured median numerical RPC round trips of **60.82→69.54 µs** without persistent handlers and **61.91→67.85 µs** with a persistent handler. These are approximately **14% and 10%** increases for very small calls, or **9 µs and 6 µs** per call. This upgrade should not be advertised as faster for every workload.
 - Unlike 2.1.0, successful calls release heartbeat timers immediately. A regression test verifies that 1,000 completed calls leave no timers or pending callbacks. Cancellation/deadlines likewise release local resources; remote handlers continue.
+- Full production UMD gzip size grows from approximately **3.8 KB to 5.8 KB**. Safety checks, lifecycle cleanup and optional helpers have a real size cost; this is not a package-size reduction.
+- `scripts/benchmark-rpc.mjs` compares a published production ESM artifact, an optional prior PR artifact and the current build. It measures clone/microtask transport, native Worker sequential calls and 32 concurrent lanes. It rotates version order, drains baseline timers between paused measurements, and isolates continuous runs in separate contexts. Concurrent figures are amortized time per call, not individual call latency. Results below are diagnostic; scheduling variation prevents a universal speed claim.
 
-Benchmark method: Chromium 153 on the same Linux workspace; published 2.1.0 versus production builds after bookkeeping consolidation; a native module Worker echoing a number; 1,000 warmups per peer, eight alternating rounds of 5,000 sequential calls per version, and a 550ms pause after each paired round. Samples varied substantially with scheduling. These measurements are diagnostic, not a general throughput guarantee. Large payloads, concurrency, other engines and desktop platforms require separate measurements.
+Measurements on 2026-10-03, Chromium 153.0.8010.12 on this Linux workspace, numerical echo; medians in µs/call. “Prior PR” is commit `2d6a57e`, before the dispatch optimization. The first three rows use 8 rotated paused rounds; steady rows use 3 rotated isolated cycles with 2 measured rounds/cycle after 1s continuous warmup.
+
+| Scenario | Published 2.1.0 | Prior PR | Optimized PR |
+| --- | ---: | ---: | ---: |
+| clone-transport | 12.60 | 13.42 | 12.31 |
+| worker-sequential | 57.52 | 65.35 | 60.22 |
+| worker-32-concurrent | 27.31 | 30.88 | 29.21 |
+| worker-steady-1 | 64.49 | 64.60 | 67.69 |
+| worker-steady-32 | 36.84 | 26.70 | 25.90 |
+
+Samples fluctuate with worker scheduling. Compare these workloads only; do not interpret the concurrent rows as per-call latency or claim a universal speedup. The optimized path reduces known allocation and timer-retention costs, but compatibility and security checks still carry overhead. Large payloads and other engines/platforms require separate performance measurements.
+
+Reproduce with `node scripts/benchmark-rpc.mjs /path/to/unpacked/duplex-message-2.1.0/dist/index.production.es.js [prior-build.mjs]`. Run without other CPU-heavy jobs. Raw samples are in [rpc-benchmark.json](rpc-benchmark.json).
+
 
 The typed client stays a small function wrapper. Readiness adds a bounded opt-in probe loop and abort cleanup, without a proxy layer, connection manager, business retry policy or global background polling. The redundant origin cache and fragmented pending-state maps were unnecessary and have been removed.
 
 ## Validation and remaining limits
 
-146 tests pass: 73 Node, 56 Chromium and 17 mocked Electron IPC tests. Lint, strict type checking, library builds and packed NodeNext consumers pass. Package checks cover native import/require class and singleton identity, typed RPC results, negative argument tests, extensionless imports, UMD globals and unused-feature tree shaking. Real Electron integration is also exercised by CI.
+266 tests: 81 Node, 56 each in Chromium/Firefox/WebKit, and 17 mocked Electron IPC tests. Lint, strict type checking, library builds and packed NodeNext consumers pass. Package checks cover native import/require class and singleton identity, typed RPC results, negative argument tests, extensionless imports, UMD globals and unused-feature tree shaking. Local real Electron 31 and 44 smoke tests pass with context isolation and the renderer sandbox enabled. CI runs Electron 31/44 on Linux and Electron 44 on Windows/macOS.
 
-The browser matrix currently covers Chromium, and real Electron tests cover Linux/Electron 44. Older Electron runtimes, Firefox, Safari, Windows and macOS are not verified. Incoming-origin and Electron-sender restrictions remain opt-in for legacy compatibility; applications must configure them and validate their arguments/permissions. Readiness requires an explicit peer endpoint. Local cancellation does not cancel or reverse peer-side work.
+The browser matrix covers current Playwright Chromium, Firefox and WebKit. WebKit testing is not a guarantee for every Safari/iOS version. Older browsers, embedded WebViews, mobile devices and Electron versions outside the matrix remain unverified. Incoming-origin and Electron-sender restrictions remain opt-in for legacy compatibility; applications must configure them and validate their arguments/permissions. Readiness requires an explicit peer endpoint. Local cancellation does not cancel or reverse peer-side work.

@@ -196,6 +196,9 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.1
+      acorn:
+        specifier: 8.18.0
+        version: 8.18.0
       oxlint:
         specifier: 1.86.0
         version: 1.86.0
@@ -930,6 +933,11 @@ packages:
 
   '@vitest/utils@5.0.3':
     resolution: {integrity: sha512-77fDTZv8eu1CzlIfgPU2yrl5MXSUaUAOvgdZEeVm3X3WIxUubIX2SforqS6176lT32HCF6uBVMYVqfHxw7o6eg==}
+
+  acorn@8.18.0:
+    resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
 
   agent-base@7.1.1:
     resolution: {integrity: sha512-H0TSyFNDMomMNJQBn8wFV5YC/2eJ+VXECwOadZJT554xP6cODZHPX3H9QMQECxvrgiSOP1pHjy1sMWQVYJOUOA==}
@@ -2030,6 +2038,8 @@ snapshots:
       '@vitest/pretty-format': 5.0.3
       convert-source-map: 2.0.0
       tinyrainbow: 3.2.0
+
+  acorn@8.18.0: {}
 
   agent-base@7.1.1(supports-color@8.1.1):
     dependencies:

@@ -211,7 +211,7 @@ Errors inside the hub conform to `IError`: `{ code, message, error? }`. `EErrorC
 
 Error objects crossing `contextBridge` do not necessarily retain custom properties. If your page needs structured error codes, catch errors in preload and return a narrow application result such as `{ ok: false, code, message }`.
 
-ESM/CommonJS imports and type declarations are available. Shared RPC declarations require TypeScript 4.1 or later; the installed Electron version may require a newer compiler for its own declarations. Consumers do not need the workspace's TypeScript 7 compiler. Library output targets ES2020. When upgrading from 2.1, handle pending-call rejections on `destroy()` and upgrade compilers older than 4.1. `signal` and `requestTimeout` in method configuration are reserved local controls. CI exercises mocked IPC and a real Electron 44 main/preload/renderer application on Linux; older Electron versions and other desktop platforms are not currently in the matrix.
+ESM/CommonJS imports and type declarations are available. Shared RPC declarations require TypeScript 4.1 or later; the installed Electron version may require a newer compiler for its own declarations. Consumers do not need the workspace's TypeScript 7 compiler. Library output targets ES2018, with packed JavaScript syntax checked before release. When upgrading from 2.1, handle pending-call rejections on `destroy()` and upgrade compilers older than 4.1. `signal` and `requestTimeout` in method configuration are reserved local controls. CI exercises mocked IPC and a real main/preload/renderer application with Electron 31 and 44 on Linux, and Electron 44 on Windows/macOS. Other Electron versions still require application-level verification.
 
 ## Development and license
 
