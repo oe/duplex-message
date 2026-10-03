@@ -1,11 +1,47 @@
 import { track } from '../../resources'
 import { PostMessageHub } from 'src/post-message';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import DemoWorker from './worker?worker'
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('PostMessage in worker',  () => {
+  it('keeps wildcard handlers listening for later Worker calls and releases them on off', async () => {
+    class InspectableHub extends PostMessageHub {
+      get workerCount() { return this._hostedWorkers.length }
+    }
+    const worker = track(new DemoWorker())
+    const hub = track(new InspectableHub())
+    const handler = vi.fn(() => 'handled')
+    hub.on('*', 'background', handler)
+    await expect(hub.emit(worker, 'greet', 'hello')).resolves.toBe('hello')
+    expect(hub.workerCount).toBe(1)
+    worker.postMessage({ type: 'trigger-background' })
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledWith('ping'))
+    hub.off('*', 'background')
+    expect(hub.workerCount).toBe(0)
+  })
+
+  it('removes wildcard handlers while retaining pending calls and peer-specific handlers', async () => {
+    class InspectableHub extends PostMessageHub {
+      get workerCount() { return this._hostedWorkers.length }
+    }
+    const worker = track(new DemoWorker())
+    const hub = track(new InspectableHub())
+    hub.on('*', 'background', () => 'handled')
+    const pending = hub.emit(worker, 'greet', 'hello')
+    hub.off('*')
+    expect(hub.workerCount).toBe(1)
+    await expect(pending).resolves.toBe('hello')
+    expect(hub.workerCount).toBe(0)
+    hub.on('*', 'background', () => 'handled')
+    hub.on(worker, 'specific', () => 'handled')
+    hub.off('*')
+    expect(hub.workerCount).toBe(1)
+    hub.off(worker)
+    expect(hub.workerCount).toBe(0)
+  })
+
   it('keeps the Worker listener for pending calls after off, then releases it', async () => {
     class InspectableHub extends PostMessageHub {
       get workerCount() { return this._hostedWorkers.length }

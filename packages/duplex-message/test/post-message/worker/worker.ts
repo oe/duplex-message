@@ -1,6 +1,12 @@
 import { PostMessageHub } from 'src/post-message';
 
 const hub = new PostMessageHub();
+// Trigger a peer-initiated RPC after the caller's original request has settled.
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'trigger-background') {
+    void hub.emit(self, 'background', 'ping').catch(() => {})
+  }
+})
 console.log('hooo worker')
 hub.on(self, 'greet', async (msg: string) => {
   return msg

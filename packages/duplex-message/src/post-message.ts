@@ -107,7 +107,11 @@ export class PostMessageHub extends AbstractHub {
    */
   off(peer: Window | Worker | '*', methodName?: string, handler?: IFn) {
     super._off(peer, methodName, handler)
-    this._removeUnusedWorkerListener(peer)
+    if (peer === '*') {
+      this._hostedWorkers.slice().forEach((worker) => this._removeUnusedWorkerListener(worker))
+    } else {
+      this._removeUnusedWorkerListener(peer)
+    }
   }
 
   protected override onRequestSettled(peer: Window | Worker | '*') {
@@ -115,7 +119,8 @@ export class PostMessageHub extends AbstractHub {
   }
 
   private _removeUnusedWorkerListener(peer: Window | Worker | '*') {
-    if (isWorker(peer) && !this.getEventHandlers(peer) && !this.hasPendingRequests(peer)) {
+    if (isWorker(peer) && !this.getEventHandlers(peer) && !this.getEventHandlers('*')
+      && !this.hasPendingRequests(peer)) {
       const idx = this._hostedWorkers.indexOf(peer)
       if (idx > -1) {
         this._hostedWorkers.splice(idx, 1)
