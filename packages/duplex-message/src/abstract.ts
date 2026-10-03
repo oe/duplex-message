@@ -70,6 +70,8 @@ export interface IProgress<T = any> extends IMessageBase<T> {
   to: string
   type: 'progress'
   data: T
+  /** Explicitly separates heartbeat control messages from business progress. */
+  heartbeat?: boolean
 }
 
 /** enum of error code */
@@ -84,6 +86,10 @@ export const enum EErrorCode {
   INVALID_MESSAGE = 4,
   /** other unspecified error */
   UNKNOWN = 5,
+  /** the caller aborted the request */
+  REQUEST_ABORTED = 6,
+  /** the request exceeded its configured deadline */
+  REQUEST_TIMEOUT = 7,
 }
 
 /** error object could be caught via emit().catch(err) */
@@ -100,6 +106,10 @@ export interface IMethodNameConfig {
   methodName: string
   /** peer instance id */
   to?: string
+  /** Abort waiting locally; does not cancel the peer's handler. */
+  signal?: AbortSignal
+  /** Total request deadline in milliseconds; 0 disables it. Overrides the hub default. */
+  requestTimeout?: number
   [k: string]: any
 }
 
@@ -131,13 +141,14 @@ export interface IAbstractHubOptions {
    * timeout(milliseconds) for waiting heartbeat message, default 500ms
    * 1. A heartbeat message will be sent to peer immediately when a request message is received 
    *    and there is at least one handler for it. Or the `emit` method will catch a no handler error
-   *    It has nothing to do with the time of handler execution, there is no timeout
-   *    for handler execution
+   *    This only bounds heartbeat wait. Use requestTimeout to bound the total request.
    * 2. Normally, a heartbeat message will be sent to peer in less then 10 ms,
    *    but you may still need to set a longer timeout if browser is heavy loaded
    *    and the native apis are slow
    */
   heartbeatTimeout?: number
+  /** Total request deadline in milliseconds, including heartbeat wait. Default 0 (disabled). */
+  requestTimeout?: number
 }
 
 export abstract class AbstractHub {
@@ -168,12 +179,18 @@ export abstract class AbstractHub {
    */
   protected _heartbeatTimeout: number
 
+  protected readonly _requestTimeout: number
+
   /**
    * inner props to store whether instance is destroyed
    */
   protected isDestroyed: boolean
 
   private readonly _heartbeatTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+  private readonly _requestTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+  private readonly _abortCleanups = new Map<number, () => void>()
 
   private readonly _pendingRejects = new Map<number, (error: IError) => void>()
 
@@ -191,6 +208,10 @@ export abstract class AbstractHub {
     this._messageID = 0
     this._designedResponse = Object.create(null)
     this._heartbeatTimeout = options?.heartbeatTimeout ?? DEFAULT_HEARTBEAT_WAIT_TIMEOUT
+    this._requestTimeout = options?.requestTimeout ?? 0
+    if (!AbstractHub.isValidRequestTimeout(this._requestTimeout)) {
+      throw new RangeError('requestTimeout must be a finite number between 0 and 2147483647')
+    }
     this.isDestroyed = false
     if (ENABLE_DEBUG) {
       console.log(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
@@ -338,7 +359,7 @@ export abstract class AbstractHub {
     }
     // send a heartbeat message to peer, in case of response takes too long
     try {
-      this.sendMessage(peer, this.buildProgressMessage(CONTINUE_INDICATOR, msg))
+      this.sendMessage(peer, this.buildProgressMessage(CONTINUE_INDICATOR, msg, true))
       const response = await this.runMessageCallbacks(peer, callbackInfo, msg)
       if (this.isDestroyed) return
       try {
@@ -387,11 +408,23 @@ export abstract class AbstractHub {
       else this._pendingPeerCounts.delete(peer)
     }
     this.clearHeartbeatTimer(messageID)
+    const requestTimer = this._requestTimers.get(messageID)
+    if (requestTimer !== undefined) clearTimeout(requestTimer)
+    this._requestTimers.delete(messageID)
+    this._abortCleanups.get(messageID)?.()
+    this._abortCleanups.delete(messageID)
     delete this._responseCallbackMap[messageID]
     delete this._designedResponse[messageID]
     this._pendingRejects.delete(messageID)
     this._responsePeers.delete(messageID)
     this.onRequestSettled(peer)
+  }
+
+  private rejectPendingRequest(messageID: number, error: IError) {
+    const reject = this._pendingRejects.get(messageID)
+    if (!reject) return
+    reject(error)
+    this.clearPendingRequest(messageID)
   }
 
   protected hasPendingRequests(peer: any) {
@@ -400,6 +433,9 @@ export abstract class AbstractHub {
 
   /** Allow transports to release listeners once a peer has no pending calls. */
   protected onRequestSettled(_peer: any): void {}
+
+  /** Attach transport listeners only when a request is ready to be sent. */
+  protected onRequestStarted(_peer: any): void {}
 
   /**
    * run message's callbacks when receive request from peer
@@ -501,6 +537,19 @@ export abstract class AbstractHub {
     ...args: any[]
   ) {
     this.checkInstance()
+    const controls = typeof methodName === 'string' ? undefined : methodName
+    const requestTimeout = controls?.requestTimeout ?? this._requestTimeout
+    const signal = controls?.signal
+    if (!AbstractHub.isValidRequestTimeout(requestTimeout)
+      || (signal !== undefined && (signal === null || typeof signal !== 'object'
+        || typeof signal.aborted !== 'boolean'
+        || typeof signal.addEventListener !== 'function'
+        || typeof signal.removeEventListener !== 'function'))) {
+      return Promise.reject({ code: EErrorCode.INVALID_MESSAGE, message: 'invalid requestTimeout or signal' })
+    }
+    if (signal?.aborted) {
+      return Promise.reject({ code: EErrorCode.REQUEST_ABORTED, message: 'request has been aborted' })
+    }
     const reqMsg = this.buildReqMessage(methodName, args)
     const result = new Promise<ResponseType>((resolve, reject) => {
       this._pendingRejects.set(reqMsg.messageID, reject)
@@ -532,9 +581,37 @@ export abstract class AbstractHub {
         }
         return 0
       }
-      this.listenResponse(peer, reqMsg, callback)
+      try {
+        this.listenResponse(peer, reqMsg, callback)
+        if (requestTimeout > 0) {
+          const timer = setTimeout(() => {
+            this.rejectPendingRequest(reqMsg.messageID, {
+              code: EErrorCode.REQUEST_TIMEOUT,
+              message: `request timed out after ${requestTimeout}ms for method ${reqMsg.methodName}`,
+            })
+          }, requestTimeout)
+          this._requestTimers.set(reqMsg.messageID, timer)
+        }
+        if (signal) {
+          const abort = () => this.rejectPendingRequest(reqMsg.messageID, {
+            code: EErrorCode.REQUEST_ABORTED,
+            message: 'request has been aborted',
+          })
+          this._abortCleanups.set(reqMsg.messageID, () => signal.removeEventListener('abort', abort))
+          signal.addEventListener('abort', abort, { once: true })
+          // Also handle cancellation that occurred during listener registration.
+          if (signal.aborted) abort()
+        }
+      } catch {
+        this.rejectPendingRequest(reqMsg.messageID, {
+          code: EErrorCode.INVALID_MESSAGE,
+          message: 'unable to set up request',
+        })
+      }
     })
+    if (!this._pendingRejects.has(reqMsg.messageID)) return result
     try {
+      this.onRequestStarted(peer)
       this.sendMessage(peer, AbstractHub.normalizeRequest(peer, reqMsg))
     } catch (error) {
       if (ENABLE_DEBUG) {
@@ -543,11 +620,10 @@ export abstract class AbstractHub {
           error, ', message:', reqMsg,
         )
       }
-      this._pendingRejects.get(reqMsg.messageID)?.({
+      this.rejectPendingRequest(reqMsg.messageID, {
         code: EErrorCode.INVALID_MESSAGE,
         message: 'unable to send message',
       })
-      this.clearPendingRequest(reqMsg.messageID)
     }
     return result
   }
@@ -585,14 +661,16 @@ export abstract class AbstractHub {
     methodName: string | IMethodNameConfig,
     args: any[],
   ): IRequest {
-    const basicCfg = typeof methodName === 'string' ? { methodName } : methodName
+    const basicCfg: IMethodNameConfig = typeof methodName === 'string' ? { methodName } : methodName
+    // These controls belong to the caller and must never be serialized to the peer.
+    const { signal: _signal, requestTimeout: _requestTimeout, ...messageConfig } = basicCfg
     const options = args[0]
     const progress = Boolean(
       options && typeof options.onprogress === 'function',
     )
 
     return {
-      ...basicCfg,
+      ...messageConfig,
       from: this.instanceID,
       // toInstance,
       // eslint-disable-next-line no-plusplus
@@ -618,12 +696,13 @@ export abstract class AbstractHub {
     }
   }
 
-  protected buildProgressMessage(data: any, reqMsg: IRequest): IProgress {
+  protected buildProgressMessage(data: any, reqMsg: IRequest, heartbeat = false): IProgress {
     return {
       from: this.instanceID,
       to: reqMsg.from,
       messageID: reqMsg.messageID,
       type: 'progress',
+      heartbeat,
       data,
     }
   }
@@ -637,7 +716,8 @@ export abstract class AbstractHub {
       && (msg.to === undefined || typeof msg.to === 'string')
       && (msg.type === 'request'
         ? typeof msg.methodName === 'string' && Array.isArray(msg.data)
-        : msg.type === 'response' ? typeof msg.isSuccess === 'boolean' : msg.type === 'progress'))
+        : msg.type === 'response' ? typeof msg.isSuccess === 'boolean'
+          : msg.type === 'progress' && (msg.heartbeat === undefined || typeof msg.heartbeat === 'boolean')))
   }
 
   protected isRequestMessage(msg: any): msg is IRequest {
@@ -663,6 +743,12 @@ export abstract class AbstractHub {
       && msg.type === 'progress'
   }
 
+  private isHeartbeatMessage(reqMsg: IRequest, msg: IResponse | IProgress) {
+    return this.isProgressMessage(reqMsg, msg)
+      && (msg.heartbeat === true
+        || (msg.heartbeat === undefined && msg.data === CONTINUE_INDICATOR))
+  }
+
   protected static wrapResponseCallback(
     instance: AbstractHub,
     reqMsg: IRequest,
@@ -676,8 +762,7 @@ export abstract class AbstractHub {
       if (designedPeerID && resp.from !== designedPeerID) {
         if (
           ENABLE_DEBUG
-          && instance.isProgressMessage(reqMsg, resp)
-          && resp.data === CONTINUE_INDICATOR
+          && instance.isHeartbeatMessage(reqMsg, resp)
         ) {
           console.warn(
             '[duplex-message] message',
@@ -690,7 +775,7 @@ export abstract class AbstractHub {
         return 0
       }
 
-      if (instance.isProgressMessage(reqMsg, resp) && resp.data === CONTINUE_INDICATOR) {
+      if (instance.isHeartbeatMessage(reqMsg, resp)) {
         if (!designedPeerID) {
           // eslint-disable-next-line no-param-reassign
           instance._designedResponse[reqMsg.messageID] = resp.from
@@ -737,6 +822,10 @@ export abstract class AbstractHub {
     return Array(3)
       .join(`${Math.random().toString(36).slice(2)}-`)
       .slice(0, -1)
+  }
+
+  private static isValidRequestTimeout(timeout: number) {
+    return Number.isFinite(timeout) && timeout >= 0 && timeout <= 2147483647
   }
 
   private static mergeEventMap(

@@ -46,4 +46,4 @@ pnpm --filter simple-electron-ipc dev
 
 Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` during installation if you only need library builds and tests. Leave it unset to run the Electron demo. Library JavaScript targets ES2020. Browser builds retain the legacy `dist/index.es.js`, `dist/index.umd.js` and production filenames; package imports use explicit `.mjs`/CommonJS entries. Type declarations are emitted by TypeScript directly, without a second compiler in a declaration plugin.
 
-Completed requests clear their heartbeat timers immediately. `destroy()` rejects outstanding requests with `EErrorCode.UNKNOWN` and releases listeners. A heartbeat acknowledges handler availability; handler execution itself still has no timeout.
+Completed requests clear their timers and abort listeners immediately. `destroy()` rejects outstanding requests with `EErrorCode.UNKNOWN` and releases listeners. A heartbeat acknowledges handler availability; requests have no total timeout by default. Pass `requestTimeout` and/or an `AbortSignal` in the method configuration to bound local waiting. See [request controls](packages/duplex-message/README.md#cancellation-and-request-deadlines).

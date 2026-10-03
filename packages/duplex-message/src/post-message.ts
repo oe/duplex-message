@@ -95,7 +95,6 @@ export class PostMessageHub extends AbstractHub {
         message: 'peer window is unloaded',
       })
     }
-    this._addWorkerListener(peer)
     return this._emit<ResponseType>(peer, methodName, ...args)
   }
 
@@ -116,6 +115,10 @@ export class PostMessageHub extends AbstractHub {
 
   protected override onRequestSettled(peer: Window | Worker | '*') {
     this._removeUnusedWorkerListener(peer)
+  }
+
+  protected override onRequestStarted(peer: Window | Worker | '*') {
+    this._addWorkerListener(peer)
   }
 
   private _removeUnusedWorkerListener(peer: Window | Worker | '*') {

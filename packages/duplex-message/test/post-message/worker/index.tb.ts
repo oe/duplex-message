@@ -6,6 +6,52 @@ import DemoWorker from './worker?worker'
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('PostMessage in worker',  () => {
+  it('does not attach a Worker listener or transfer buffers for pre-aborted/invalid requests', async () => {
+    class InspectableHub extends PostMessageHub {
+      get workerCount() { return this._hostedWorkers.length }
+    }
+    const worker = track(new DemoWorker())
+    const hub = track(new InspectableHub())
+    const controller = new AbortController()
+    controller.abort()
+    const buffer = new ArrayBuffer(16)
+    await expect(hub.emit(worker, {
+      methodName: 'greet', signal: controller.signal, transfer: [buffer],
+    }, buffer)).rejects.toMatchObject({ code: 6 })
+    expect(buffer.byteLength).toBe(16)
+    expect(hub.workerCount).toBe(0)
+    await expect(hub.emit(worker, { methodName: 'greet', requestTimeout: -1 })).rejects.toMatchObject({ code: 4 })
+    expect(hub.workerCount).toBe(0)
+  })
+
+  it('delivers reserved-string progress across the Worker structured-clone boundary', async () => {
+    const worker = track(new DemoWorker())
+    const hub = track(new PostMessageHub())
+    const onprogress = vi.fn()
+    const controller = new AbortController()
+    await expect(hub.emit(worker, {
+      methodName: 'controls-progress', signal: controller.signal, requestTimeout: 2000,
+    }, { onprogress })).resolves.toBe('done')
+    expect(onprogress.mock.calls).toEqual([['--message-hub-to-be-continued--']])
+  })
+
+  it.each(['abort', 'timeout'])('releases the Worker listener on request %s', async (scenario) => {
+    class InspectableHub extends PostMessageHub {
+      get workerCount() { return this._hostedWorkers.length }
+    }
+    const worker = track(new DemoWorker())
+    const hub = track(new InspectableHub())
+    const controller = new AbortController()
+    const onprogress = vi.fn()
+    const response = expect(hub.emit(worker, {
+      methodName: 'controls-slow', signal: controller.signal, requestTimeout: 1000,
+    }, { onprogress })).rejects.toMatchObject({ code: scenario === 'abort' ? 6 : 7 })
+    await vi.waitFor(() => expect(onprogress).toHaveBeenCalledWith('started'))
+    if (scenario === 'abort') controller.abort()
+    await response
+    expect(hub.workerCount).toBe(0)
+  })
+
   it('keeps wildcard handlers listening for later Worker calls and releases them on off', async () => {
     class InspectableHub extends PostMessageHub {
       get workerCount() { return this._hostedWorkers.length }

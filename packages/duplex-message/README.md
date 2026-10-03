@@ -34,6 +34,7 @@
   - [off](#off)
   - [destroy](#destroy)
   - [progress](#progress)
+  - [Cancellation and request deadlines](#cancellation-and-request-deadlines)
   - [proxy for PostMessageHub](#proxy-for-postmessagehub)
   - [dedicated instance for PostMessageHub](#dedicated-instance-for-postmessagehub)
   - [Error](#error)
@@ -224,13 +225,14 @@ interface IAbstractHubOptions {
    * timeout(milliseconds) for waiting heartbeat message, default 500ms
    * 1. A heartbeat message will be sent to peer immediately when a request message is received 
    *    and there is at least one handler for it. Or the `emit` method will catch a no handler error
-   *    It has nothing to do with the time of handler execution, there is no timeout
-   *    for handler execution
+   *    This only bounds heartbeat wait. Use requestTimeout to bound the total request.
    * 2. Normally, a heartbeat message will be sent to peer in less then 10 ms,
    *    but you may still need to set a longer timeout if browser is heavy loaded
    *    and the native apis are slow
    */
   heartbeatTimeout?: number
+  /** total request timeout in milliseconds, default 0 (disabled) */
+  requestTimeout?: number
 }
 
 // new an instance with options
@@ -362,6 +364,10 @@ interface IMethodNameConfig {
   methodName: string
   /** peer instance ID that can receive the message */
   to?: string
+  /** cancel local waiting without cancelling the peer's handler */
+  signal?: AbortSignal
+  /** total request timeout in milliseconds; 0 disables the hub default */
+  requestTimeout?: number
 }
 
 // In TypeScript, use ResponseType to specify the response type
@@ -428,6 +434,37 @@ broadcastMessageHub.emit('async-add', 223, 89).then(res => {
 > 4. If the handler throws an error, the promise will be rejected with the error thrown by the handler (error object may be lost in some cases due to serialization issues)
 > 5. Please always handle the promise rejection returned by `emit` to avoid unhandled promise warnings
 
+### Cancellation and request deadlines
+
+Pass a native `AbortSignal` and/or `requestTimeout` in the method configuration:
+
+```ts
+import { EErrorCode, PostMessageHub, type IError } from 'duplex-message'
+
+const hub = new PostMessageHub({ requestTimeout: 10_000 })
+const controller = new AbortController()
+const result = hub.emit(peerWindow, {
+  methodName: 'download',
+  signal: controller.signal,
+  requestTimeout: 5_000,
+}, { url: '/report.pdf' })
+
+result.catch((error: IError) => {
+  if (error.code === EErrorCode.REQUEST_ABORTED) console.log('Cancelled')
+  else if (error.code === EErrorCode.REQUEST_TIMEOUT) console.log('Timed out')
+  else console.error(error)
+})
+
+// For example, call this when the user clicks Cancel:
+controller.abort()
+```
+
+`PageScriptMessageHub`, `BroadcastMessageHub`, `StorageMessageHub` and dedicated hubs accept the same configuration without the `peerWindow` argument.
+
+The timeout covers the entire request from `emit`, including heartbeat wait. Heartbeats and progress do not extend it. Set the hub default in its constructor, override it for a request, or pass `requestTimeout: 0` to disable it. The default is `0`, preserving unlimited handler duration. Values must be finite numbers between `0` and `2147483647` milliseconds. The existing `heartbeatTimeout` still rejects a missing handler first if it expires sooner.
+
+Cancellation and timeout end local waiting, clear timers and abort listeners, release listeners used only by the request, and ignore late progress and responses. A signal already aborted prevents sending the request. These controls are never serialized to the peer. An already running peer handler continues; cancellation does not stop its work or undo its effects.
+
 ### off
 Remove message handlers.
 
@@ -470,6 +507,8 @@ instance.destroy()
 
 ### progress
 Track the progress of a long-running task.
+
+New peers explicitly mark heartbeat and business progress messages, so business progress can contain the string `--message-hub-to-be-continued--`. New callers also accept the unmarked heartbeats sent by older peers. When either peer uses an older release, avoid that reserved progress string because the old protocol cannot distinguish it from a heartbeat.
 
 If you need progress feedback when peer handling you requests, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
 
@@ -532,7 +571,7 @@ interface IDedicatedMessageHub {
   /** if you didn't set a peer when invoking createDedicatedMessageHub, then you can use `setPeer` to set it when it's ready*/
   setPeer: (peer: Window | Worker) => void;
   // in typescript, use ResponseType to specify response type
-  emit: <ResponseType = unknown>(methodName: string, ...args: any[]) => Promise<ResponseType>;
+  emit: <ResponseType = unknown>(methodName: string | IMethodNameConfig, ...args: any[]) => Promise<ResponseType>;
   on: (methodName: string, handler: Function) => void;
   on: (handlerMap: Record<string, Function>) => void;
   off: (methodName?: string) => any;
@@ -575,6 +614,10 @@ enum EErrorCode {
   INVALID_MESSAGE = 4,
   /** other unspecified error */
   UNKNOWN = 5,
+  /** the caller aborted local waiting */
+  REQUEST_ABORTED = 6,
+  /** the total request timeout expired */
+  REQUEST_TIMEOUT = 7,
 }
 ```
 

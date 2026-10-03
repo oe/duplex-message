@@ -1,5 +1,5 @@
 import { WebContents } from 'electron'
-import { IHandlerMap, IFn } from 'duplex-message'
+import { IHandlerMap, IFn, IMethodNameConfig } from 'duplex-message'
 import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 
 let sharedMainMessageHub: MainMessageHub
@@ -8,7 +8,7 @@ export class MainMessageHub extends ElectronMessageHub {
     super({ ...options, type: 'browser' }, 'MainMessageHub')
   }
 
-  emit<ResponseType = unknown>(target: WebContents, method: string, ...args: any[]) {
+  emit<ResponseType = unknown>(target: WebContents, method: string | IMethodNameConfig, ...args: any[]) {
     return super._emit<ResponseType>(target, method, ...args)
   }
 

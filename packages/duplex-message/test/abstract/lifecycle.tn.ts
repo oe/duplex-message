@@ -217,3 +217,261 @@ describe('handler and message isolation', () => {
     expect(server.sent).toHaveLength(0)
   })
 })
+
+describe('heartbeat protocol compatibility', () => {
+  it('delivers the legacy heartbeat string and heartbeat-shaped objects as business progress', async () => {
+    const client = hub()
+    const server = hub()
+    const onprogress = vi.fn()
+    const indicator = '--message-hub-to-be-continued--'
+    server.on(client, 'download', (options: { onprogress: IFn }) => {
+      options.onprogress(indicator)
+      options.onprogress({ heartbeat: true, data: indicator })
+      return 'done'
+    })
+    await expect(client.emit(server, 'download', { onprogress })).resolves.toBe('done')
+    expect(onprogress.mock.calls).toEqual([[indicator], [{ heartbeat: true, data: indicator }]])
+    // Older callers still identify this same sentinel as the handshake.
+    expect(server.sent[0]).toMatchObject({ type: 'progress', heartbeat: true, data: indicator })
+    expect(server.sent[1]).toMatchObject({ type: 'progress', heartbeat: false, data: indicator })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('accepts an unmarked legacy heartbeat and waits beyond the heartbeat timeout', async () => {
+    class LegacyHub extends TestHub {
+      protected override buildProgressMessage(data: any, request: IRequest) {
+        const message = super.buildProgressMessage(data, request)
+        delete message.heartbeat
+        return message
+      }
+    }
+    const client = hub({ heartbeatTimeout: 10 })
+    const server = new LegacyHub()
+    hubs.push(server)
+    let finish!: (value: string) => void
+    server.on(client, 'slow', () => new Promise<string>((resolve) => { finish = resolve }))
+    const response = client.emit(server, 'slow')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(client.pendingCount).toBe(1)
+    expect(vi.getTimerCount()).toBe(0)
+    finish('legacy result')
+    await expect(response).resolves.toBe('legacy result')
+  })
+
+  it('ignores malformed heartbeat markers without acknowledging the request', async () => {
+    const client = hub({ heartbeatTimeout: 10 })
+    const server = hub()
+    const response = expect(client.emit(server, 'missing')).rejects.toMatchObject({ code: EErrorCode.METHOD_NOT_FOUND })
+    await client.receive(server, {
+      from: server.instanceID, to: client.instanceID, messageID: 1,
+      type: 'progress', heartbeat: 'true', data: '--message-hub-to-be-continued--',
+    })
+    expect(vi.getTimerCount()).toBe(1)
+    await vi.advanceTimersByTimeAsync(10)
+    await response
+  })
+})
+
+describe('local request controls', () => {
+  it('does not send or allocate timers for an already aborted signal', async () => {
+    const client = hub()
+    const controller = new AbortController()
+    controller.abort()
+    await expect(client.emit(hub(), {
+      methodName: 'missing', signal: controller.signal, requestTimeout: 100,
+    })).rejects.toMatchObject({ code: EErrorCode.REQUEST_ABORTED })
+    expect(client.sent).toHaveLength(0)
+    expect(client.pendingCount).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('aborts before heartbeat and removes the abort listener and both timers', async () => {
+    const client = hub()
+    const controller = new AbortController()
+    const remove = vi.spyOn(controller.signal, 'removeEventListener')
+    const response = expect(client.emit(hub(), {
+      methodName: 'missing', signal: controller.signal, requestTimeout: 100,
+    })).rejects.toMatchObject({ code: EErrorCode.REQUEST_ABORTED })
+    expect(vi.getTimerCount()).toBe(2)
+    controller.abort()
+    await response
+    expect(remove).toHaveBeenCalledOnce()
+    expect(client.pendingCount).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('aborts after heartbeat, ignores late progress/results, and leaves the peer handler running', async () => {
+    const client = hub()
+    const server = hub()
+    const controller = new AbortController()
+    const onprogress = vi.fn()
+    let finish!: () => void
+    let progress!: IFn
+    server.on(client, 'slow', (options: { onprogress: IFn }) => {
+      progress = options.onprogress
+      return new Promise<void>((resolve) => { finish = resolve })
+    })
+    const response = expect(client.emit(server, {
+      methodName: 'slow', signal: controller.signal, requestTimeout: 100,
+    }, { onprogress })).rejects.toMatchObject({ code: EErrorCode.REQUEST_ABORTED })
+    expect(vi.getTimerCount()).toBe(1)
+    controller.abort()
+    await response
+    progress('late')
+    finish()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(onprogress).not.toHaveBeenCalled()
+    expect(server.sent.some((message) => message.type === 'response')).toBe(true)
+    expect(client.pendingCount).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+    server.on(client, 'echo', () => 'still usable')
+    await expect(client.emit(server, 'echo')).resolves.toBe('still usable')
+  })
+
+  it('times out after heartbeat even if progress continues, and detaches the abort listener', async () => {
+    const client = hub()
+    const server = hub()
+    const controller = new AbortController()
+    const remove = vi.spyOn(controller.signal, 'removeEventListener')
+    const onprogress = vi.fn()
+    let progress!: IFn
+    server.on(client, 'slow', (options: { onprogress: IFn }) => {
+      progress = options.onprogress
+      return new Promise(() => {})
+    })
+    const response = expect(client.emit(server, {
+      methodName: 'slow', requestTimeout: 30, signal: controller.signal,
+    }, { onprogress })).rejects.toMatchObject({ code: EErrorCode.REQUEST_TIMEOUT })
+    await vi.advanceTimersByTimeAsync(20)
+    progress('working')
+    expect(onprogress).toHaveBeenCalledWith('working')
+    await vi.advanceTimersByTimeAsync(10)
+    await response
+    progress('late')
+    expect(onprogress).toHaveBeenCalledTimes(1)
+    expect(remove).toHaveBeenCalledOnce()
+    expect(client.pendingCount).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('counts heartbeat wait toward the total request deadline', async () => {
+    const client = hub({ heartbeatTimeout: 100 })
+    const response = expect(client.emit(hub(), {
+      methodName: 'missing', requestTimeout: 10,
+    })).rejects.toMatchObject({ code: EErrorCode.REQUEST_TIMEOUT })
+    await vi.advanceTimersByTimeAsync(10)
+    await response
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('keeps the missing-handler error when heartbeat wait expires before the deadline', async () => {
+    const client = hub({ heartbeatTimeout: 10 })
+    const controller = new AbortController()
+    const remove = vi.spyOn(controller.signal, 'removeEventListener')
+    const response = expect(client.emit(hub(), {
+      methodName: 'missing', requestTimeout: 100, signal: controller.signal,
+    })).rejects.toMatchObject({ code: EErrorCode.METHOD_NOT_FOUND })
+    await vi.advanceTimersByTimeAsync(10)
+    await response
+    expect(remove).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('supports a hub deadline, per-call override, and explicitly disabling it with 0', async () => {
+    const client = hub({ requestTimeout: 10 })
+    const server = hub()
+    let finish!: (value: string) => void
+    server.on(client, 'slow', () => new Promise<string>((resolve) => { finish = resolve }))
+    const defaultTimeout = expect(client.emit(server, 'slow')).rejects.toMatchObject({ code: EErrorCode.REQUEST_TIMEOUT })
+    await vi.advanceTimersByTimeAsync(10)
+    await defaultTimeout
+    const override = expect(client.emit(server, { methodName: 'slow', requestTimeout: 30 })).rejects.toMatchObject({ code: EErrorCode.REQUEST_TIMEOUT })
+    await vi.advanceTimersByTimeAsync(10)
+    expect(client.pendingCount).toBe(1)
+    await vi.advanceTimersByTimeAsync(20)
+    await override
+    const disabled = client.emit(server, { methodName: 'slow', requestTimeout: 0 })
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(client.pendingCount).toBe(1)
+    expect(vi.getTimerCount()).toBe(0)
+    finish('no deadline')
+    await expect(disabled).resolves.toBe('no deadline')
+  })
+
+  it('preserves frozen options, strips local controls from the wire, and removes listeners on success', async () => {
+    const client = hub()
+    const server = hub()
+    const controller = new AbortController()
+    const remove = vi.spyOn(controller.signal, 'removeEventListener')
+    const options = Object.freeze({ methodName: 'echo', signal: controller.signal, requestTimeout: 100, to: server.instanceID })
+    server.on(client, 'echo', (value: number) => value)
+    await expect(client.emit(server, options, 42)).resolves.toBe(42)
+    expect(options.signal).toBe(controller.signal)
+    expect(client.sent[0]).not.toHaveProperty('signal')
+    expect(client.sent[0]).not.toHaveProperty('requestTimeout')
+    expect(remove).toHaveBeenCalledOnce()
+    controller.abort()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it.each(['send failure', 'destroy'])('cleans up all controls on %s', async (scenario) => {
+    const client = hub()
+    const controller = new AbortController()
+    const remove = vi.spyOn(controller.signal, 'removeEventListener')
+    client.failSend = scenario === 'send failure'
+    const response = expect(client.emit(hub(), {
+      methodName: 'missing', signal: controller.signal, requestTimeout: 100,
+    })).rejects.toMatchObject({ code: scenario === 'destroy' ? EErrorCode.UNKNOWN : EErrorCode.INVALID_MESSAGE })
+    if (scenario === 'destroy') client.destroy()
+    await response
+    expect(remove).toHaveBeenCalledOnce()
+    expect(client.pendingCount).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('handles abort during listener registration before anything is sent', async () => {
+    const client = hub()
+    const controller = new AbortController()
+    const add = controller.signal.addEventListener.bind(controller.signal)
+    vi.spyOn(controller.signal, 'addEventListener').mockImplementation((...args) => {
+      controller.abort()
+      add(...args)
+    })
+    const remove = vi.spyOn(controller.signal, 'removeEventListener')
+    await expect(client.emit(hub(), {
+      methodName: 'missing', signal: controller.signal, requestTimeout: 100,
+    })).rejects.toMatchObject({ code: EErrorCode.REQUEST_ABORTED })
+    expect(client.sent).toHaveLength(0)
+    expect(remove).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('cleans up when abort listener registration fails', async () => {
+    const client = hub()
+    const controller = new AbortController()
+    vi.spyOn(controller.signal, 'addEventListener').mockImplementation(() => { throw new Error('registration failed') })
+    await expect(client.emit(hub(), {
+      methodName: 'missing', signal: controller.signal, requestTimeout: 100,
+    })).rejects.toMatchObject({ code: EErrorCode.INVALID_MESSAGE })
+    expect(client.sent).toHaveLength(0)
+    expect(client.pendingCount).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it.each([-1, NaN, Infinity, 2147483648])('rejects invalid deadline %s without pending state', async (requestTimeout) => {
+    expect(() => hub({ requestTimeout })).toThrow(RangeError)
+    const client = hub()
+    await expect(client.emit(hub(), { methodName: 'missing', requestTimeout })).rejects.toMatchObject({ code: EErrorCode.INVALID_MESSAGE })
+    expect(client.sent).toHaveLength(0)
+    expect(client.pendingCount).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('rejects invalid signals without creating a pending request', async () => {
+    const client = hub()
+    await expect(client.emit(hub(), { methodName: 'missing', signal: {} as AbortSignal })).rejects.toMatchObject({ code: EErrorCode.INVALID_MESSAGE })
+    expect(client.pendingCount).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+})

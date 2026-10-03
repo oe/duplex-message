@@ -60,6 +60,21 @@ try {
       try {
         server.on('sum', (a, b) => a + b)
         assert.equal(await client.emit(Object.freeze({ methodName: 'sum', to: server.instanceID }), 2, 3), 5)
+        const controller = new AbortController()
+        const updates = []
+        server.on('progress', (options) => {
+          options.onprogress('--message-hub-to-be-continued--')
+          return 'done'
+        })
+        assert.equal(await client.emit({ methodName: 'progress', signal: controller.signal, requestTimeout: 1000 }, {
+          onprogress(value) { updates.push(value) },
+        }), 'done')
+        assert.deepEqual(updates, ['--message-hub-to-be-continued--'])
+        server.on('slow', () => new Promise(() => {}))
+        const cancelled = assert.rejects(client.emit({ methodName: 'slow', signal: controller.signal }), { code: 6 })
+        controller.abort()
+        await cancelled
+        await assert.rejects(client.emit({ methodName: 'slow', requestTimeout: 20 }), { code: 7 })
       } finally { client.destroy(); server.destroy() }
     }
     Object.defineProperty(process, 'type', { configurable: true, value: 'browser' })
@@ -82,7 +97,12 @@ try {
     main.on('*', 'sum', (a: number, b: number) => a + b)
     const renderer = new RendererMessageHub()
     const title: Promise<string> = renderer.emit<string>('title')
-    void [result, error, title]
+    const controller = new AbortController()
+    const timed: Promise<number> = hub.emit<number>({ methodName: 'sum', requestTimeout: 100, signal: controller.signal }, 1, 2)
+    const ipcTimed: Promise<string> = renderer.emit<string>({ methodName: 'title', requestTimeout: 100, signal: controller.signal })
+    const timeoutError: IError = { code: EErrorCode.REQUEST_TIMEOUT, message: 'timeout' }
+    const abortError: IError = { code: EErrorCode.REQUEST_ABORTED, message: 'aborted' }
+    void [result, error, title, timed, ipcTimed, timeoutError, abortError]
   `
   await writeFile(join(consumer, 'types.cts'), types)
   await writeFile(join(consumer, 'types.mts'), types)

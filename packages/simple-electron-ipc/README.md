@@ -26,6 +26,7 @@
   - [emit](#emit)
   - [on](#on)
   - [progress](#progress)
+  - [Cancellation and request deadlines](#cancellation-and-request-deadlines)
   - [off](#off)
   - [destroy](#destroy)
   - [Error](#error)
@@ -126,6 +127,10 @@ const rendererMessageHub = new RendererMessageHub(options?: IElectronMessageHubO
 interface IElectronMessageHubOptions {
   /** ipc channel name used under the hood, default: message-hub */
   channelName?: string
+  /** heartbeat wait in milliseconds, default 500 */
+  heartbeatTimeout?: number
+  /** total request timeout in milliseconds, default 0 (disabled) */
+  requestTimeout?: number
 }
 ```
 
@@ -161,10 +166,10 @@ Send a message to peer, invoking `methodName` registered on the peer via [`on`](
 ```ts
 // in main process
 //    if you got a BrowserWindow instance, use browserWindow.webContents to get WebContents
-mainMessageHub.emit<ResponseType = unknown>(peer: WebContents, method: string, ...args: any[]) => Promise<ResponseType>
+mainMessageHub.emit<ResponseType = unknown>(peer: WebContents, method: string | IMethodNameConfig, ...args: any[]) => Promise<ResponseType>
 
 // in renderer process, no need to specify the peer, the peer is default to the main process
-rendererMessageHub.emit<ResponseType = unknown>(method: string, ...args: any[]) => Promise<ResponseType>
+rendererMessageHub.emit<ResponseType = unknown>(method: string | IMethodNameConfig, ...args: any[]) => Promise<ResponseType>
 ```
 
 e.g.
@@ -252,6 +257,35 @@ Notice:
 1. you should only listen a message once, it will override existing listener when do it again
 2. for `mainMessageHub`:  the specified callback will be called if you listen same `methodName` in specified peer and `*`
 
+### Cancellation and request deadlines
+
+Both directions accept `IMethodNameConfig` from `duplex-message` in place of a method string:
+
+```ts
+import { EErrorCode, type IMethodNameConfig } from 'duplex-message'
+
+const controller = new AbortController()
+const request: IMethodNameConfig = {
+  methodName: 'download',
+  requestTimeout: 5_000,
+  signal: controller.signal,
+}
+
+// In the renderer:
+rendererMessageHub.emit(request, { url: '/report.pdf' }).catch(error => {
+  if (error.code === EErrorCode.REQUEST_ABORTED) console.log('Cancelled')
+  else if (error.code === EErrorCode.REQUEST_TIMEOUT) console.log('Timed out')
+  else console.error(error)
+})
+
+// For example, call this when the user clicks Cancel:
+controller.abort()
+```
+
+In the main process, use `mainMessageHub.emit(webContents, request, ...args)` and handle rejection in the same way. A hub can set a default with `new RendererMessageHub({ requestTimeout: 10_000 })` or `new MainMessageHub({ requestTimeout: 10_000 })`. A per-request value overrides it; `0` disables the deadline. The default is unlimited. Valid values are finite numbers between `0` and `2147483647` milliseconds.
+
+The deadline includes heartbeat wait, and progress does not extend it. The existing heartbeat timeout can still reject a missing handler sooner. Cancellation and timeout only end local waiting and release the request's resources. They ignore late responses, but do not stop an already running peer handler or undo its effects. An already aborted signal prevents sending. Signals and timeout options stay local and never cross IPC.
+
 ### progress
 If you need progress feedback when peer handling you requests, you can do it by setting the first argument as an object and has a function property named `onprogress` when `emit` messages, and call `onprogress` in `on` on the peer's side.
 
@@ -337,6 +371,10 @@ enum EErrorCode {
   INVALID_MESSAGE = 4,
   /** other unspecified error */
   UNKNOWN = 5,
+  /** the caller aborted local waiting */
+  REQUEST_ABORTED = 6,
+  /** the total request timeout expired */
+  REQUEST_TIMEOUT = 7,
 }
 ```
 

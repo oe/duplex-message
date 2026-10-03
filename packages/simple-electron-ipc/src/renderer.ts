@@ -1,4 +1,4 @@
-import { IHandlerMap, IFn } from 'duplex-message'
+import { IHandlerMap, IFn, IMethodNameConfig } from 'duplex-message'
 import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 
 let rendererMessageHub: RendererMessageHub
@@ -7,7 +7,7 @@ export class RendererMessageHub extends ElectronMessageHub {
     super({ ...options, type: 'renderer' }, 'RendererMessageHub')
   }
 
-  emit<ResponseType = unknown>(method: string, ...args: any[]) {
+  emit<ResponseType = unknown>(method: string | IMethodNameConfig, ...args: any[]) {
     return super._emit<ResponseType>(this._ipc, method, ...args)
   }
 

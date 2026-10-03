@@ -57,6 +57,48 @@ afterEach(() => {
 })
 
 describe('Electron IPC', () => {
+  it('delivers reserved-string progress with request controls across serialized IPC', async () => {
+    const { main, renderer } = pair()
+    main.on('*', 'progress', (options: { onprogress: (value: string) => void }) => {
+      options.onprogress('--message-hub-to-be-continued--')
+      return 'done'
+    })
+    const controller = new AbortController()
+    const onprogress = vi.fn()
+    await expect(renderer.emit({
+      methodName: 'progress', signal: controller.signal, requestTimeout: 100,
+    }, { onprogress })).resolves.toBe('done')
+    expect(onprogress.mock.calls).toEqual([['--message-hub-to-be-continued--']])
+    controller.abort()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it.each(['main', 'renderer'])('supports local cancellation and deadlines from the %s process', async (side) => {
+    const { main, renderer, target } = pair()
+    const slow = (options: { onprogress: (value: string) => void }) => {
+      options.onprogress('started')
+      return new Promise(() => {})
+    }
+    main.on(target, 'slow', slow)
+    renderer.on('slow', slow)
+    const emit = (options: { methodName: string; signal?: AbortSignal; requestTimeout: number }, onprogress: (value: string) => void) => side === 'main'
+      ? main.emit(target, options, { onprogress }) : renderer.emit(options, { onprogress })
+    const controller = new AbortController()
+    const onprogress = vi.fn()
+    const aborted = expect(emit({ methodName: 'slow', signal: controller.signal, requestTimeout: 100 }, onprogress))
+      .rejects.toMatchObject({ code: 6 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(onprogress).toHaveBeenCalledWith('started')
+    controller.abort()
+    await aborted
+    expect(vi.getTimerCount()).toBe(0)
+    const timedOut = expect(emit({ methodName: 'slow', requestTimeout: 20 }, onprogress))
+      .rejects.toMatchObject({ code: 7 })
+    await vi.advanceTimersByTimeAsync(20)
+    await timedOut
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('supports calls in both directions and progress across the IPC serialization boundary', async () => {
     const { main, renderer, target } = pair()
     main.on(target, 'sum', (a: number, b: number) => a + b)

@@ -1,6 +1,14 @@
 import { PostMessageHub } from 'src/post-message';
 
 const hub = new PostMessageHub();
+hub.on(self, 'controls-progress', (options: { onprogress: (value: string) => void }) => {
+  options.onprogress('--message-hub-to-be-continued--')
+  return 'done'
+})
+hub.on(self, 'controls-slow', (options: { onprogress: (value: string) => void }) => {
+  options.onprogress('started')
+  return new Promise(() => {})
+})
 // Trigger a peer-initiated RPC after the caller's original request has settled.
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'trigger-background') {

@@ -4,7 +4,17 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 console.log('frame aaa storage', location.href)
 
-const hub = new StorageMessageHub;
+const keyPrefix = new URL(import.meta.url).searchParams.get('keyPrefix')
+const hub = new StorageMessageHub(keyPrefix === null ? undefined : { keyPrefix });
+
+hub.on('controls-progress', (options: { onprogress: (value: string) => void }) => {
+  options.onprogress('--message-hub-to-be-continued--')
+  return 'done'
+})
+hub.on('controls-slow', (options: { onprogress: (value: string) => void }) => {
+  options.onprogress('started')
+  return new Promise(() => {})
+})
 
 hub.on('greet', async (msg: string) => {
   await wait(200)
