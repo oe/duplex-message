@@ -81,12 +81,11 @@ export class StorageMessageHub extends AbstractHub {
     const msgKey = this._getMsgKey(msg)
     try {
       localStorage.setItem(msgKey, JSON.stringify(msg))
-      // clean storage key after 100ms
-      setTimeout(() => {
-        localStorage.removeItem(msgKey)
-      }, 100)
+      // Storage events retain newValue even after the key is removed.
+      // Immediate cleanup also allows consecutive identical progress updates.
+      localStorage.removeItem(msgKey)
     } catch (e) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
         console.warn(
           '[duplex-message] unable to stringify message, message not sent',
           e, 'message:', msg,
@@ -113,7 +112,7 @@ export class StorageMessageHub extends AbstractHub {
       const msg = JSON.parse(evt.newValue)
       // eslint-disable-next-line consistent-return
       return msg
-    } catch (error) {
+    } catch {
       /** */
     }
   }
@@ -126,7 +125,7 @@ export class StorageMessageHub extends AbstractHub {
 
   /** shared StorageMessageHub instance */
   public static get shared() {
-    if (!sharedMessageHub) {
+    if (!sharedMessageHub || sharedMessageHub.isDestroyed) {
       sharedMessageHub = new StorageMessageHub()
     }
     return sharedMessageHub

@@ -1,6 +1,20 @@
 import { PostMessageHub } from 'src/post-message';
 
 const hub = new PostMessageHub();
+hub.on(self, 'controls-progress', (options: { onprogress: (value: string) => void }) => {
+  options.onprogress('--message-hub-to-be-continued--')
+  return 'done'
+})
+hub.on(self, 'controls-slow', (options: { onprogress: (value: string) => void }) => {
+  options.onprogress('started')
+  return new Promise(() => {})
+})
+// Trigger a peer-initiated RPC after the caller's original request has settled.
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'trigger-background') {
+    void hub.emit(self, 'background', 'ping').catch(() => {})
+  }
+})
 console.log('hooo worker')
 hub.on(self, 'greet', async (msg: string) => {
   return msg
@@ -58,3 +72,6 @@ hub.on(self, 'inter-star', async (req) => {
   const msg = await hub.emit(self, 'inter', 'hello')
   return msg
 })
+
+// Keep cold module loading separate from RPC acknowledgement deadlines in tests.
+self.postMessage({ type: 'fixture-ready' })

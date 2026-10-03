@@ -184,8 +184,9 @@ describe('duplex-message abstract instance utils methods', () => {
       [{}, false],
       [{to: 'test', messageID: 'abc', type: 'progress'}, false],
       [{to: 'test', from: 'xxx', messageID: 'abc', type: 'progress'}, false],
-      [{to: 'test', from: 'xxx', messageID: 'abc', type: 'request'}, true],
-      [{data: 'test', from: 'xxx', messageID: 'abc', type: 'request'}, true],
+      [{to: 'test', from: 'xxx', messageID: 'abc', type: 'request'}, false],
+      [{data: 'test', from: 'xxx', messageID: 'abc', type: 'request'}, false],
+      [{to: 'test', from: 'xxx', messageID: 1, type: 'request', methodName: 'greet', data: []}, true],
     ]
 
     testsMaps.forEach(([msg, expected]) => {

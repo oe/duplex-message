@@ -1,39 +1,24 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "baseUrl": "./",
-    "outDir": "./dist",
-    "module": "commonjs",
-    "target": "ES2017",
-    "lib": [
-      "ES2017",
-      "DOM"
-    ],
     "types": [
+      "node",
       "vite/client",
-      "@vitest/browser/providers/playwright"
+      "@vitest/browser-playwright"
     ],
-    "strict": true,
-    "allowJs": true,
-    "checkJs": true,
-    "skipLibCheck": true,
-    "declaration": true,
-    "noImplicitAny": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "noImplicitOverride": true,
     "paths": {
       "src/*": [
-        "src/*"
+        "./src/*"
       ]
-    },
+    }
   },
   "include": [
     "src",
     "test",
-    "demo"
+    "*.mts"
   ],
   "exclude": [
     "dist",
-    "vite.config.ts"
+    "demo"
   ]
 }

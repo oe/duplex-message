@@ -1,3 +1,5 @@
 export * from './main'
 export * from './renderer'
-export { setConfig } from 'duplex-message'
+export { setConfig, createRpcClient, waitForPeer, READY_METHOD, EErrorCode } from 'duplex-message'
+export type { IRpcClient, RpcEmitter, IWaitForPeerOptions, IMethodNameConfig, IError } from 'duplex-message'
+export type { IElectronMessageHubOptions } from './abstract'

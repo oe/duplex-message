@@ -72,3 +72,4 @@ test-cache
 test/cache
 **/dist
 __screenshots__
+.vitest/

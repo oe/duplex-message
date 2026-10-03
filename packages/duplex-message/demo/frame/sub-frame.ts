@@ -3,7 +3,7 @@ const postMessageHub = new PostMessageHub
 
 const messageHub = postMessageHub.createDedicatedMessageHub(parent)
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, '')) as HTMLElement
+  return document.getElementById(id.replace(/^#/, '')) as HTMLElement
 }
 
 $('#test-1').addEventListener('click', () => {

@@ -1,86 +1,73 @@
-import { app, BrowserWindow } from "electron";
-import { MainMessageHub } from 'simple-electron-ipc'
-import * as path from "path";
+import { app, BrowserWindow, type WebContents } from 'electron'
+import { MainMessageHub, createRpcClient } from 'simple-electron-ipc'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import type { MainMethods, PreloadMethods } from './api'
 
-
-let mainWindow //: BrowserWindow
-const messageHub = new MainMessageHub()
-messageHub.on('*', {
-  getUserToken: (a, b) => Math.random().toString(36) + a + b,
-  download: (msg) => {
-    return new Promise((resolve, reject) => {
-      let hiCount = 0
-      const tid = setInterval(() => {
-        if (hiCount >= 100) {
-          clearInterval(tid)
-          return resolve('done')
-        }
-        msg.onprogress({count: hiCount += 10})
-      }, 200)
-    })
+const trusted = new Map<WebContents, string>()
+const hub = new MainMessageHub({
+  requestTimeout: 5000,
+  validateSender(event) {
+    const url = trusted.get(event.sender)
+    return url !== undefined && event.senderFrame === event.sender.mainFrame
+      && event.senderFrame.url === url
   },
-  // async getTitle (t: string) {
-  //   console.log('getTitle', mainWindow.send)
-  //   const title = await messageHub.emit(mainWindow, 'pageTitle')
-  //   return t + '---' + title
-  // },
-  calc (a, b) {
-    return messageHub.emit(mainWindow, 'addNumber', {
-      a,
-      b,
-      onprogress(e) {console.log('progress', e)}
-    })
-  }
 })
 
-
 function createWindow() {
-  // Create the browser window.
-  mainWindow = new BrowserWindow({
-    height: 600,
+  const window = new BrowserWindow({
+    width: 800, height: 600,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-      preload: path.join(__dirname, "preload.js"),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      preload: join(__dirname, 'preload.cjs'),
     },
-    width: 800,
-  });
-  // mainWindow.send()
-
-  // and load the index.html of the app.
-  mainWindow.loadFile(path.join(__dirname, "../index.html"));
-
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
-
-  messageHub.on(mainWindow.webContents,  'getTitle',  async function (t: string) {
-    console.log('getTitle', mainWindow.send)
-    const title = await messageHub.emit(mainWindow.webContents, 'pageTitle')
-    return t + '---' + title
   })
+  const file = join(__dirname, '../index.html')
+  const target = window.webContents
+  trusted.set(target, pathToFileURL(file).href)
+  target.setWindowOpenHandler(() => ({ action: 'deny' }))
+  target.on('will-navigate', event => event.preventDefault())
+  const timers = new Set<ReturnType<typeof setInterval>>()
+  const renderer = createRpcClient<PreloadMethods>((method, ...args) => hub.emit(target, method, ...args))
+  hub.on(target, {
+    download(options) {
+      if (typeof options?.onprogress !== 'function') throw new TypeError('progress callback required')
+      return new Promise<string>(resolve => {
+        let count = 0
+        const timer = setInterval(() => {
+          count += 10
+          options.onprogress(count)
+          if (count === 100) {
+            clearInterval(timer)
+            timers.delete(timer)
+            resolve('done')
+          }
+        }, 50)
+        timers.add(timer)
+      })
+    },
+    async getTitle(prefix) {
+      if (typeof prefix !== 'string') throw new TypeError('prefix must be a string')
+      return prefix + await renderer.call('pageTitle')
+    },
+    calculate(a, b) {
+      if (!Number.isFinite(a) || !Number.isFinite(b)) throw new TypeError('numbers required')
+      return renderer.call('addNumbers', a, b)
+    },
+  } satisfies MainMethods)
+  window.on('closed', () => {
+    timers.forEach(clearInterval)
+    trusted.delete(target)
+    hub.off(target)
+  })
+  void window.loadFile(file)
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
-  createWindow();
-
-  app.on("activate", function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-});
-
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
-
-// In this file you can include the rest of your app"s specific main process
-// code. You can also put them in separate files and require them here.
+void app.whenReady().then(() => {
+  createWindow()
+  app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow() })
+})
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
+app.on('will-quit', () => hub.destroy())

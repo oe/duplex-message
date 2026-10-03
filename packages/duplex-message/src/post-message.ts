@@ -21,6 +21,13 @@ export interface IPostMessageMethodOptions extends IMethodNameConfig {
   targetOrigin?: string
 }
 
+export interface IPostMessageHubOptions extends IAbstractHubOptions {
+  /** Allowed origins for incoming window messages. Omitted preserves legacy behavior. */
+  allowedOrigins?: readonly string[]
+  /** Default origin for outgoing window messages. Default '*'; set an explicit trusted origin. */
+  targetOrigin?: string
+}
+
 type IOwnPeer = Window | Worker | undefined
 
 let sharedMessageHub: PostMessageHub
@@ -36,14 +43,30 @@ function isWindow(peer:any): peer is Window {
 }
 
 export class PostMessageHub extends AbstractHub {
+  private readonly _allowedOrigins?: readonly string[]
+
+  private readonly _targetOrigin: string
+
+  private readonly _messageOrigins?: WeakMap<object, string>
   protected _hostedWorkers: Worker[]
 
   protected readonly _WIN: Window | Worker
 
   protected readonly _isInWorker: boolean
 
-  constructor(options?: IAbstractHubOptions) {
+  constructor(options?: IPostMessageHubOptions) {
     super(options)
+    if (options?.allowedOrigins !== undefined && (!Array.isArray(options.allowedOrigins)
+      || options.allowedOrigins.some(origin => typeof origin !== 'string' || !origin.length))) {
+      throw new TypeError('allowedOrigins must be an array of origin strings')
+    }
+    if (options?.targetOrigin !== undefined
+      && (typeof options.targetOrigin !== 'string' || !options.targetOrigin.length)) {
+      throw new TypeError('targetOrigin must be an origin string')
+    }
+    this._allowedOrigins = options?.allowedOrigins?.slice()
+    if (this._allowedOrigins) this._messageOrigins = new WeakMap()
+    this._targetOrigin = options?.targetOrigin ?? '*'
     this._hostedWorkers = []
     // save current window it's self
     // eslint-disable-next-line no-restricted-globals
@@ -88,13 +111,13 @@ export class PostMessageHub extends AbstractHub {
    */
   emit<ResponseType = unknown>(peer: Window | Worker,
     methodName: string | IPostMessageMethodOptions, ...args: any[]) {
+    this.checkInstance()
     if (isWindow(peer) && !peer.parent) {
       return Promise.reject({
         code: EErrorCode.PEER_NOT_FOUND,
         message: 'peer window is unloaded',
       })
     }
-    this._addWorkerListener(peer)
     return this._emit<ResponseType>(peer, methodName, ...args)
   }
 
@@ -106,8 +129,24 @@ export class PostMessageHub extends AbstractHub {
    */
   off(peer: Window | Worker | '*', methodName?: string, handler?: IFn) {
     super._off(peer, methodName, handler)
-    const evtMpIndx = this._eventHandlerMap.findIndex((m) => m[0] === peer)
-    if (evtMpIndx === -1 && isWorker(peer)) {
+    if (peer === '*') {
+      this._hostedWorkers.slice().forEach((worker) => this._removeUnusedWorkerListener(worker))
+    } else {
+      this._removeUnusedWorkerListener(peer)
+    }
+  }
+
+  protected override onRequestSettled(peer: Window | Worker | '*') {
+    this._removeUnusedWorkerListener(peer)
+  }
+
+  protected override onRequestStarted(peer: Window | Worker | '*') {
+    this._addWorkerListener(peer)
+  }
+
+  private _removeUnusedWorkerListener(peer: Window | Worker | '*') {
+    if (isWorker(peer) && !this.getEventHandlers(peer) && !this.getEventHandlers('*')
+      && !this.hasPendingRequests(peer)) {
       const idx = this._hostedWorkers.indexOf(peer)
       if (idx > -1) {
         this._hostedWorkers.splice(idx, 1)
@@ -242,7 +281,34 @@ export class PostMessageHub extends AbstractHub {
 
   protected _onMessageReceived(evt: MessageEvent) {
     const peer = evt.source || evt.currentTarget || this._WIN
+    // Worker messages have no Window source or meaningful origin.
+    if (this._allowedOrigins && isWindow(evt.source)) {
+      if (!this._allowedOrigins.includes('*') && !this._allowedOrigins.includes(evt.origin)) return
+      if (evt.origin !== 'null') {
+        // Remember each request separately: a Window can navigate between accepted origins.
+        if (evt.data && typeof evt.data === 'object' && evt.data.type === 'request') {
+          this._messageOrigins!.set(evt.data, evt.origin)
+        }
+      }
+    }
     this.onMessage(peer, evt.data)
+  }
+
+  protected override _buildRespMessage(data: any, request: IRequest, isSuccess: boolean): IResponse {
+    const response = super._buildRespMessage(data, request, isSuccess)
+    this.copyMessageOrigin(request, response)
+    return response
+  }
+
+  protected override buildProgressMessage(data: any, request: IRequest, heartbeat = false): IProgress {
+    const progress = super.buildProgressMessage(data, request, heartbeat)
+    this.copyMessageOrigin(request, progress)
+    return progress
+  }
+
+  private copyMessageOrigin(request: IRequest, response: IResponse | IProgress) {
+    const origin = this._messageOrigins?.get(request)
+    if (origin !== undefined) this._messageOrigins!.set(response, origin)
   }
 
   protected sendMessage(
@@ -252,7 +318,7 @@ export class PostMessageHub extends AbstractHub {
     const args: any[] = [msg]
     if (!this._isInWorker && isWindow(peer)) {
       // @ts-ignore
-      args.push(msg.targetOrigin || '*')
+      args.push(msg.targetOrigin || this._messageOrigins?.get(msg) || this._targetOrigin)
     }
     // add transferable data if exists
     // @ts-ignore
@@ -266,7 +332,7 @@ export class PostMessageHub extends AbstractHub {
 
   /** shared PostMessageHub instance */
   public static get shared() {
-    if (!sharedMessageHub) {
+    if (!sharedMessageHub || sharedMessageHub.isDestroyed) {
       sharedMessageHub = new PostMessageHub()
     }
     return sharedMessageHub

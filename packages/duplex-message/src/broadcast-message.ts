@@ -92,7 +92,7 @@ export class BroadcastMessageHub extends AbstractHub {
 
   /** shared PostMessageHub instance */
   public static get shared() {
-    if (!sharedMessageHub) {
+    if (!sharedMessageHub || sharedMessageHub.isDestroyed) {
       sharedMessageHub = new BroadcastMessageHub()
     }
     return sharedMessageHub

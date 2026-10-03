@@ -1,5 +1,5 @@
 import { PageScriptMessageHub, setConfig } from "../../src";
-setConfig({ debug: true })
+setConfig()
 
 const port2 = new PageScriptMessageHub({ instanceID: 'port2' })
 const port3 = new PageScriptMessageHub({ instanceID: 'port3' })
@@ -15,7 +15,7 @@ console.warn('port1', port1.instanceID)
 console.warn('port3', port3.instanceID)
 
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, '')) as HTMLElement;
+  return document.getElementById(id.replace(/^#/, '')) as HTMLElement;
 }
 
 port1.on({

@@ -1,14 +1,39 @@
-import { WebContents } from 'electron'
-import { IHandlerMap, IFn } from 'duplex-message'
+import { WebContents, IpcMainEvent } from 'electron'
+import { IHandlerMap, IFn, IMethodNameConfig } from 'duplex-message'
 import { ElectronMessageHub, IElectronMessageHubOptions } from './abstract'
 
 let sharedMainMessageHub: MainMessageHub
+export interface IMainMessageHubOptions extends IElectronMessageHubOptions {
+  /** Validate the sender and frame before processing any incoming IPC message. */
+  validateSender?: (event: IpcMainEvent) => boolean
+}
+
 export class MainMessageHub extends ElectronMessageHub {
-  constructor(options?: IElectronMessageHubOptions) {
+  private readonly _validateSender?: (event: IpcMainEvent) => boolean
+
+  constructor(options?: IMainMessageHubOptions) {
+    if (options?.validateSender !== undefined && typeof options.validateSender !== 'function') {
+      throw new TypeError('validateSender must be a function')
+    }
     super({ ...options, type: 'browser' }, 'MainMessageHub')
+    this._validateSender = options?.validateSender
   }
 
-  emit<ResponseType = unknown>(target: WebContents, method: string, ...args: any[]) {
+  protected override onMessage(event: IpcMainEvent, message: unknown) {
+    try {
+      if (this._validateSender) {
+        const allowed = this._validateSender(event)
+        if (allowed !== true) {
+          // An accidentally async validator must neither accept IPC nor crash main on rejection.
+          void Promise.resolve(allowed).catch(() => {})
+          return Promise.resolve()
+        }
+      }
+    } catch { return Promise.resolve() }
+    return super.onMessage(event, message)
+  }
+
+  emit<ResponseType = unknown>(target: WebContents, method: string | IMethodNameConfig, ...args: any[]) {
     return super._emit<ResponseType>(target, method, ...args)
   }
 
@@ -29,7 +54,7 @@ export class MainMessageHub extends ElectronMessageHub {
 
   /** shared MainMessageHub instance */
   public static get shared() {
-    if (!sharedMainMessageHub) {
+    if (!sharedMainMessageHub || sharedMainMessageHub.isDestroyed) {
       sharedMainMessageHub = new MainMessageHub()
     }
     return sharedMainMessageHub

@@ -1,3 +1,4 @@
+import { track } from '../resources'
 import { expect, describe, it, vi } from 'vitest';
 
 import { setConfig } from 'src/abstract';
@@ -8,9 +9,9 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const frames: HTMLIFrameElement[] = [];
 
 const createFrame = (keepWin?: boolean) => {
-  keepWin || frames.forEach((frame) => frame.remove());
+  if (!keepWin) frames.forEach((frame) => frame.remove());
   frames.length = 0;
-  const frame = document.createElement('iframe');
+  const frame = track(document.createElement('iframe'));
   frame.srcdoc = `
     <script type="module" src="/test/storage/frame-source.ts"></script>
   `;
@@ -21,15 +22,30 @@ const createFrame = (keepWin?: boolean) => {
 
 
 describe('Storage', () => {
+  it('delivers identical consecutive progress updates and immediately removes message keys', async () => {
+    const prefix = `storage-regression-${Date.now()}`
+    // The fixture uses the default prefix; the isolated sender check exercises cleanup separately.
+    const hub = track(new StorageMessageHub())
+    createFrame()
+    await wait(1000)
+    const onprogress = vi.fn()
+    await expect(hub.emit('repeat-progress', { onprogress })).resolves.toBe('done')
+    expect(onprogress.mock.calls).toEqual([[7], [7], [7]])
+    const isolated = track(new StorageMessageHub({ keyPrefix: prefix, heartbeatTimeout: 10 }))
+    const missing = expect(isolated.emit('missing')).rejects.toMatchObject({ code: 3 })
+    expect(Object.keys(localStorage).some((key) => key.startsWith(prefix))).toBe(false)
+    await missing
+  })
+
   it('normal usage', async (ctx) => {
-    const hub = new StorageMessageHub();
+    const hub = track(new StorageMessageHub());
     const frame = createFrame();
     await wait(1000);
     const res = await hub.emit('greet', 'Saiya');
     expect(res).toBe('Saiya');
     // @ts-expect-error for test
     expect(hub.isDestroyed).toBe(false);
-    setConfig({ debug: true })
+    setConfig()
     hub.on('greet', async (msg: string) => {
       return msg
     })
@@ -39,19 +55,19 @@ describe('Storage', () => {
     // @ts-expect-error for test
     expect(hub.isDestroyed).toBe(true);
 
-    const shared = StorageMessageHub.shared;
-    const shared2 = StorageMessageHub.shared;
+    const shared = track(StorageMessageHub.shared);
+    const shared2 = track(StorageMessageHub.shared);
     expect(shared).toBe(shared2);
   });
 
   it('exception', async (ctx) => {
-    const hub = new StorageMessageHub();
+    const hub = track(new StorageMessageHub());
     const frame = createFrame();
     await wait(1000);
 
-    expect(() => hub.emit('hello', window)).rejects.toThrowError();
+    await expect(() => hub.emit('hello', window)).rejects.toThrowError();
 
-    hub.emit('test-for-exception');
+    await hub.emit('test-for-exception');
     await wait(1000);
 
     localStorage.setItem(``, 'test 2323');
@@ -67,7 +83,7 @@ describe('Storage', () => {
   })
 
   it('multi frame', async (ctx) => {
-    const hub = new StorageMessageHub();
+    const hub = track(new StorageMessageHub());
     const frame = createFrame();
     const frame2 = createFrame(true);
     await wait(2000);
@@ -75,7 +91,7 @@ describe('Storage', () => {
     expect(res).toBe('Saiya');
     // @ts-expect-error for test
     expect(hub.isDestroyed).toBe(false);
-    setConfig({ debug: true })
+    setConfig()
     hub.on('greet', async (msg: string) => {
       return msg
     })
@@ -85,8 +101,8 @@ describe('Storage', () => {
     // @ts-expect-error for test
     expect(hub.isDestroyed).toBe(true);
 
-    const shared = StorageMessageHub.shared;
-    const shared2 = StorageMessageHub.shared;
+    const shared = track(StorageMessageHub.shared);
+    const shared2 = track(StorageMessageHub.shared);
     expect(shared).toBe(shared2);
   })
 });

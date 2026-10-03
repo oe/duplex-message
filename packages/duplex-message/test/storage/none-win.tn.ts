@@ -1,10 +1,9 @@
+import { track } from '../resources'
 import { expect, it } from 'vitest';
 import { StorageMessageHub } from 'src/storage-message';
 
 it('should throw when Storage not supported', async () => {
-  // @ts-expect-error fix type error
-  globalThis.BroadcastChannel = undefined;
-  expect(() => new StorageMessageHub()).toThrowError();
+  expect(() => track(new StorageMessageHub())).toThrowError();
   expect(() => StorageMessageHub.shared).toThrowError();
   const o = {
     a: { b: { c: 1 } },

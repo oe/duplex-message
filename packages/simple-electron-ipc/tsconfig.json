@@ -1,28 +1,18 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "rootDir": "./",
-    "outDir": "./dist",
-    "module": "ESNext",
-    "target": "ES2017",
-    "lib": [
-      "ES2017",
-      "DOM"
-    ],
-    "strict": true,
-    "allowJs": false,
-    "skipLibCheck": true,
-    "declaration": true,
-    "noImplicitAny": true,
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "noImplicitOverride": true,
+    "types": [
+      "node",
+      "vite/client"
+    ]
   },
   "include": [
-    "src"
+    "src",
+    "test",
+    "*.mts"
   ],
   "exclude": [
     "dist",
-    "vite.config.ts",
     "demo"
   ]
 }
