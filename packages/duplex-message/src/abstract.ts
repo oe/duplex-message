@@ -173,16 +173,24 @@ export abstract class AbstractHub {
    */
   protected isDestroyed: boolean
 
+  private readonly _heartbeatTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+  private readonly _pendingRejects = new Map<number, (error: IError) => void>()
+
+  private readonly _responsePeers = new Map<number, any>()
+
+  private readonly _pendingPeerCounts = new Map<any, number>()
+
   /**
    * init Hub, subclass should implement its own constructor
    */
   constructor(options?: IAbstractHubOptions) {
     this.instanceID = (options && options.instanceID) || AbstractHub.generateInstanceID()
     this._eventHandlerMap = []
-    this._responseCallbackMap = {}
+    this._responseCallbackMap = Object.create(null)
     this._messageID = 0
-    this._designedResponse = {}
-    this._heartbeatTimeout = (options && options.heartbeatTimeout) || DEFAULT_HEARTBEAT_WAIT_TIMEOUT
+    this._designedResponse = Object.create(null)
+    this._heartbeatTimeout = options?.heartbeatTimeout ?? DEFAULT_HEARTBEAT_WAIT_TIMEOUT
     this.isDestroyed = false
     if (ENABLE_DEBUG) {
       console.log(`[duplex-message] create instance of ${this.constructor.name}, instanceID: ${this.instanceID}`)
@@ -298,22 +306,26 @@ export abstract class AbstractHub {
 
   /** destroy instance  */
   destroy() {
-    this._eventHandlerMap.length = 0
-    this._responseCallbackMap = {}
-    this._designedResponse = {}
+    if (this.isDestroyed) return
     this.isDestroyed = true
+    for (const [messageID, reject] of this._pendingRejects) {
+      reject({ code: EErrorCode.UNKNOWN, message: 'instance has been destroyed' })
+      this.clearPendingRequest(messageID)
+    }
+    this._eventHandlerMap.length = 0
+    this._responseCallbackMap = Object.create(null)
+    this._designedResponse = Object.create(null)
   }
 
   /**
    * listen message from peer
    */
   protected async onMessage(peer: any, msg: any) {
-    this.checkInstance()
+    if (this.isDestroyed) return
     if (!this.isMessage(msg)) return
     // then it is a response or progress message
     if (!this.isRequestMessage(msg)) {
-      // @ts-expect-error ignore
-      this.runResponseCallback(msg)
+      this.runResponseCallback(msg as IResponse | IProgress, peer)
       return
     }
     // then it is a request message from a peer
@@ -325,29 +337,69 @@ export abstract class AbstractHub {
       return
     }
     // send a heartbeat message to peer, in case of response takes too long
-    this.sendMessage(
-      peer,
-      this.buildProgressMessage(CONTINUE_INDICATOR, msg),
-    )
-
-    const response = await this.runMessageCallbacks(peer, callbackInfo, msg)
-    this.sendMessage(peer, response)
+    try {
+      this.sendMessage(peer, this.buildProgressMessage(CONTINUE_INDICATOR, msg))
+      const response = await this.runMessageCallbacks(peer, callbackInfo, msg)
+      if (this.isDestroyed) return
+      try {
+        this.sendMessage(peer, response)
+      } catch {
+        this.sendMessage(peer, this._buildRespMessage({
+          code: EErrorCode.INVALID_MESSAGE,
+          message: 'unable to send response',
+        }, msg, false))
+      }
+    } catch (error) {
+      // Native event listeners cannot consume a rejected async callback.
+      if (ENABLE_DEBUG) console.warn('[duplex-message] unable to respond to message', error)
+    }
   }
 
-  protected runResponseCallback(resp: IResponse | IProgress) {
+  protected runResponseCallback(resp: IResponse | IProgress, peer?: any) {
+    if (peer !== undefined && this._responsePeers.get(resp.messageID) !== peer) return false
     const callback = this._responseCallbackMap[resp.messageID]
     if (!callback) return false
     const ret = callback(resp)
     // not match
     if (!ret) return false
+    this.clearHeartbeatTimer(resp.messageID)
     // need to be continued
     if (ret > 1) return true
     // done
     // clean up
-    delete this._responseCallbackMap[resp.messageID]
-    delete this._designedResponse[resp.messageID]
+    this.clearPendingRequest(resp.messageID)
     return true
   }
+
+  private clearHeartbeatTimer(messageID: number) {
+    const timer = this._heartbeatTimers.get(messageID)
+    if (timer !== undefined) {
+      clearTimeout(timer)
+      this._heartbeatTimers.delete(messageID)
+    }
+  }
+
+  private clearPendingRequest(messageID: number) {
+    const peer = this._responsePeers.get(messageID)
+    if (this._responsePeers.has(messageID)) {
+      const count = this._pendingPeerCounts.get(peer)! - 1
+      if (count) this._pendingPeerCounts.set(peer, count)
+      else this._pendingPeerCounts.delete(peer)
+    }
+    this.clearHeartbeatTimer(messageID)
+    delete this._responseCallbackMap[messageID]
+    delete this._designedResponse[messageID]
+    this._pendingRejects.delete(messageID)
+    this._responsePeers.delete(messageID)
+    this.onRequestSettled(peer)
+  }
+
+  protected hasPendingRequests(peer: any) {
+    return this._pendingPeerCounts.has(peer)
+  }
+
+  /** Allow transports to release listeners once a peer has no pending calls. */
+  protected onRequestSettled(_peer: any): void {}
 
   /**
    * run message's callbacks when receive request from peer
@@ -367,7 +419,7 @@ export abstract class AbstractHub {
     if (reqMsg.progress && newArgs[0]) {
       const newArg = { ...newArgs[0] }
       newArg.onprogress = (d: any) => {
-        this.sendMessage(peer, this.buildProgressMessage(d, reqMsg))
+        if (!this.isDestroyed) this.sendMessage(peer, this.buildProgressMessage(d, reqMsg))
       }
       newArgs[0] = newArg
     }
@@ -378,7 +430,7 @@ export abstract class AbstractHub {
       newArgs.unshift(methodName)
       methods = [method]
     } else {
-      methods = method
+      methods = method.slice()
     }
     let responded = false
     let lastError: IError | undefined
@@ -406,8 +458,12 @@ export abstract class AbstractHub {
             // error object may be untransferable via postMessage, so it will be ignored
             lastError = {
               code: EErrorCode.HANDLER_EXEC_ERROR,
-              // @ts-expect-error ignore
-              message: error.message || error.stack,
+              message: error instanceof Error ? error.message : String(
+                error && typeof error === 'object'
+                  ? (error as { message?: unknown; stack?: unknown }).message
+                    ?? (error as { stack?: unknown }).stack ?? error
+                  : error,
+              ),
             }
           }
         }
@@ -447,6 +503,9 @@ export abstract class AbstractHub {
     this.checkInstance()
     const reqMsg = this.buildReqMessage(methodName, args)
     const result = new Promise<ResponseType>((resolve, reject) => {
+      this._pendingRejects.set(reqMsg.messageID, reject)
+      this._responsePeers.set(reqMsg.messageID, peer)
+      this._pendingPeerCounts.set(peer, (this._pendingPeerCounts.get(peer) || 0) + 1)
       // 0 for not match
       // 1 for response, done
       // 2 for progress, need to be continue
@@ -484,11 +543,11 @@ export abstract class AbstractHub {
           error, ', message:', reqMsg,
         )
       }
-      delete this._responseCallbackMap[reqMsg.messageID]
-      return Promise.reject({
+      this._pendingRejects.get(reqMsg.messageID)?.({
         code: EErrorCode.INVALID_MESSAGE,
         message: 'unable to send message',
       })
+      this.clearPendingRequest(reqMsg.messageID)
     }
     return result
   }
@@ -510,15 +569,16 @@ export abstract class AbstractHub {
 
     this._responseCallbackMap[reqMsg.messageID] = wrappedCallback
     // timeout when no response, callback get a failure
-    setTimeout(() => {
-      if (this._designedResponse[reqMsg.messageID]) return
+    const timer = setTimeout(() => {
       const resp = this._buildRespMessage(
         { code: EErrorCode.METHOD_NOT_FOUND, message: `no corresponding handler found for method ${reqMsg.methodName}` },
         reqMsg,
         false,
       )
-      this.runResponseCallback(resp)
+      callback(resp)
+      this.clearPendingRequest(reqMsg.messageID)
     }, this._heartbeatTimeout)
+    this._heartbeatTimers.set(reqMsg.messageID, timer)
   }
 
   protected buildReqMessage(
@@ -531,7 +591,8 @@ export abstract class AbstractHub {
       options && typeof options.onprogress === 'function',
     )
 
-    return Object.assign(basicCfg, {
+    return {
+      ...basicCfg,
       from: this.instanceID,
       // toInstance,
       // eslint-disable-next-line no-plusplus
@@ -539,7 +600,7 @@ export abstract class AbstractHub {
       type: 'request' as const,
       data: args,
       progress,
-    })
+    }
   }
 
   protected _buildRespMessage(
@@ -568,11 +629,15 @@ export abstract class AbstractHub {
   }
 
   protected isMessage(msg: any): msg is IMessageBase<any> {
-    return msg
+    return !!(msg
+      && typeof msg === 'object'
       && (msg.to === this.instanceID || !msg.to)
-      && msg.messageID
-      && msg.from
-      && msg.type
+      && Number.isSafeInteger(msg.messageID) && msg.messageID > 0
+      && typeof msg.from === 'string' && msg.from.length > 0
+      && (msg.to === undefined || typeof msg.to === 'string')
+      && (msg.type === 'request'
+        ? typeof msg.methodName === 'string' && Array.isArray(msg.data)
+        : msg.type === 'response' ? typeof msg.isSuccess === 'boolean' : msg.type === 'progress'))
   }
 
   protected isRequestMessage(msg: any): msg is IRequest {
@@ -605,6 +670,7 @@ export abstract class AbstractHub {
   ) {
     return (resp: IResponse | IProgress) => {
       if (!instance.isMessage(resp)) return 0
+      if (reqMsg.to && resp.from !== reqMsg.to) return 0
       const designedPeerID = instance._designedResponse[reqMsg.messageID]
       // ignore not designed resp
       if (designedPeerID && resp.from !== designedPeerID) {
@@ -662,8 +728,9 @@ export abstract class AbstractHub {
     if (typeof handlerMap === 'function') {
       return [handlerMap, true]
     }
-    const callbacks = handlerMap[methodName]
-    return callbacks ? [callbacks, false] : undefined
+    const callbacks = Object.prototype.hasOwnProperty.call(handlerMap, methodName)
+      ? handlerMap[methodName] : undefined
+    return callbacks?.length ? [callbacks, false] : undefined
   }
 
   protected static generateInstanceID() {
@@ -676,15 +743,12 @@ export abstract class AbstractHub {
     existingMap: IHandlerMapInner,
     newMap: IHandlerMap,
   ): IHandlerMapInner {
-    const result = { ...existingMap }
+    const result = Object.assign(Object.create(null), existingMap) as IHandlerMapInner
     const newKeys = Object.keys(newMap)
     newKeys.forEach((key) => {
       const callbacks = Array.isArray(newMap[key]) ? newMap[key] : [newMap[key]]
-      if (existingMap[key]) {
-        result[key].push(...callbacks)
-      } else {
-        result[key] = callbacks
-      }
+      const existing = Object.prototype.hasOwnProperty.call(existingMap, key) ? existingMap[key] : []
+      result[key] = [...(existing || []), ...callbacks]
     })
     return result
   }

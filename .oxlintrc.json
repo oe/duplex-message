@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": ["**/dist/**", "**/coverage/**"],
+  "rules": {
+    "no-console": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/test/**", "**/demo/**"],
+      "rules": { "no-unused-vars": "off" }
+    }
+  ]
+}

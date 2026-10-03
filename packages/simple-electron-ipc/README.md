@@ -34,12 +34,12 @@
 * **Simple API**: `on` `emit` and `off` are all you need
 * **Responsible**: `emit` will return a promise with the response from the other side
 * **Progress-able**: get response with progress easily
-* **Tinny**: less than 4kb gzipped(even smaller with tree-shaking), no external dependencies required
+* **Small**: tree-shakable; uses `duplex-message` and Electron IPC
 * **Consistency**: same api every where 
 * **Typescript support**: this utility is written in typescript, has type definition inborn
 
 It also has a browser version that can simplify cross window / js context messaging, check [Duplex-Message
-](https://github.com/oe/duplex-message/tree/master/packages/duplex-message) for more details.
+](https://github.com/oe/duplex-message/tree/main/packages/duplex-message) for more details.
 
 ## Install
 using yarn
@@ -299,7 +299,7 @@ rendererMessageHub.off(methodName?: string)
 ```
 
 ### destroy
-Destroy instance: remove all message handlers and references of objects.
+Destroy the instance: remove message handlers and IPC listeners, clear timers and reject outstanding calls with error code 5 (`UNKNOWN`). A later access to `shared` creates a new instance.
 Any invoking of destroyed instance's methods will throw an exception
 
 ```ts

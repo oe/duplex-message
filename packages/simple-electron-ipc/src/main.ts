@@ -29,7 +29,7 @@ export class MainMessageHub extends ElectronMessageHub {
 
   /** shared MainMessageHub instance */
   public static get shared() {
-    if (!sharedMainMessageHub) {
+    if (!sharedMainMessageHub || sharedMainMessageHub.isDestroyed) {
       sharedMainMessageHub = new MainMessageHub()
     }
     return sharedMainMessageHub

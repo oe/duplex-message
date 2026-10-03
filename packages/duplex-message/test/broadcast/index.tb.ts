@@ -1,3 +1,4 @@
+import { track } from '../resources'
 import { expect, describe, it, vi } from 'vitest';
 
 import { setConfig } from 'src/abstract';
@@ -9,14 +10,14 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('broadcast', () => {
   it('normal usage', async (ctx) => {
-    const hub2 = new BroadWorker()
-    const hub = new BroadcastMessageHub();
+    const hub2 = track(new BroadWorker())
+    const hub = track(new BroadcastMessageHub());
     await wait(500);
     const res = await hub.emit('greet', 'Saiya');
     expect(res).toBe('Saiya');
     // @ts-expect-error for test
     expect(hub.isDestroyed).toBe(false);
-    setConfig({ debug: true })
+    setConfig()
     hub.on('greet', async (msg: string) => {
       return msg
     })
@@ -26,13 +27,13 @@ describe('broadcast', () => {
     // @ts-expect-error for test
     expect(hub.isDestroyed).toBe(true);
 
-    const shared = BroadcastMessageHub.shared;
-    const shared2 = BroadcastMessageHub.shared;
+    const shared = track(BroadcastMessageHub.shared);
+    const shared2 = track(BroadcastMessageHub.shared);
     expect(shared).toBe(shared2);
   });
 
   it('edge case 1', async () => {
-    const hub = new BroadcastMessageHub()
+    const hub = track(new BroadcastMessageHub())
     hub.on(function (mth, data) {
       return mth === 'greet' ? data : 'error'
     })
@@ -54,7 +55,7 @@ describe('broadcast', () => {
     })
   })
   it('edge case 2', async () => {
-    const hub = new BroadcastMessageHub()
+    const hub = track(new BroadcastMessageHub())
     // @ts-expect-error for test
     hub._eventHandlerMap = [[hub.instanceID, { greet: null }]]
     hub.off('greet')

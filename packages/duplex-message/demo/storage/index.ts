@@ -1,12 +1,12 @@
 import { StorageMessageHub, setConfig } from '../../src'
-setConfig({ debug: true })
+setConfig()
 const query = new URLSearchParams(location.search)
 const storageMessageHub = new StorageMessageHub({ instanceID: query.get('name') })
 // @ts-ignore
 window.sm = storageMessageHub
 
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, '')) as HTMLElement
+  return document.getElementById(id.replace(/^#/, '')) as HTMLElement
 }
 
 

@@ -8,9 +8,6 @@
     <img src="https://img.shields.io/badge/%3C%2F%3E-typescript-blue" alt="code with typescript" height="20">
   </a>
   <a href="#readme">
-    <img src="https://img.shields.io/badge/coverage-100%25-44CC11" alt="code coverage" height="20">
-  </a>
-  <a href="#readme">
     <img src="https://badge.fury.io/js/duplex-message.svg" alt="npm version" height="20">
   </a>
   <a href="https://www.npmjs.com/package/duplex-message">
@@ -19,7 +16,7 @@
 </div>
 
 
-<h4 align="center">A tinny(~4kb) utility that can simplify cross window / iframes / workers communications, even with progress feedback support.</h4>
+<h4 align="center">A small utility for cross window / iframe / worker communication, with progress feedback support.</h4>
 
 >[!NOTE]
 > This utility is designed to simplify the communication between different window/node contexts(windows, iframes, workers, etc) in the browser, it's a peer-to-peer communication tool, that means you can send messages to a peer and get its response, or listen to messages from a peer and respond to it, but it's not a traditional pub/sub tool, you won't be able to listen message from it self.
@@ -51,12 +48,12 @@
 * **Responsible**: `emit` will return a promise with the response from the other side
 * **Progress feedback**: get response with progress feedback easily
 * **Multi-scenario**: builtin [`PostMessageHub`](#postmessagehub) [`StorageMessageHub`](#storagemessagehub) and [`PageScriptMessageHub`](#pagescriptmessagehub) for different scenarios
-* **Tinny**: less than 3kb gzipped(even smaller with tree-shaking), no external dependencies required
+* **Small**: tree-shakable, with no external runtime dependencies
 * **Consistency**: same api every where 
 * **Typescript support**: this utility is written in typescript, has type definition inborn
 
 It also has an electron version that can simplify IPC messaging, check [Simple-Electron-IPC
-](https://github.com/oe/duplex-message/tree/master/packages/simple-electron-ipc) for more details.
+](https://github.com/oe/duplex-message/tree/main/packages/simple-electron-ipc) for more details.
 
 ## Install
 using yarn
@@ -202,10 +199,10 @@ const { PostMessageHub, StorageMessageHub, PageScriptMessageHub, BroadcastMessag
 // If you don't want to use the debug mode, or have trouble with the environment variable, you can use a production version
 
 // Use ES6 import
-import { PostMessageHub, StorageMessageHub, PageScriptMessageHub, BroadcastMessageHub } from "duplex-message/dist/duplex-message.production.es"
+import { PostMessageHub, StorageMessageHub, PageScriptMessageHub, BroadcastMessageHub } from "duplex-message/dist/index.production.es.mjs"
 
 // Or use CommonJS require
-const { PostMessageHub, StorageMessageHub, PageScriptMessageHub, BroadcastMessageHub } = require("duplex-message/dist/duplex-message.production.umd")
+const { PostMessageHub, StorageMessageHub, PageScriptMessageHub, BroadcastMessageHub } = require("duplex-message/dist/index.production.umd.js")
 ```
 
 ### constructor
@@ -274,7 +271,7 @@ const pageScriptMessageHub = PageScriptMessageHub.shared
 const broadcastMessageHub = BroadcastMessageHub.shared
 ```
 
-You will always get the same instance when you use `shared` property in the same context, it's a singleton.
+The `shared` property returns the same live instance in a context. After it is destroyed, the next access creates a new instance.
 
 
 ### on
@@ -464,7 +461,7 @@ broadcastMessageHub.off()
 ```
 
 ### destroy
-Destroy the instance: remove all message handlers and references to objects.
+Destroy the instance: remove all message handlers, clear timers and release transport listeners. Outstanding `emit()` promises reject with `EErrorCode.UNKNOWN`. Late responses are ignored; handler execution on the peer is not cancelled.
 
 ```ts
 // You can't use the instance after destroy, it will throw an exception.
@@ -596,12 +593,12 @@ This may happen in the following situations:
 
 ```sh
 # install dependencies, exec in root of the repo
-pnpm install
+pnpm install --frozen-lockfile
 # dev
-pnpm dev
+pnpm --filter duplex-message dev
 
 #!! make sure install chromium before running playwright tests by following command
-pnpm playwright install chromium
+pnpm --filter duplex-message exec playwright install --with-deps chromium
 
 # test
 pnpm test

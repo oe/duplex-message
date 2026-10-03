@@ -3,32 +3,26 @@
   "version": "2.1.0",
   "description": "makes one way message responsive, enhance postMessage/storageEvent/chrome extension scripts",
   "main": "dist/index.umd.js",
-  "module": "dist/index.es.js",
-  "typings": "dist/index.d.ts",
+  "module": "dist/index.es.mjs",
   "scripts": {
-    "dev": "vite",
-    "build": "tsx build.config.ts",
-    "prepublish": "pnpm build",
-    "test": "vitest",
-    "test:coverage": "vitest --coverage"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "pnpm lint"
-    }
+    "build": "vite build && vite build --mode production-lib && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build",
+    "test": "vitest run",
+    "dev": "vite --mode demo",
+    "build:demo": "vite build --mode demo",
+    "test:coverage": "vitest run --coverage"
   },
   "files": [
     "dist/*"
   ],
   "devDependencies": {
-    "@vitest/browser": "^2.0.2",
-    "@vitest/coverage-istanbul": "^2.0.2",
-    "playwright": "^1.45.1",
-    "tsx": "^4.17.0",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plugin-dts": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "playwright": "catalog:"
   },
   "keywords": [
     "rpc",
@@ -44,5 +38,17 @@
   "repository": "https://oe@github.com/oe/duplex-message.git",
   "author": "Saiya",
   "license": "MIT",
-  "homepage": "https://github.com/oe/duplex-message/tree/master/packages/duplex-message"
+  "homepage": "https://github.com/oe/duplex-message/tree/main/packages/duplex-message",
+  "type": "commonjs",
+  "sideEffects": false,
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.es.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  }
 }

@@ -9,7 +9,7 @@
 </div>
 
 
-<h3 align="center">A tinny(~3kb) utility that can makes one way message responsible <br> 
+<h3 align="center">A small utility that makes one way messaging responsive <br>
 enhance postMessage/storageEvent/electron IPC/chrome extension scripts</h3>
 
 ## packages
@@ -20,3 +20,30 @@ enhance postMessage/storageEvent/electron IPC/chrome extension scripts</h3>
 1. `pnpm changeset` to create a changeset
 2. `pnpm changeset version` to update the version
 3. `pnpm publish -r` to publish the package
+
+## Development
+
+Use Node.js 22.12+, 24, or 26+ and pnpm 12.8.1. The workspace pins TypeScript 7.0.2, Vite 8.3.2 and Vitest 5.0.3 in the pnpm catalog.
+
+```sh
+npm install -g pnpm@12.8.1
+pnpm install --frozen-lockfile
+pnpm --filter duplex-message exec playwright install --with-deps chromium
+pnpm lint
+pnpm build
+pnpm typecheck
+pnpm test
+pnpm check:package
+```
+
+`pnpm test:unit` runs Node and mocked Electron IPC tests without a browser. `pnpm test` also exercises Chromium Workers, iframes, proxies, page-script events and storage messaging. Electron tests simulate its serialization and event interfaces; they do not launch the Electron GUI. CI checks Node 22 and 24, builds both demos and validates packed CJS/ESM imports, NodeNext types, UMD globals and tree shaking.
+
+```sh
+pnpm --filter duplex-message dev
+pnpm --filter duplex-message build:demo
+pnpm --filter simple-electron-ipc dev
+```
+
+Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` during installation if you only need library builds and tests. Leave it unset to run the Electron demo. Library JavaScript targets ES2020. Browser builds retain the legacy `dist/index.es.js`, `dist/index.umd.js` and production filenames; package imports use explicit `.mjs`/CommonJS entries. Type declarations are emitted by TypeScript directly, without a second compiler in a declaration plugin.
+
+Completed requests clear their heartbeat timers immediately. `destroy()` rejects outstanding requests with `EErrorCode.UNKNOWN` and releases listeners. A heartbeat acknowledges handler availability; handler execution itself still has no timeout.

@@ -24,7 +24,7 @@ export class RendererMessageHub extends ElectronMessageHub {
 
   /** shared MainMessageHub instance */
   public static get shared() {
-    if (!rendererMessageHub) {
+    if (!rendererMessageHub || rendererMessageHub.isDestroyed) {
       rendererMessageHub = new RendererMessageHub()
     }
     return rendererMessageHub

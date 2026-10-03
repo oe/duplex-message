@@ -1,3 +1,4 @@
+import { track } from '../../resources'
 import { PostMessageHub } from 'src/post-message';
 import { describe, it, expect } from 'vitest';
 
@@ -7,9 +8,9 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const frames: HTMLIFrameElement[] = [];
 
 const createFrame = (keepWin?: boolean) => {
-  keepWin || frames.forEach((frame) => frame.remove());
+  if (!keepWin) frames.forEach((frame) => frame.remove());
   frames.length = 0;
-  const frame = document.createElement('iframe');
+  const frame = track(document.createElement('iframe'));
   frame.srcdoc = `
     <script type="module" src="/test/post-message/frame-proxy/frame-source.ts"></script>
   `;
@@ -24,7 +25,7 @@ describe('PostMessage for proxy',  () => {
     await wait(1000);
     const frameWindow = frame.contentWindow as Window
 
-    const hub = new PostMessageHub()
+    const hub = track(new PostMessageHub())
 
     const msg = await hub.emit(frameWindow, 'greet', 'hello')
     expect(msg).toBe('hello')
@@ -40,7 +41,7 @@ describe('PostMessage for proxy',  () => {
     const frameWindow2 = frame2.contentWindow as Window
     hub.createProxy(frameWindow, frameWindow2)
 
-    hub.emit(frameWindow, 'start-proxy')
+    await hub.emit(frameWindow, 'start-proxy')
     await wait(1000);
     hub.stopProxy(frameWindow)
     // @ts-expect-error for test
@@ -48,9 +49,7 @@ describe('PostMessage for proxy',  () => {
     expect(() => hub.createProxy(frameWindow, frameWindow2)).toThrowError()
 
     hub.destroy()
-    // @ts-expect-error for test
-    window.parent = null
-    expect(hub.emit(window, 'greet', 'hello')).rejects.toThrowError()
+    expect(() => hub.emit(window, 'greet', 'hello')).toThrow('destroyed')
   })
 
 })

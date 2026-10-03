@@ -88,6 +88,7 @@ export class PostMessageHub extends AbstractHub {
    */
   emit<ResponseType = unknown>(peer: Window | Worker,
     methodName: string | IPostMessageMethodOptions, ...args: any[]) {
+    this.checkInstance()
     if (isWindow(peer) && !peer.parent) {
       return Promise.reject({
         code: EErrorCode.PEER_NOT_FOUND,
@@ -106,8 +107,15 @@ export class PostMessageHub extends AbstractHub {
    */
   off(peer: Window | Worker | '*', methodName?: string, handler?: IFn) {
     super._off(peer, methodName, handler)
-    const evtMpIndx = this._eventHandlerMap.findIndex((m) => m[0] === peer)
-    if (evtMpIndx === -1 && isWorker(peer)) {
+    this._removeUnusedWorkerListener(peer)
+  }
+
+  protected override onRequestSettled(peer: Window | Worker | '*') {
+    this._removeUnusedWorkerListener(peer)
+  }
+
+  private _removeUnusedWorkerListener(peer: Window | Worker | '*') {
+    if (isWorker(peer) && !this.getEventHandlers(peer) && !this.hasPendingRequests(peer)) {
       const idx = this._hostedWorkers.indexOf(peer)
       if (idx > -1) {
         this._hostedWorkers.splice(idx, 1)
@@ -266,7 +274,7 @@ export class PostMessageHub extends AbstractHub {
 
   /** shared PostMessageHub instance */
   public static get shared() {
-    if (!sharedMessageHub) {
+    if (!sharedMessageHub || sharedMessageHub.isDestroyed) {
       sharedMessageHub = new PostMessageHub()
     }
     return sharedMessageHub

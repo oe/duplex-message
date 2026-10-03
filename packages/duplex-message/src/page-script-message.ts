@@ -89,7 +89,7 @@ export class PageScriptMessageHub extends AbstractHub {
 
   /** shared PageScriptMessageHub instance */
   public static get shared() {
-    if (!sharedMessageHub) {
+    if (!sharedMessageHub || sharedMessageHub.isDestroyed) {
       sharedMessageHub = new PageScriptMessageHub()
     }
     return sharedMessageHub

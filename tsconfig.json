@@ -1,22 +1,18 @@
 {
   "compilerOptions": {
-    "outDir": "./dist/",
-    "sourceMap": true,
-    "declaration": true,
+    "target": "ES2017",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ES2017",
+      "DOM"
+    ],
     "strict": true,
-    "noImplicitReturns": true,
-    "noImplicitAny": false,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
     "noImplicitOverride": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
     "esModuleInterop": true,
-    "target": "es6",
-    "allowJs": false,
-    "baseUrl": "./",
-    "lib": ["dom", "es7"],
-  },
-  "include": ["./packages/**/*.ts", ".eslintrc.js"]
+    "skipLibCheck": true,
+    "types": [
+      "node"
+    ]
+  }
 }

@@ -4,13 +4,11 @@
   "description": "makes one way message responsive, enhance postMessage/storageEvent/electron IPC/chrome extension scripts",
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test -- run",
-    "lint": "eslint . --ext .ts"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "pnpm lint"
-    }
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:unit": "pnpm --filter duplex-message exec vitest run --project unit && pnpm --filter simple-electron-ipc test",
+    "lint": "oxlint packages scripts --deny-warnings",
+    "check:package": "node scripts/check-package.mjs"
   },
   "repository": "https://oe@github.com/oe/duplex-message.git",
   "author": "Saiya",
@@ -18,22 +16,15 @@
   "homepage": "https://github.com/oe/duplex-message",
   "private": true,
   "devDependencies": {
-    "@changesets/cli": "^2.29.2",
-    "@typescript-eslint/eslint-plugin": "^4.22.1",
-    "@typescript-eslint/parser": "^4.22.1",
-    "cross-env": "^5.2.0",
-    "eslint": "^7.25.0",
-    "eslint-config-airbnb-typescript": "^12.3.1",
-    "eslint-plugin-import": "^2.22.0",
-    "eslint-plugin-jsx-a11y": "^6.3.1",
-    "eslint-plugin-react": "^7.20.3",
-    "eslint-plugin-react-hooks": "^4.0.8",
-    "husky": "^1.1.3"
+    "@changesets/cli": "3.0.3",
+    "@types/node": "^24.0.0",
+    "oxlint": "1.86.0",
+    "typescript": "catalog:"
   },
-  "pnpm": {
-    "overrides": {
-      "typescript": "5.5.3"
-    }
-  },
-  "packageManager": "pnpm@9.5.0"
+  "packageManager": "pnpm@12.8.1",
+  "type": "module",
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0",
+    "pnpm": "12.x"
+  }
 }

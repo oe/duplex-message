@@ -42,7 +42,7 @@ export abstract class ElectronMessageHub extends AbstractHub {
   }
 
   protected override async onMessage(evt: IpcMainEvent | IpcRendererEvent, msg: any) {
-    super.onMessage(evt.sender, msg)
+    await super.onMessage(evt.sender, msg)
   }
 
   override destroy(): void {

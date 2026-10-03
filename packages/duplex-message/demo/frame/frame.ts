@@ -2,13 +2,13 @@ import { PostMessageHub, setConfig } from '../../src'
 const postMessageHub = new PostMessageHub
 import PeerWorker from './worker?worker'
 
-setConfig({debug: true})
+setConfig()
 
 const peer = new PeerWorker
 
 const messageHub = postMessageHub.createDedicatedMessageHub(parent)
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, '')) as HTMLElement
+  return document.getElementById(id.replace(/^#/, '')) as HTMLElement
 }
 
 const subFrameWin = (document.getElementById('sub-iframe') as HTMLFrameElement).contentWindow

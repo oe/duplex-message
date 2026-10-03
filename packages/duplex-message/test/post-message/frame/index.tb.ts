@@ -1,3 +1,4 @@
+import { track } from '../../resources'
 import { PostMessageHub } from 'src/post-message';
 import { describe, it, expect } from 'vitest';
 
@@ -7,9 +8,9 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const frames: HTMLIFrameElement[] = [];
 
 const createFrame = (keepWin?: boolean) => {
-  keepWin || frames.forEach((frame) => frame.remove());
+  if (!keepWin) frames.forEach((frame) => frame.remove());
   frames.length = 0;
-  const frame = document.createElement('iframe');
+  const frame = track(document.createElement('iframe'));
   frame.srcdoc = `
     <script type="module" src="/test/post-message/frame/frame-source.ts"></script>
   `;
@@ -24,7 +25,7 @@ describe('PostMessage for iframe',  () => {
     await wait(1000);
     const frameWindow = frame.contentWindow as Window
 
-    const hub = new PostMessageHub({ heartbeatTimeout: 1000 });
+    const hub = track(new PostMessageHub({ heartbeatTimeout: 1000 }));
 
     const msg = await hub.emit(frameWindow, { methodName: 'greet', targetOrigin: '*' }, 'hello')
     expect(msg).toBe('hello')
@@ -34,7 +35,7 @@ describe('PostMessage for iframe',  () => {
 
     expect(resp).toBe('Saiya')
 
-    expect(() => hub.emit(frameWindow, { methodName: 'greet', targetOrigin: 'https://www.google.com/' }, 'hello')).rejects.toThrowError()
+    await expect(() => hub.emit(frameWindow, { methodName: 'greet', targetOrigin: 'https://www.google.com/' }, 'hello')).rejects.toThrowError()
   })
 
   it('with instanceID', async () => {
@@ -42,9 +43,9 @@ describe('PostMessage for iframe',  () => {
     await wait(1000);
     const frameWindow = frame.contentWindow as Window
 
-    const hub = new PostMessageHub({ heartbeatTimeout: 1000 });
+    const hub = track(new PostMessageHub({ heartbeatTimeout: 1000 }));
 
-    expect(hub.emit(frameWindow, { methodName: 'greet', to: 'ab', targetOrigin: '*' }, 'hello')).rejects.toThrowError()
+    await expect(hub.emit(frameWindow, { methodName: 'greet', to: 'ab', targetOrigin: '*' }, 'hello')).rejects.toThrowError()
     const msg = await hub.emit(frameWindow, { methodName: 'greet', targetOrigin: '*' }, 'hello')
     expect(msg).toBe('hello')
     const msg2 = await hub.emit(frameWindow, { methodName: 'greet', to: 'iframe', targetOrigin: '*' }, 'hello')

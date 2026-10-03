@@ -25,7 +25,7 @@ messageHub.on({
 })
 
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, '')) as HTMLElement
+  return document.getElementById(id.replace(/^#/, '')) as HTMLElement
 }
 
 

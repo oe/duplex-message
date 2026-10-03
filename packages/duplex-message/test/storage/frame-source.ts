@@ -11,6 +11,13 @@ hub.on('greet', async (msg: string) => {
   return msg
 })
 
+hub.on('repeat-progress', (options: { onprogress: (value: number) => void }) => {
+  options.onprogress(7)
+  options.onprogress(7)
+  options.onprogress(7)
+  return 'done'
+})
+
 
 hub.on('download', async (params: {url: string, onprogress: (n: number) => void}) => {
   return new Promise((resolve, reject) => {

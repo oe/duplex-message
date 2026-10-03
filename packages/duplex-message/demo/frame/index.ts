@@ -1,6 +1,6 @@
 import { PostMessageHub, setConfig } from '../../src'
 
-setConfig({debug: true})
+setConfig()
 const postMessageHub = PostMessageHub.shared
 
 // @ts-ignore
@@ -12,7 +12,7 @@ const messageHub = postMessageHub.createDedicatedMessageHub(frameWin!)
 // @ts-ignore
 window.mh = messageHub
 const $ = (id: string) => {
-  return document.getElementById(id.replace(/^\#/, '')) as HTMLElement
+  return document.getElementById(id.replace(/^#/, '')) as HTMLElement
 }
 
 postMessageHub.on('*', "page-title", (arg: any) => {
