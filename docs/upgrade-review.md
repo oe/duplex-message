@@ -34,7 +34,7 @@ Request bookkeeping now uses one pending-request record plus a peer-count map, r
 
 The dispatch path now reuses a resolved Promise for response/progress events, avoids redundant async wrappers in Electron, handles a single endpoint without the multi-handler race machinery, and avoids argument/configuration copies when unnecessary. Thenables are assimilated once; multi-handler first-defined/all-undefined/error behavior and rejected-Promise semantics for subclass hooks are preserved by tests.
 
-- Unlike 2.1.0, successful calls release heartbeat timers immediately. A regression test verifies that 1,000 completed calls leave no timers or pending callbacks. Cancellation/deadlines likewise release local resources; remote handlers continue.
+- Unlike 2.1.0, successful calls release heartbeat timers immediately. A regression test verifies that 1,000 completed calls leave no timers or pending callbacks. A separate browser timer-count probe around 1,000 concurrent clone-transport echoes observed 1,000 timers still waiting in published 2.1.0 versus zero in this build, before destroying either hub. Cancellation/deadlines likewise release local resources; remote handlers continue.
 - Full production UMD gzip size grows from approximately **3.8 KB to 5.8 KB**. Safety checks, lifecycle cleanup and optional helpers have a real size cost; this is not a package-size reduction.
 - `scripts/benchmark-rpc.mjs` compares a published production ESM artifact, an optional prior PR artifact and the current build. It measures clone/microtask transport, native Worker sequential calls and 32 concurrent lanes. It rotates version order, drains baseline timers between paused measurements, and isolates continuous runs in separate contexts. Concurrent figures are amortized time per call, not individual call latency. Results below are diagnostic; scheduling variation prevents a universal speed claim.
 
@@ -51,7 +51,6 @@ Measurements on 2026-10-03, Chromium 153.0.8010.12 on this Linux workspace, nume
 Samples fluctuate with worker scheduling. Compare these workloads only; do not interpret the concurrent rows as per-call latency or claim a universal speedup. The optimized path reduces known allocation and timer-retention costs, but compatibility and security checks still carry overhead. Large payloads and other engines/platforms require separate performance measurements.
 
 Reproduce with `node scripts/benchmark-rpc.mjs /path/to/unpacked/duplex-message-2.1.0/dist/index.production.es.js [prior-build.mjs]`. Run without other CPU-heavy jobs. Raw samples are in [rpc-benchmark.json](rpc-benchmark.json).
-
 
 The typed client stays a small function wrapper. Readiness adds a bounded opt-in probe loop and abort cleanup, without a proxy layer, connection manager, business retry policy or global background polling. The redundant origin cache and fragmented pending-state maps were unnecessary and have been removed.
 

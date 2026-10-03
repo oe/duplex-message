@@ -72,3 +72,6 @@ hub.on(self, 'inter-star', async (req) => {
   const msg = await hub.emit(self, 'inter', 'hello')
   return msg
 })
+
+// Keep cold module loading separate from RPC acknowledgement deadlines in tests.
+self.postMessage({ type: 'fixture-ready' })

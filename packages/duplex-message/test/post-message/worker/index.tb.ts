@@ -5,12 +5,31 @@ import DemoWorker from './worker?worker'
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+async function createWorker() {
+  const worker = track(new DemoWorker())
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      worker.removeEventListener('message', ready)
+      worker.removeEventListener('error', failed)
+    }
+    const ready = (event: MessageEvent) => {
+      if (event.data?.type !== 'fixture-ready') return
+      cleanup()
+      resolve()
+    }
+    const failed = (event: ErrorEvent) => { cleanup(); reject(new Error(event.message)) }
+    worker.addEventListener('message', ready)
+    worker.addEventListener('error', failed)
+  })
+  return worker
+}
+
 describe('PostMessage in worker',  () => {
   it('does not attach a Worker listener or transfer buffers for pre-aborted/invalid requests', async () => {
     class InspectableHub extends PostMessageHub {
       get workerCount() { return this._hostedWorkers.length }
     }
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new InspectableHub())
     const controller = new AbortController()
     controller.abort()
@@ -25,7 +44,7 @@ describe('PostMessage in worker',  () => {
   })
 
   it('delivers reserved-string progress across the Worker structured-clone boundary', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     const onprogress = vi.fn()
     const controller = new AbortController()
@@ -39,7 +58,7 @@ describe('PostMessage in worker',  () => {
     class InspectableHub extends PostMessageHub {
       get workerCount() { return this._hostedWorkers.length }
     }
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new InspectableHub())
     const controller = new AbortController()
     const onprogress = vi.fn()
@@ -56,7 +75,7 @@ describe('PostMessage in worker',  () => {
     class InspectableHub extends PostMessageHub {
       get workerCount() { return this._hostedWorkers.length }
     }
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new InspectableHub())
     const handler = vi.fn(() => 'handled')
     hub.on('*', 'background', handler)
@@ -72,7 +91,7 @@ describe('PostMessage in worker',  () => {
     class InspectableHub extends PostMessageHub {
       get workerCount() { return this._hostedWorkers.length }
     }
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new InspectableHub())
     hub.on('*', 'background', () => 'handled')
     const pending = hub.emit(worker, 'greet', 'hello')
@@ -92,7 +111,7 @@ describe('PostMessage in worker',  () => {
     class InspectableHub extends PostMessageHub {
       get workerCount() { return this._hostedWorkers.length }
     }
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new InspectableHub())
     hub.on(worker, 'unused', () => {})
     const slow = hub.emit(worker, 'download', { onprogress: () => {} })
@@ -106,7 +125,7 @@ describe('PostMessage in worker',  () => {
   })
 
   it('normal usage', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
 
     const hub = track(new PostMessageHub())
     hub.on(worker, 'greet', async (msg: string) => {
@@ -123,7 +142,7 @@ describe('PostMessage in worker',  () => {
   })
 
   it('use shared instance', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
 
     const hub = track(PostMessageHub.shared)
     const hub2 = track(PostMessageHub.shared)
@@ -142,7 +161,7 @@ describe('PostMessage in worker',  () => {
   })
 
   it('test for edge case 1', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
 
     const hub = track(new PostMessageHub())
     hub.on(worker, 'greet', async (msg: string) => {
@@ -175,7 +194,7 @@ describe('PostMessage in worker',  () => {
   })
 
   it('test for edge case 2', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     hub.stopProxy(worker)
     hub.on(worker, 'greet', async (msg: string) => {
@@ -195,7 +214,7 @@ describe('PostMessage in worker',  () => {
   })
   it('test for edge case 3', async () => {
 
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     hub.on(worker, 'greet', async (msg: string) => {
       return 'hello'
@@ -210,7 +229,7 @@ describe('PostMessage in worker',  () => {
 
   it('test for edge case 4', async () => {
 
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     hub.on(worker, 'greet', async (msg: string) => {
       console.log('demo message', msg)
@@ -224,13 +243,13 @@ describe('PostMessage in worker',  () => {
   })
 
   it('test for edge case 5', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     hub.on(worker, 'some-method', console.log)
     await expect(hub.emit(worker, 'inter-star', 'hello')).rejects.toThrowError()
   })
   it('test for edge case 6', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     hub.on(worker, 'greet', async (msg: string) => {
       throw {
@@ -243,7 +262,7 @@ describe('PostMessage in worker',  () => {
   })
 
   it('test when no callback', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     const msg = hub.emit(worker, 'greetxxxx', 'hello')
     await expect(msg).rejects.toThrowError()
@@ -252,7 +271,7 @@ describe('PostMessage in worker',  () => {
   })
 
   it('invalid callback', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     // @ts-expect-error for test
     hub.on(worker, 'greet', 'invalid')
@@ -265,7 +284,7 @@ describe('PostMessage in worker',  () => {
 
 describe('Dedicated message hub', () => {
   it('normal usage', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     const workerMessage = hub.createDedicatedMessageHub(worker)
 
@@ -282,7 +301,7 @@ describe('Dedicated message hub', () => {
   })
 
   it('should throw when peer not set', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     const workerMessage = hub.createDedicatedMessageHub()
     expect(() => workerMessage.emit('greet', 'hello')).toThrowError()
@@ -295,7 +314,7 @@ describe('Dedicated message hub', () => {
   })
 
   it('should be silent when peer not set', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     const workerMessage = hub.createDedicatedMessageHub(undefined, true)
     await expect(() => workerMessage.emit('greet', 'hello')).rejects.toThrowError()
@@ -307,7 +326,7 @@ describe('Dedicated message hub', () => {
   })
 
   it('should off correctly', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     const workerMessage = hub.createDedicatedMessageHub(worker)
     workerMessage.on('greet', console.log)
@@ -319,7 +338,7 @@ describe('Dedicated message hub', () => {
   })
 
   it('support for transfer params', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     const workerMessage = hub.createDedicatedMessageHub(worker)
     const data = new ArrayBuffer(16)
@@ -334,7 +353,7 @@ describe('Dedicated message hub', () => {
 
 describe('check for progress', () => {
   it('download', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     const workerMessage = hub.createDedicatedMessageHub(worker)
     let progressCount = 0
@@ -349,7 +368,7 @@ describe('check for progress', () => {
   })
 
   it('progress in parent', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     const workerMessage = hub.createDedicatedMessageHub(worker)
     let progressCount = 0
@@ -374,7 +393,7 @@ describe('check for progress', () => {
 
  describe('postMessage general function', () => {
   it('general message event', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     hub.on(worker, console.log)
 
@@ -393,7 +412,7 @@ describe('check for progress', () => {
 
 describe('postMessage * all message', () => {
   it('general message callback', async () => {
-    const worker = track(new DemoWorker())
+    const worker = await createWorker()
     const hub = track(new PostMessageHub())
     hub.on('*', function (methodName, arg1) {
       return `${methodName}-${arg1}`
