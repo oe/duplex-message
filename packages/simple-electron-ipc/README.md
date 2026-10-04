@@ -1,9 +1,14 @@
 # simple-electron-ipc
 
-**Bidirectional Electron RPC with progress feedback, typed calls and local cancellation.** Use it in the main process and an isolated preload; expose specific application operations through `contextBridge`.
+<p align="center">
+  <a href="https://github.com/oe/duplex-message/actions/workflows/main.yml"><img src="https://github.com/oe/duplex-message/actions/workflows/main.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/oe/duplex-message/tree/main/packages/simple-electron-ipc/src"><img src="https://img.shields.io/badge/language-TypeScript-3178C6?logo=typescript&amp;logoColor=white" alt="Language: TypeScript"></a>
+  <a href="https://github.com/oe/duplex-message/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/simple-electron-ipc.svg" alt="MIT license"></a>
+  <a href="https://www.npmjs.com/package/simple-electron-ipc"><img src="https://img.shields.io/npm/v/simple-electron-ipc.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/simple-electron-ipc"><img src="https://img.shields.io/npm/dm/simple-electron-ipc.svg" alt="Monthly npm downloads"></a>
+</p>
 
-[![CI](https://github.com/oe/duplex-message/actions/workflows/main.yml/badge.svg)](https://github.com/oe/duplex-message/actions)
-[![npm](https://img.shields.io/npm/v/simple-electron-ipc.svg)](https://www.npmjs.com/package/simple-electron-ipc)
+**Bidirectional Electron RPC with progress feedback, typed calls and local cancellation.** Use it in the main process and an isolated preload; expose specific application operations through `contextBridge`.
 
 Use it for long-running tasks with progress, or when both main → preload and preload → main need request/response calls. For a few ordinary renderer → main requests, Electron's native [`ipcRenderer.invoke` / `ipcMain.handle`](https://www.electronjs.org/docs/latest/tutorial/ipc) may be enough.
 

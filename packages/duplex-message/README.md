@@ -1,9 +1,14 @@
 # duplex-message
 
-Promise-based RPC for **iframes, Web Workers and browser tabs**, with progress feedback, typed calls and local cancellation.
+<p align="center">
+  <a href="https://github.com/oe/duplex-message/actions/workflows/main.yml"><img src="https://github.com/oe/duplex-message/actions/workflows/main.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/oe/duplex-message/tree/main/packages/duplex-message/src"><img src="https://img.shields.io/badge/language-TypeScript-3178C6?logo=typescript&amp;logoColor=white" alt="Language: TypeScript"></a>
+  <a href="https://github.com/oe/duplex-message/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/duplex-message.svg" alt="MIT license"></a>
+  <a href="https://www.npmjs.com/package/duplex-message"><img src="https://img.shields.io/npm/v/duplex-message.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/duplex-message"><img src="https://img.shields.io/npm/dm/duplex-message.svg" alt="Monthly npm downloads"></a>
+</p>
 
-[![CI](https://github.com/oe/duplex-message/actions/workflows/main.yml/badge.svg)](https://github.com/oe/duplex-message/actions)
-[![npm](https://img.shields.io/npm/v/duplex-message.svg)](https://www.npmjs.com/package/duplex-message)
+Promise-based RPC for **iframes, Web Workers and browser tabs**, with progress feedback, typed calls and local cancellation.
 
 Use it when a task in another context needs to return a result and report progress: parsing a file in a Worker, exporting from an embedded editor, or coordinating browser tabs. Four built-in transports share `on`, `emit` and `off`; the browser package has no runtime dependencies and supports tree shaking.
 
